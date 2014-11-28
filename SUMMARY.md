@@ -1,4 +1,4 @@
-* [第1章 你好，C++的并发世界](chapter1-chinese.md)
+* [第1章 你好，C++的并发世界](content/chapter1/chapter1-chinese.md)
 * [第2章 线程管理]()
 * [第3章 在线程间共享数据]()
 * [第4章 同步并发操作]()
