@@ -208,5 +208,54 @@ void edit_document(std::string const& filename)
 如果用户选择打开一个新文档，为了让他们的文档迅速打开，你需要启动一个新线程去打开新文档 ① ，并且分离这个线程 ②。和当前线程做出的操作一样，新线程只不过是针对另一个文件而已。所以，你可以复用这个函数（**edit_document**），通过传参的形式打开新的文件。
 这个例子也展示了传参启动线程的方法：你不仅可以向`std::thread`构造函数 ① 传递函数名，而且还可以传递函数所需的参数（实参）。虽然也有其他方法可以完成这项功能，比如使用一个带有成员数据的成员函数，去代替一个需要传参的普通函数。不过，在这里C++线程库的解决方式也很简单。
 
+##2.2 向线程函数传递参数
 
+如清单2.4所示，向`std::thread`构造函数中的可调用对象或函数传递一个参数是很简单的。但，这里需要注意的是，默认参数是要拷贝到，线程独立内存中的，一遍新创建的线程在执行中可以访问，即使参数参数是引用的形式。来看一个例子：
 
+```c++
+void f(int i,std::string const& s);
+std::thread t(f, 3, "hello");
+```
+
+以上代码创建了一个调用**f(3, "hello")**的执行线程。注意，这里函数**f**需要一个`std::string`对象作为第二个参数，不过这使用的是字符串字面值，也就是`char const *`类型。之后，字面值向`std::string`对象的转化，是在新线程的上下文中去完成的。这里特别要注意的是，如下代码中，提供一个指向动态变量的指针作为参数传递给线程时。
+
+```c++
+void f(int i,std::string const& s);
+void oops(int some_param)
+{
+  char buffer[1024]; // 1
+  sprintf(buffer, "%i",some_param);
+  std::thread t(f,3,buffer); // 2
+  t.detach();
+}
+```
+
+在这种情况下，buffer②是一个指针变量，并且指向本地变量  ，然后这个本地变量通过buffer传递到新线程 ② 中。并且，函数有很大的可能，会再字面值转化成`std::string`对象之前崩溃（*oops*），从而导致线程做出一些为未定义的行为。解决方案就是在传递到`std::tread`构造函数之前就将字面值转化为`std::string`对象。
+
+```c++
+void f(int i,std::string const& s);
+void not_oops(int some_param)
+{
+  char buffer[1024];
+  sprintf(buffer,"%i",some_param);
+  std::thread t(f,3,std::string(buffer));  // 使用std::string，避免悬垂指针
+  t.detach();
+}
+```
+
+在这种情况中的问题是，你想要依赖与隐式转换将字面值转换为函数期待的`std::string`对象，但因为`std::thread`的构造函数会复制已提供的变量，这里就只复制了没有转换成期望类型的字符串字面值。
+不过，也可能会有成功的情况：复制一个引用。成功的传递一个引用，可能发生在线程更新数据结构时。
+
+```c++
+void update_data_for_widget(widget_id w,widget_data& data); // 1
+void oops_again(widget_id w)
+{
+  widget_data data;
+  std::thread t(update_data_for_widget,w,data); // 2
+  display_status();
+  t.join();
+  process_widget_data(data); // 3
+}
+```
+
+虽然**update_data_for_widget** ① 的第二个参数期待传入一个引用，但是`std::thread`的构造函数 ② 不知道这事；
