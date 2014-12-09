@@ -258,4 +258,23 @@ void oops_again(widget_id w)
 }
 ```
 
-虽然**update_data_for_widget** ① 的第二个参数期待传入一个引用，但是`std::thread`的构造函数 ② 不知道这事；
+虽然**update_data_for_widget** ① 的第二个参数期待传入一个引用，但是`std::thread`的构造函数 ② 不知道这事；构造函数无视函数期待的参数类型，并且盲目的拷贝已提供的变量。当线程调用**update_data_for_widget**函数时，传递给函数的参数是data变量内部拷贝的引用，而非数据本身的引用。因此，当线程结束时，内部拷贝数据将会在更新阶段被销毁，并且**process_widget_data**将会接收到没有修改的data变量 ③。使用你所熟悉的`std::bind`，这些问题的解决办法就显而易见了，你可以使用`std::ref`将需要参数转换成引用的形式。这种情况下，如果你改变将线程的调用改成以下形式：
+
+```c++
+std::thread t(update_data_for_widget,w,std::ref(data));
+```
+
+在这之后，**update_data_for_widget**就会接受到一个data变量的引用，而非一个data变量拷贝的引用。
+如果你熟悉`std::bind`,就应该不会对以上传参的形式感到好奇。因为，`std::thread`构造函数和`std::bind`的操作都在标准库中定义好了。这就意味着，你可以传递一个成员函数指针作为线程函数，并提供一个合适的对象指针作为第一个参数：
+
+```c++
+class X
+{
+public:
+  void do_lengthy_work();
+};
+X my_x;
+std::thread t(&X::do_lengthy_work,&my_x); // 1
+```
+
+这段代码中，新线程将**my_x.do_lengthy_work()**函数作为线程函数；这里，my_x的地址 ① 作为一个指针对象提供给函数。
