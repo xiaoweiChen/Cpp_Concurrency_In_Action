@@ -277,4 +277,32 @@ X my_x;
 std::thread t(&X::do_lengthy_work,&my_x); // 1
 ```
 
-这段代码中，新线程将**my_x.do_lengthy_work()**函数作为线程函数；这里，my_x的地址 ① 作为一个指针对象提供给函数。
+这段代码中，新线程将**my_x.do_lengthy_work()**函数作为线程函数；这里，my_x的地址 ① 作为一个指针对象提供给函数。你也可以为成员函数提供参数：`std::thread`构造函数的第三个参数就是成员函数的第一个参数，以此类推（代码如下，译者自加）。
+
+```c++
+class X
+{
+public:
+  void do_lengthy_work(int);
+};
+X my_x;
+int num;
+std::thread t(&X::do_lengthy_work, &my_x, num);
+```
+
+另一个有趣的地方是，提供的参数可以是“移动”（*move*）的，但不能是“拷贝”（*copy*）的。这里的“移动”是指，原始对象中的数据转移给另一对象，而转移的这些数据就不再在原始对象中保存了（译者：比较像在文本编辑时的“剪切”操作）。`std::unique_ptr`就是这样一种类型（译者：C++11添加的一种指针指针），这种类型为动态分配的对象提供内存自动管理机制（译者：类似垃圾回收）。在同一时间点，只允许一个`std::unique_ptr`实现指向一个给定对象，并且当这个实现销毁时，指向的对象也将被删除。移动构造函数（*move constructor*）和移动赋值操作符（*move assignment operator*）允许一个对象在多个`std::unique_ptr`实现中传递（有关“移动”的更多内容，请参考附录A的A.1.1节）。使用移动转移源对象后，就会留下一个空指针（*NULL*）。移动操作可以将对象转换成可接受的类型，例如函数参数，或者函数返回的类型。当源对象是一个临时变量时，移动操作是自动的，但当源对象是一个命名变量，那么转移的时候就需要使用`std::move()`进行移动了。下面的代码展示了`std::move`的用法，它是如何转移一个动态对象到一个线程中去的：
+
+```c++
+void process_big_object(std::unique_ptr<big_object>);
+
+std::unique_ptr<big_object> p(new big_object);
+p->prepare_data(42);
+std::thread t(process_big_object,std::move(p));
+```
+
+在`std::thread`的构造函数中指定`std::move(p)`,big_object对象的所有权就被首先转移到新创建线程的的内部存储中，之后传递给**process_big_object**函数。
+在标准线程库中，有和`std::unique_ptr`和`std::thread`在所属权上有相似语义的类型。虽然，`std::thread`实例不会如`std::unique_ptr`那样去占有一个动态对象所有权，但是它会去占用一部分资源的所有权：每个实例都有管理一个执行线程的责任。在`std::thread`中，所有权可以在多个实例中互相转移，这是因为这些实例都是可移动（*movable*）的，并且都是不可复制（*aren't copyable*）的。这就保证了，在同一时间中，只有一个相关的执行线程；同时，也允许程序员在不同的对象之间转移所有权。
+
+
+
+
