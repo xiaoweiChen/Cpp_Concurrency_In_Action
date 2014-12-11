@@ -303,6 +303,108 @@ std::thread t(process_big_object,std::move(p));
 在`std::thread`的构造函数中指定`std::move(p)`,big_object对象的所有权就被首先转移到新创建线程的的内部存储中，之后传递给**process_big_object**函数。
 在标准线程库中，有和`std::unique_ptr`和`std::thread`在所属权上有相似语义的类型。虽然，`std::thread`实例不会如`std::unique_ptr`那样去占有一个动态对象所有权，但是它会去占用一部分资源的所有权：每个实例都有管理一个执行线程的责任。在`std::thread`中，所有权可以在多个实例中互相转移，这是因为这些实例都是可移动（*movable*）的，并且都是不可复制（*aren't copyable*）的。这就保证了，在同一时间中，只有一个相关的执行线程；同时，也允许程序员在不同的对象之间转移所有权。
 
+##2.3 转移线程所有权
+
+假设你要写一个用来在后台启动线程线程的函数，但现在你想通过新线程返回的所有权（译者：大概就是想依赖线程中的得到的某些结果，对函数进行调用）去掉用这个函数，而不是等待这个等待线程结束再去调用；或完全与之相反的想法：创建一个线程，并且想要在一些函数中传递所有权，都必须要等待线程结束才行。不管怎么样，想要完成你的想法，新线程的所有权都需要从一个地方转移到另一个地方。
+这就是移动引入`std::thread`的原因。之前说过，在C++标准库中有很多资源占用（*resource-owning*）类型，比如`std::ifstream`,`std::unique_ptr`还有`std::thread`，都是可移动（*movable*）的，而不可拷贝（*cpoyable*）的。这就说明执行线程的所有权是可以在`std::thread`实例中移动的，下面将展示一个例子。在这个例子中，创建了两个执行线程，并且在`std::thread`实例之间（t1,t2和t3）转移所有权：
+
+```c++
+void some_function();
+void some_other_function();
+std::thread t1(some_function);			// 1
+std::thread t2=std::move(t1);			// 2
+t1=std::thread(some_other_function);	// 3
+std::thread t3;							// 4
+t3=std::move(t2);						// 5
+t1=std::move(t3);						// 6 赋值操作将使程序崩溃
+```
+
+首先，一个与t1相关的新线程启动 ① 。当显式使用` std::move()`创建t2后 ② ，t1的说有权就转移给了t2。现在，t1和执行线程已经没有关联了；执行**some_function**的函数现在与t2关联。
+然后，与一个临时`std::thread`对象相关的线程启动了 ③ 。这里为什么不显式调用`std::move()`完成所有权的转移呢？因为这里的所有者是一个临时对象——移动操作将会自动的，且隐式的完成。
+t3使用默认构造方式创建 ④，也就是没有与任何执行线程关联。当再次调用`std::move()`将与t2关联线程的所有权转移到t3中 ⑤。这里显式的调用了`std::move()`，是因为t2是一个命名对象（与临时对象相反）。在代码中的移动操作完成之后，t1与执行**some_other_function**的线程相关联，t2与任何线程都无关联，t3与执行**some_function**的线程相关联。
+代码中，最后一个移动操作，将执行**some_function**线程的所有权转移 ⑥ 给t1。但这时，t1已经有了一个关联的线程（执行**some_other_function**的线程），所以这里会直接调用`std::terminate()`终止程序继续运行。终止操作将调用` std::thread`的析构函数，销毁所有对象（与C++中异常的处理方式很相似）。在2.1.1节时，你需要在线程对象被析构前，显式的等待一个线程完成，或者分离它；在进行复制时也需要满足这些条件（说明：你不能通过赋一个新值给`std::thread`对象的方式来“丢弃”一个线程）。
+`std::thread`支持移动，就意味着线程的所有权，可以在函数外很容易的进行转移，就如下面程序清单中的程序一样。
+
+清单2.5 从一个函数中返回一个`std::thread`对象
+```c++
+std::thread f()
+{
+  void some_function();
+  return std::thread(some_function);
+}
+std::thread g()
+{
+  void some_other_function(int);
+  std::thread t(some_other_function,42);
+  return t;
+}
+```
+
+同样的，如果所有权可以在函数内部传递，那么这就允许把`std::thread`实例当做参数进行传递，代码如下：
+
+```c++
+void f(std::thread t);
+void g()
+{
+  void some_function();
+  f(std::thread(some_function));
+  std::thread t(some_function);
+  f(std::move(t));
+}
+```
+
+`std::thread`支持移动的好处之一是，你可以创建**thread_guard**类的实例（定义见 清单2.3），并且拥有其线程的所有权。当**thread_guard**对象所持有的线程已经被引用时，移动操作就可以避免很多不爽的情况的发生，并且这也意味着，当某个对象转移了线程的所有权后，它就不能对其进行加入或分离的操作了。这也主要是为了确保线程在范围退出前完成，所以我在下面的代码里定义了*scoped_thread*类。现在，我们来看一下这段代码：
+
+清单2.6 scoped_thread的用法
+```c++
+class scoped_thread
+{
+  std::thread t;
+public:
+  explicit scoped_thread(std::thread t_): 				// 1
+    t(std::move(t_))
+  {
+    if(!t.joinable()) 									// 2
+      throw std::logic_error(“No thread”);
+  }
+  ~scoped_thread()
+  {
+    t.join();											// 3
+  }
+  scoped_thread(scoped_thread const&)=delete;
+  scoped_thread& operator=(scoped_thread const&)=delete;
+};
+ 
+struct func; // 定义在清单2.1中
+
+void f()
+{
+  int some_local_state;
+  scoped_thread t(std::thread(func(some_local_state)));	// 4
+  do_something_in_current_thread();
+}														// 5
+```
+
+这个例子与清单2.3中的很相似，但这里的新线程是直接传递到scoped_thread中去的 ④，而不是创建了一个独立的命名变量。当主线程到达**f()**函数的末尾，**scoped_thread**对象将会销毁，然后加入 ③ 到的构造函数 ① 创建的线程对象中去。而在清单2.3中的**thread_guard**类，就要在析构的时候检查线程是否是“可加入”的。这里，我们把这个检查放在了构造函数中 ② ，并且当线程不可加入时，抛出一个异常。
+对`std::thread`对象的容器，如果这个容器是移动敏感的（比如，新标准中的`std::vector<>`），那么移动操作同样适用于这些容器。了解这个后，你就可以写出类似一下清单中的代码了，这部分代码量产了一些线程，并且等待他们结束。
+
+清单2.7 量产一些线程，并且等待它们结束
+```c++
+void do_work(unsigned id);
+
+void f()
+{
+  std::vector<std::thread> threads;
+  for(unsigned i=0;i<20;++i)
+  {
+    threads.push_back(std::thread(do_work,i)); // 产生线程
+  } 
+  std::for_each(threads.begin(),threads.end(),
+  				std::mem_fn(&std::thread::join)); // 对每个线程调用join()
+}
+```
+
+
 
 
 
