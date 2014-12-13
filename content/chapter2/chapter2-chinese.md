@@ -410,3 +410,58 @@ void f()
 ##2.4 在运行时决定线程数量
 
 `std::thread::hardware_concurrency()`在新版C++标准库中，是一个很有用的函数。这个函数将返回能同时并发在一个程序中的线程数量。例如，在多核系统中，返回值就可以能是CPU核芯的数量。这个返回值也仅仅是一个提示，当这种信息无法获取，函数也会返回0。但是，这也无法掩盖这个函数对启动线程数量的确定很有帮助。
+清单2.8实现了一个并行版的`std::accumulate`。代码中将整体工作拆分成小任务交给每个线程去做，其中设置了一个最小任务数，是为了避免产生太多的线程。程序可能会在操作数量为0的时候抛出异常。比如，`std::thread`构造函数如果无法启动一个执行线程，那么就会抛出一个异常。在这个算法中讨论异常处理，已经超出现在讨论的范围，这个问题我们将在第8章中再来讨论。
+
+清单2.8 原生并行版的`std::accumulate`
+```c++
+template<typename Iterator,typename T>
+struct accumulate_block
+{
+  void operator()(Iterator first,Iterator last,T& result)
+  {
+    result=std::accumulate(first,last,result);
+  }
+};
+template<typename Iterator,typename T>
+T parallel_accumulate(Iterator first,Iterator last,T init)
+{
+  unsigned long const length=std::distance(first,last);
+
+  if(!length) // 1
+    return init;
+
+  unsigned long const min_per_thread=25;
+  unsigned long const max_threads=
+      (length+min_per_thread-1)/min_per_thread; // 2
+
+  unsigned long const hardware_threads=
+      std::thread::hardware_concurrency();
+
+  unsigned long const num_threads=  // 3
+      std::min(hardware_threads != 0 ? hardware_threads : 2, max_threads);
+
+  unsigned long const block_size=length/num_threads; // 4
+
+  std::vector<T> results(num_threads);
+  std::vector<std::thread> threads(num_threads-1);  // 5
+
+  Iterator block_start=first;
+  for(unsigned long i=0; i < (num_threads-1); ++i)
+  {
+    Iterator block_end=block_start;
+    std::advance(block_end,block_size);  // 6
+    threads[i]=std::thread(     // 7
+        accumulate_block<Iterator,T>(),
+        block_start,block_end,std::ref(results[i]));
+    block_start=block_end;  // 8
+  }
+  accumulate_block<Iterator,T>()(
+      block_start,last,results[num_threads-1]); // 9
+  std::for_each(threads.begin(),threads.end(),
+       std::mem_fn(&std::thread::join));  // 10
+
+  return std::accumulate(results.begin(),results.end(),init); // 11
+}
+```
+
+函数看起来很长，但着实简单。如果输入的范围为空 ① ，你就会得到初始值init的值。反之，如果范围内至少有一个元素的时候，你都需要用范围内元素的总数量除以线程（块）中最小任务数，从而确定启动线程的最大数量 ② 。这就能避免无谓的计算资源的浪费。比如，在一台32芯的机器上，你只有5个数需要计算，却启动了32个线程。
