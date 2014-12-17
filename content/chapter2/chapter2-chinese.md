@@ -287,7 +287,7 @@ public:
   void do_lengthy_work(int);
 };
 X my_x;
-int num;
+int num(0);
 std::thread t(&X::do_lengthy_work, &my_x, num);
 ```
 
