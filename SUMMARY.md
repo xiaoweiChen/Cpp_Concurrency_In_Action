@@ -1,6 +1,6 @@
 * [第1章 你好，C++的并发世界](content/chapter1/chapter1-chinese.md)
 * [第2章 线程管理](content/chapter2/chapter2-chinese.md)
-* [第3章 在线程间共享数据]()
+* [第3章 线程间共享数据](content/chapter3/chapter3-chinese.md)
 * [第4章 同步并发操作]()
 * [第5章 C++内存模型和原子类型上操作]()
 * [第6章 设计基于锁的并发数据结构]()
