@@ -98,7 +98,50 @@ bool list_contains(int value_to_find)
 
 当然，也不是什么时候都这么理想，聪明的你一定早就注意到了：当其中一个成员函数返回的是保护数据的指针或引用时，即使成员函数都很好的对数据进行了保护，但是你破坏了他们的保护。具有访问能力的指针或引用可以访问（并可能修改）被保护的数据，而不会被互斥锁限制。互斥量保护的数据需要对接口的设计相当谨慎，要确保互斥量能锁住任何对保护数据的访问，并且不留后门。
 
+###3.2.2 保护共享数据的结构
 
+如你之前所见，单使用互斥量保护数据是很困难的，需要配合`std::lock_guard`对象在每个成员函数中，才能做到正真的保护；一个迷失的指针或引用，将会让这种保护形同虚设。在这个层面上，检查迷失指针或引用是很容易的；只要让成员函数不返回指针或引用，通过函数的返回值或一个输出参数，来保证数据的安全性。如果你想更深入的讨论，那就不会这么简单了——或者说没有什么是简单的。在确保成员函数不会传出指针或引用的同时，检查不通过指针或引用的方式来调用成员函数也是很重要的（当这个操作不在你的控制下）。这是很危险的：这些函数可能在互斥量没有保护到的地方，存储着指针或者引用。特别危险的是：将保护数据作为一个运行时参数，如同下面清单中所示那样。
+
+清单3.2 无意中传递了保护数据的引用
+```c++
+class some_data
+{
+  int a;
+  std::string b;
+public:
+  void do_something();
+};
+
+class data_wrapper
+{
+private:
+  some_data data;
+  std::mutex m;
+public:
+  template<typename Function>
+  void process_data(Function func)
+  {
+    std::lock_guard<std::mutex> l(m);
+    func(data);    // 1 传递“保护”数据给用户函数
+  }
+};
+
+some_data* unprotected;
+
+void malicious_function(some_data& protected_data)
+{
+  unprotected=&protected_data;
+}
+
+data_wrapper x;
+void foo()
+{
+  x.process_data(malicious_function);    // 2 传递一个恶意函数
+  unprotected->do_something();    // 3 在无保护的情况下访问保护数据
+}
+```
+
+在这个例子中，**process_data**看起来是很有害的，
 
 
 
