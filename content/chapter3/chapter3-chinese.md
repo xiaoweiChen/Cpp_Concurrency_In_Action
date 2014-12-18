@@ -67,10 +67,36 @@
 
 让我们从最基本的开始吧。
 
+###3.2.1 在C++中使用互斥量
 
+在C++中，你可以使用`srd::mutex`来创建一个互斥量实例，通过调用成员函数`lock()`进行上锁；同样的，也可以调用成员函数`unlock()`进行解锁。不过，这里不推荐实践中直接去调用成员函数，因为调用成员函数就以为着，你必须记着在每个函数出口都要去调用`unlock()`，也包括异常的情况。C++标准库提供了一个`std::lack_guard`类模板，实现了是RAII风格的互斥量；其会在构造的时候提供已锁的互斥量，并在析构的时候进行解锁，这就保证了一个已锁的互斥量可以被正确的解锁。在下面的程序清单中，展示了如何在多线程程序中，使用`std::mutex`构造的`std::lock_guard`实例，对一个列表进行访问保护。`std::mutex`和`std::lock_guard`都在<mutex>头文件中声明。
 
+列表3.1 使用互斥量保护列表
+```c++
+#include <list>
+#include <mutex>
+#include <algorithm>
 
+std::list<int> some_list;    // 1
+std::mutex some_mutex;    // 2
 
+void add_to_list(int new_value)
+{
+  std::lock_guard<std::mutex> guard(some_mutex);    // 3
+  some_list.push_back(new_value);
+}
+bool list_contains(int value_to_find)
+{
+  std::lock_guard<std::mutex> guard(some_mutex);    // 4
+  return std::find(some_list.begin(),some_list.end(),value_to_find) != some_list.end();
+}
+```
+
+在清单3.1中，这里有一个全局变量 ①，这个全局变量又一个全局的互斥量来保护 ②。在**add_to_list()** ③ 和**list_contains()** ④ 函数中使用`std:;lock_guard<std::mutex>`，使得在这两个函数中对数据的访问是互斥的：**list_contains()**不可能看到被**add_to_list()**修改到一半的列表。
+
+在某些情况下，这个全局变量使用的是没问题的；不过，在大多数情况下，需要保护的数据通常会与互斥量放在同一个类中，而不是定义成全局变量。这是一个标准的面向对象设计准则：将其放在一个类中，就可让他们联系在一起，也可对类的功能进行封装，并进行数据保护。在这种情况下，函数**add_to_list**和**list_contains**可以作为这个类的成员函数，并且互斥量和要保护的数据，在类中都需要定义为private成员，这就会让访问数据的代码变的清晰，并且容易看出在什么时候对互斥量进行上锁。当所有成员函数都会在调用时对数据上锁，在结束的时候对数据解锁，那么这就为所有的访问保证了数据的不变量不被破坏。
+
+当然，也不是什么时候都这么理想，聪明的你一定早就注意到了：当其中一个成员函数返回的是保护数据的指针或引用时，即使成员函数都很好的对数据进行了保护，但是你破坏了他们的保护。具有访问能力的指针或引用可以访问（并可能修改）被保护的数据，而不会被互斥锁限制。互斥量保护的数据需要对接口的设计相当谨慎，要确保互斥量能锁住任何对保护数据的访问，并且不留后门。
 
 
 
