@@ -277,8 +277,62 @@ public:
 };
 ```
 
-削减接口可以获得最大程度的安全；甚至限制对栈的一些操作。这个栈是不能赋值的，因为赋值操作已经删除了 ① （详见附录A，A.2节），并且这里没有swap()函数。这个栈可以拷贝的，假设栈中的元素是可以拷贝的。pop()函数可以抛出一个`empty_stack`
+削减接口可以获得最大程度的安全；甚至限制对栈的一些操作。这个栈是不能赋值的，因为赋值操作已经删除了 ① （详见附录A，A.2节），并且这里没有swap()函数。这个栈可以拷贝的，假设栈中的元素是可以拷贝的。当栈为空时，pop()函数会抛出一个empty_stack异常，所以在empty()函数被调用后，其他部件还能正常工作。如选项3描述的那样，使用`std::shared_ptr`可以避免内存分配管理的问题，并避免多次使用new和delete操作。堆栈中的五个操作，现在就剩下三个：push(), pop()和empty()。这里empty()都有些多余。简化接口更有利于数据控制；你就可以保证互斥量将一个操作完全锁住。下面清代中的代码将展示一个简单的实现——对`std::stack<>`的封装。
 
+清单3.5 扩充线程安全的堆栈
+```c++
+#include <exception>
+#include <memory>
+#include <mutex>
+#include <stack>
+
+struct empty_stack: std::exception
+{
+  const char* what() const throw();
+};
+
+template<typename T>
+class threadsafe_stack
+{
+private:
+  std::stack<T> data;
+  mutable std::mutex m;
+public:
+  threadsafe_stack(){}
+  threadsafe_stack(const threadsafe_stack& other)
+  {
+  std::lock_guard<std::mutex> lock(other.m);
+  data = other.data; // 1 在构造函数体中的执行拷贝
+  }
+  threadsafe_stack& operator=(const threadsafe_stack&) = delete;
+
+  void push(T new_value)
+  {
+    std::lock_guard<std::mutex> lock(m);
+    data.push(new_value);
+  }
+  std::shared_ptr<T> pop()
+  {
+  std::lock_guard<std::mutex> lock(m);
+  if(data.empty()) throw empty_stack(); // 在调用pop前，检查栈是否为空
+  std::shared_ptr<T> const res(std::make_shared<T>(data.top())); // 在修改堆栈前，分配出返回值
+  data.pop();
+  return res;
+  }
+  void pop(T& value)
+  {
+  std::lock_guard<std::mutex> lock(m);
+  if(data.empty()) throw empty_stack();
+  value=data.top();
+  data.pop();
+  }
+  bool empty() const
+  {
+  std::lock_guard<std::mutex> lock(m);
+  return data.empty();
+  }
+};
+```
 
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
