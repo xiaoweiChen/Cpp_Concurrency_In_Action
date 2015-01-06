@@ -334,6 +334,8 @@ public:
 };
 ```
 
+这个堆栈的实现是可拷贝的——拷贝构造函数对互斥量上锁，然后再去拷贝内部堆栈。在构造函数体中 ① 做的拷贝可以使用互斥量确保复制的结果，这种方式要比成员初始化列表好很多。
+
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
 
