@@ -526,6 +526,33 @@ try_lock()与lock()的功能相似，除非在调用internal_mutex的try_lock()�
 
 当你已经将你的代码设计成避免死锁的，`std::lock()`和`std::lack_guard`能组成简单的锁覆盖大多数需要锁情况，但是有时需要更多的灵活性。在这些情况，可以使用标准库提供的`std::unique_lock`模板。如` std::lock_guard`，这是一个参数化的互斥量模板类，并且它提供很多RAII类型锁用来管理`std::lock_guard`类型，这样就有更加的灵活了。
 
+###3.2.6 std::unique_lock——灵活的锁
+
+`std::unqiue_lock`通过对不变量的放松(*by relaxing the invariants*)，会比`std:lock_guard`更加灵活；一个`std::unique_lock`实现不会总是拥有与互斥量相关的数据类型。首先，就像你能将`std::adopt_lock`作为第二个参数传入到构造函数，对互斥所进行管理，你也可以把`std::defer_lock`作为第二个参数传递进去，为了表明互斥量在结构上应该保持解锁状态。这样，就可以被后面调用lock()函数的`std::unique_lock`对象（不是互斥量）所获取，或传递`std::unique_lock`对象本身到`std::lock()`中。清单3.6可以很容易被改写为清代3.9中中的代码，使用`std::unique_lock`和`std::defer_lock`①，而非`std::lock_guard`和`std::adopt_lock`。代码长度相同，且几乎等价，唯一不同的就是：`std::unique_lock`会占用比较多的空间，并且比`std::lock_guard`运行的稍慢一些。保证灵活性是要付出代价的，这个代价就允许`std::unique_lock`实例不携带互斥量：该信息已被存储，且已被更新。
+
+清单3.9 在交换操作中使用`std::lock()`和`std::unique_lock`
+```c++
+class some_big_object;
+void swap(some_big_object& lhs,some_big_object& rhs);
+class X
+{
+private:
+  some_big_object some_detail;
+  std::mutex m;
+public:
+  X(some_big_object const& sd):some_detail(sd){}
+  friend void swap(X& lhs, X& rhs)
+  {
+    if(&lhs==&rhs)
+      return;
+    std::unique_lock<std::mutex> lock_a(lhs.m,std::defer_lock); // 1 std::def_lock
+    std::unique_lock<std::mutex> lock_b(rhs.m,std::defer_lock); // 1 留下未上锁的互斥量
+    std::lock(lock_a,lock_b); // 2 互斥量在这里上锁
+    swap(lhs.some_detail,rhs.some_detail);
+  }
+};
+```
+
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
 
