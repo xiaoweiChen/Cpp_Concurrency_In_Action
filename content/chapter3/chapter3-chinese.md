@@ -348,7 +348,45 @@ public:
 
 你没有孩子去争抢玩具，但是线程有对锁的竞争：一对线程需要对他们所有的互斥量做一些操作，其中没有线程都有一个互斥量，且等待另一个解锁。没有线程能工作，因为他们都在等待对方释放互斥量。这种情况就是死锁，它的最大问题就是由两个或两个以上的互斥量来锁定一个操作。
 
-对于避免死锁的一般建议，就是让两个互斥量总以相同的顺序上锁：
+对于避免死锁的一般建议，就是让两个互斥量总以相同的顺序上锁：当你总在互斥量B之前锁住互斥量A，就永远不会死锁。某些情况下是可以这样用的，因为不同的互斥量用于不同的地方，当有时事情却没那么简单，比如：当有多个互斥量保护同一个类的一个独立实例时。试想，一个操作对同一个类的两个不同实例进行数据的交换操作；为了保证数据交换操作的正确性，就要避免数据被并发修改，并确保每个实例上的互斥量都能锁住自己要保护的区域。不过，当选择一个固定的顺序时（例如，实例提供的第一互斥量作为第一个参数，提供的第二个互斥量为第二个参数），可能会适得其反：**在参数交换了之后**，两个线程试图在相同的两个实例间进行数据交换，程序死锁了！
+
+我们很幸运，C++标准库有办法解决这个问题，`std::lock`——可以一次性锁住多个（两个以上）的互斥量，并且没有副作用（死锁风险）。在下面的程序清单中，就来看一下怎么再一个简单的交换操作中使用`std::lock`。
+
+清单3.6 在交换操作中使用`std::lock()`和`std::lock_guard`
+```c++
+// 这里的std::lock()需要包含<mutex>头文件
+class some_big_object;
+void swap(some_big_object& lhs,some_big_object& rhs);
+class X
+{
+private:
+  some_big_object some_detail;
+  std::mutex m;
+public:
+  X(some_big_object const& sd):some_detail(sd){}
+
+  friend void swap(X& lhs, X& rhs)
+  {
+    if(&lhs==&rhs)
+      return;
+    std::lock(lhs.m,rhs.m); // 1
+    std::lock_guard<std::mutex> lock_a(lhs.m,std::adopt_lock); // 2
+    std::lock_guard<std::mutex> lock_b(rhs.m,std::adopt_lock); // 3
+    swap(lhs.some_detail,rhs.some_detail);
+  }
+};
+```
+
+首先，需要检查参数，查看它们是否是不同的实例，因为操作试图获取`std::mutex`对象上的锁，所以当其已经被获取时，所发生的动作就为无法确定的(*undefined behavior*)。(一个互斥量可以在同一线程上多次上锁，标准库中`std::recursive_mutex`提供这样的功能。详情见3.3.3节)。然后，调用`std::lock()`①锁住两个互斥量，并且两个` std:lock_guard`实例已经创建好了②③，还有一个互斥量。提供`std::adopt_lock`参数除了表示`std::lock_guard`的对象已经上锁外，还表示应使用互斥量现成的锁，而非尝试创建新的互斥锁。
+
+这就能保证在大多数情况下，函数退出时互斥量能被正确的解锁(这里保护操作可能会抛出一个异常)；它也允许使用一个简单的“return”作为返回。还有，需要注意的是，当使用`std::lock`去锁lhs.m或rhs.m时，可能会抛出异常；这种情况下，异常会传播到`std::lock`之外。当`std::lock`成功的获取一个互斥量上的锁，并且当其尝试从另一个互斥量上再获取锁时，就会有异常抛出，第一个锁也会随着异常的产生而自动释放：`std::lock`对要可上锁的互斥量提供“全或无语义”（*all-or-nothing semantics*）。
+
+虽然` std::lock`可以帮助你在这情况下(获取两个以上的锁)避免死锁，但它没办法帮助你获取他们其中之一。在这种情况下，你不得不依赖于作为开发者的纪律性(译者：这里也就是经验)，来确保你的程序不会死锁。这并不简单：死锁是多线程编程中一个令人相当头痛的问题，并且死锁经常是不可预见的，因为在大多数时间里，所有工作都能很好的完成。不过，这里也一些相对简单的规则能帮助写出“无死锁”(*deadlock-free*)的代码。
+
+###3.2.5 避免死锁的进阶指引
+
+
+
 
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
