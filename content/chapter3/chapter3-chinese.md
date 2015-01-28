@@ -385,8 +385,146 @@ public:
 
 ###3.2.5 避免死锁的进阶指引
 
+死锁不仅仅发生在锁上，即使在锁上发生是最常见的原因；你可以通过两个线程来构造死锁，在无锁的情况下，只需要每个`std::thread`对象调用join()。在这种情况下，没有线程可以继续进行，因为他们正在等待其他线程结束，就像孩子们为他们的玩具而争吵一样。这个简单的循环会发生在任何地方，一个线程会等待另一个线程执行一些操作，其他线程同时也会等待第一个线程结束，这种情况不仅限于两个线程：三个或更多线程的循环也会发生死锁。这里避免死锁的知道可以总结为一点：当机会等着你时，不要拱手让人(*don’t wait for another thread if there’s a chance it’s waiting for you*)。这里提供一些个人的指导建议，去识别并消除让其他线程等待你的可能。
 
+**避免嵌套锁**
 
+第一个建议是最简单的：当已获得一个锁时，再别去获取第二个(*don’t acquire a lock if you already hold one*)。如果你能坚持这个建议，在锁的使用方面，你就不可能看到死锁的情况，因为每个线程只持有一个锁。不过，你可能会在其他方面受到死锁的困扰(比如：线程间的互相等待)，即使互斥锁造成的死锁是最常见的。当你需要获取多个所，使用一个`std::lock`来做这件事，避免产生死锁。
+
+**避免在持有锁时调用用户提供的代码**
+
+第二个建议是第二简单的。因为代码是用户提供的，你就没有办法确定用户要做什么；用户程序可能做任何事情，包括获取锁。你在持有锁的情况下，调用用户提供的代码。如果用户代码要获取一个所，你就会违反第一个指导意见，并造成死锁。有时，这是无法避免的；当你正在写一份通用代码，例如3.2.3中的栈，每一个操作的参数类型，都在用户提供的代码中定义。在这种情况下，你需要其他指导意见来帮助你。
+
+**使用固定顺序获取锁**
+
+当有硬性条件，要求你获取两个以上（包括两个）的锁，并且你不能使用如`std::lock`单独操作来获取它们，那么最好在每个线程上，用固定的顺序获取它们获取它们(锁)。我在3.2.4节中提到一种当需要获取两个互斥量时，避免死锁的方法：关键是如何在线程之间，一致性的定义获取顺序。在一些情况下，这种方式相对简单。比如，3.2.3节中的栈——每个栈实例中都内置有互斥量，但是对数据成员存储的操作上，这个栈需要带调用用户提供的代码。碎蛋，你可以添加一些约束，对栈上的存储的数据项不做任何操作，对数据项的处理仅限于栈自身。这会给用户提供的栈增加一些负担，但是一个容器去访问另一个容器中存储的数据，这是很罕见的，并且当发生时会很明显，所以这不是一个特别沉重的负担。
+
+在其他情况下，这就不会那么直接了，例如，3.2.4节中的交换操作。至少再这中情况下你可能同时锁住多个互斥量，但是有时不会发生。当你回看3.1节中那个列表连接例子时，将会看到列表中的每个节点都会有一个互斥量保护。然后，为了访问列表，线程必须获取他们感兴趣节点上的互斥锁。当一个线程删除一个节点，它必须获取三个节点上的互斥锁：将要删除的节点，两个邻接节点(因为他们也会被修改)。同样的，为了让列表畅通(连接起来)，线程必须保证在获取当前节点的互斥锁前提下，获得下一个节点的锁，要保证指向下一个节点的指针不会同时被修改。一旦下一个节点上的锁被获取，那么第一个节点的锁就可以释放了，因为已经没有必要在持有它了。
+
+这种“手递手”(hand-over-hand)锁的模式允许多个线程访问列表，为每一个访问的线程提供不同的节点。但是，为了避免死锁，节点必须以同样的顺序上锁：如果两个线程试图用互为反向的顺序，使用“手递手”锁遍历列表，他们将执行到列表中间部分时，发生死锁。当节点A和B在列表中相邻，当前线程可能会同时尝试获取A和B上的锁。另一个线程可能已经获取了节点B上的锁，并且试图获取节点A上的锁——经典的死锁场景。
+
+当A、C节点中的B节点正在被删除时，如果有线程在已获取A和C上的锁后，还要获取B节点上的锁时，当一个线程遍历列表的时候，这样的情况就可能发生死锁。这样的线程可能会试图首先锁住A节点或C节点(根据遍历的方向)，但是后面就会发现，它无法获得B上的锁，因为线程在执行删除任务的时候，已经获取了B上的锁，并且同时也获取了A和C上的锁。
+
+这里提供一种避免死锁的方式，定义遍历的顺序，所以一个线程必须先锁住A才能获取B的锁，在锁住B之后才能获取C的锁。这将消除死锁发生的可能性，在不允许反向遍历的列表上。类似的约定常被用来建立其他的数据结构。
+
+**使用锁的层次结构**
+
+虽然，这对于定义锁的顺序，的确是一个特殊的情况，但锁的层次的意义在于提供对运行时约定是否被坚持的检查。这个建议需要对你的应用进行分层，并且识别在给定层上所有可上锁的互斥量。当代码试图对一个互斥量上锁，在该层锁已被低层持有时，上锁是不允许的。你可以在运行时对其进行检查，通过分配层数到每个互斥量上，以及记录被每个线程上锁的互斥量。下面的代码列表中将展示两个线程如何使用分层互斥。
+
+列表3.7 使用层次锁来避免死锁
+```c++
+hierarchical_mutex high_level_mutex(10000); // 1
+hierarchical_mutex low_level_mutex(5000);  // 2
+
+int do_low_level_stuff();
+
+int low_level_func()
+{
+  std::lock_guard<hierarchical_mutex> lk(low_level_mutex); // 3
+  return do_low_level_stuff();
+}
+
+void high_level_stuff(int some_param);
+
+void high_level_func()
+{
+  std::lock_guard<hierarchical_mutex> lk(high_level_mutex); // 4
+  high_level_stuff(low_level_func()); // 5
+}
+
+void thread_a()  // 6
+{
+  high_level_func();
+}
+
+hierarchical_mutex other_mutex(100); // 7
+void do_other_stuff();
+
+void other_stuff()
+{
+  high_level_func();  // 8
+  do_other_stuff();
+}
+
+void thread_b() // 9
+{
+  std::lock_guard<hierarchical_mutex> lk(other_mutex); // 10
+  other_stuff();
+}
+```
+
+thread_a() ⑥ 遵守规则，所以它运行的没问题。另一方面，thread_b() ⑨ 无视规则，因此在运行的时候肯定会失败。thread_a()调用high_level_func()，让high_level_mutex④上锁(其层级值为10000①)，在这互斥量上锁是为了获取high_level_stuff()的参数，之后调用low_level_func()⑤。low_level_func()会对low_level_mutex上锁，这就没有问题了，因为这个互斥量有一个低层值5000②。
+
+thread_b()运行就不会顺利了。首先，它锁住了other_mutex⑩，这个互斥量的层级值只有100⑦。这就意味着，超低层级的数据(*ultra-low-level data*)已被保护。当other_stuff()调用high_level_func()⑧时，就违反了层级结构：high_level_func()试图获取high_level_mutex，这个互斥量的层级值是10000，要比当前层级值100大很多。因此hierarchical_mutex将会产生一个错误，可能会是抛出一个异常，或直接终止程序。在层级互斥量上产生死锁，是不可能的，因为互斥量本身会严格遵循约定顺序，进行上锁。这也意味，当多个互斥量在是在同一级上时，这你不能同时持有多个锁，所以“手递手”锁的方案需要每个互斥量在一条链上，并且每个互斥量都比其前一个有更低的层级值，这在某些情况下，就有些不切实际了。
+
+例子也展示了另一点，`std::lock_guard<>`模板与用户定义的互斥量类型一起使用。hierarchical_mutex不是C++标准的一部分，但是它写起来很容易；一个简单的实现在列表3.8中展示出来。尽管它是一个用户定义类型，它可以用于`std::lock_guard<>`模板中，因为它的实现有三个成员函数为了满足互斥量操作：lock(), unlock() 和 try_lock()。虽然你还没见过try_lock()怎么使用，但是其使用起来很简单：当互斥量上的锁被一个线程持有，它将返回false，而不是等待调用的线程，直到能够获取互斥量上的锁为止。在`std::lock()`的内部实现中，try_lock()会作为避免死锁算法的一部分。
+
+列表3.8 简单的层级互斥量实现
+```c++
+class hierarchical_mutex
+{
+  std::mutex internal_mutex;
+  unsigned long const hierarchy_value;
+  unsigned long previous_hierarchy_value;
+  static thread_local unsigned long this_thread_hierarchy_value;  // 1
+  void check_for_hierarchy_violation()
+  {
+    if(this_thread_hierarchy_value <= hierarchy_value)  // 2
+    {
+      throw std::logic_error(“mutex hierarchy violated”);
+    }
+  }
+  void update_hierarchy_value()
+  {
+    previous_hierarchy_value=this_thread_hierarchy_value;  // 3
+    this_thread_hierarchy_value=hierarchy_value;
+  }
+public:
+  explicit hierarchical_mutex(unsigned long value):
+      hierarchy_value(value),
+      previous_hierarchy_value(0)
+  {}
+  void lock()
+  {
+    check_for_hierarchy_violation();
+    internal_mutex.lock();  // 4
+    update_hierarchy_value();  // 5
+  }
+  void unlock()
+  {
+    this_thread_hierarchy_value=previous_hierarchy_value;  // 6
+    internal_mutex.unlock();
+  }
+  bool try_lock()
+  {
+    check_for_hierarchy_violation();
+    if(!internal_mutex.try_lock())  // 7
+      return false;
+    update_hierarchy_value();
+    return true;
+  }
+};
+thread_local unsigned long
+     hierarchical_mutex::this_thread_hierarchy_value(ULONG_MAX);  // 7
+```
+
+这里重点是使用了thread_local的值来代表当前线程的层级值：this_thread_hierarchy_value①。它被初始话为最大值⑧，所以最初所有线程都能被锁住。因为其声明中有thread_local，所以每个线程都有其拷贝副本，这样在线程中变量的状态就完全独立了，当从另一个线程进行读取时，变量的状态也是完全独立的。参见附录A，A.8节，有更多与thread_local相关的内容。
+
+所以，第一次线程锁住一个hierarchical_mutex时，this_thread_hierarchy_value的值是ULONG_MAX。由于其本身的性质，这个值会大于其他任何值，所以会通过check_for_hierarchy_vilation()②的检查。在这种检查方式下，lock()代表内部互斥锁已被锁住④。一旦成功锁住，你可以更新层级值了⑤。
+
+当你现在锁住另一个hierarchical_mutex时，还持有第一个锁，this_thread_hierarchy_value的值将会显示第一个互斥量的层级值。第二个互斥量的层级值必须小于已经持有互斥量检查函数②才能通过。
+
+现在，最重要的是为当前线程存储之前的层级值，所以你可以调用unlock()⑥对层级值进行保存；否则，你就锁不住任何互斥量(第二个互斥量的层级数高于第一个互斥量)，即使线程没有持有任何锁。因为你保存了之前的层级值，只有当你持有internal_mutex③，并且在解锁内部互斥量⑥之前存储它的层级值，你才能安全的将hierarchical_mutex自身进行存储。这是因为hierarchical_mutex被内部互斥量的锁所保护着。
+
+try_lock()与lock()的功能相似，除非在调用internal_mutex的try_lock()⑦失败时，然后你就不能持有对应锁了，所以不必更新层级值，并直接返回false就好。
+
+虽然是运行时检测，但是它至少没有时间依赖性——你不必去等待那些导致死锁出现的罕见条件。同时，设计过程需要去拆分应用，互斥量在这样的情况下可以帮助消除很多可能导致死锁的情况。这是很值得去做的设计练习，即使你之后没有去做，代码也会在运行时进行检查。
+
+**超越锁的延伸扩展**
+
+如我在本节开头提到的那样，死锁不仅仅会发生在锁之间；死锁也会发生在任何同步构造中(可能会产生一个等待循环)。因此也需要有指导意见能覆盖到这个层面上。例如，正如你要去避免获取嵌套锁，等待一个持有锁的线程是一个很糟糕的决定，因为线程为了能继续运行可能需要获取对应的锁。类似的，如果去等待一个线程结束，它应该可以确定一个线程的层级，这样的话，一个线程只需要等待比起层级低的线程结束即可。可以用一个简单的办法去确定，以添加的线程是否在同一函数中被启动，如同在3.1.2节和3.3节中描述的那样。
+
+当你已经将你的代码设计成避免死锁的，`std::lock()`和`std::lack_guard`能组成简单的锁覆盖大多数需要锁情况，但是有时需要更多的灵活性。在这些情况，可以使用标准库提供的`std::unique_lock`模板。如` std::lock_guard`，这是一个参数化的互斥量模板类，并且它提供很多RAII类型锁用来管理`std::lock_guard`类型，这样就有更加的灵活了。
 
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
