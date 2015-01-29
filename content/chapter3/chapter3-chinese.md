@@ -584,6 +584,29 @@ void process_data()
 
 `std::unique_lock`的灵活性同样也允许实例在销毁之前放弃其拥有的锁。你可以使用unlock()来做这件事，就如同一个互斥量：`std::unique_lock`的成员函数提供类似于锁定和解锁互斥量的功能。`std::unique_lock`实例有在销毁前释放锁的能力，这就意味着，当锁没有必要在持有的时候，你可以在特定的代码分支对其进行选择性的释放。这对于应用性能来说很重要；持有锁的时间增加会导致性能下降，因为其他线程会等待这个锁的释放，避免超越必要的程序。
 
+###3.2.8 合适粒度的锁定
+
+在3.2.3节中，我们已经对锁的粒度有所了解：锁的粒度是一个“摆手术语”(*hand-waving term*)用来描述通过一个锁保护着的数据量。一个细粒度锁(*a fine-grained lock*)能够保护较小的数据量，一个粗粒度锁(*a coarse-grained lock*)能够保护较多的数据量。选择一个粒度够粗的锁是很重要的，为了确保要求的数据被保护，而且保证锁适合它需要的操作也是很重要的。我们都知道，在超市等待结账的时候，正在结账的顾客突然意识到他忘记拿蔓越莓酱了，然后离开柜台去拿，并让其他的人都等待他回来，或者，当收银员，准备收钱时，顾客才去翻钱包拿钱，这样的情况都会让等待的顾客门很无奈。当每个人都检查了自己要拿的东西，且能随时为拿到的商品进行支付，那么的每件事都进行顺利。
+
+这样的道理同样适用于线程：如果很多线程正在等待同一个资源(等待收银员对自己拿到的商品进行清点)，在当有线程持有锁的时间过长，这就会增加等待的时间(别等到结账的时候，才想起来蔓越莓酱没拿)。在可能的情况下，锁住互斥量的同时只能对共享数据进行访问；试图对锁外数据进行处理。特别是，别做一些费时的动作，比如：对文件的输入/输(*file I/O*)操作进行上锁。文件输入/输出通常要比从内存中读或写同样长度的数据慢成百上千倍(这里有些夸张)。所以，除非锁已经打算去保护对文件的访问，执行I/O操作将会将延迟其他线程执行的时间，这很没有必要(因为他们被这个文件锁阻塞住了)，这样多线程带来的性能提高就会被抵消。
+
+`std::unique_lock`在这种情况下工作正常，因为当代码不需要再访问共享数据时，你可以调用unlock()；而后当再次需要对共享数据进行访问时，就可以再调用lock()了。下面代码就是这样的一种情况：
+
+```c++
+void get_and_process_data()
+{
+  std::unique_lock<std::mutex> my_lock(the_mutex);
+  some_class data_to_process=get_next_data_chunk();
+  my_lock.unlock();  // 1 不要让锁住的互斥量越过process()函数的调用
+  result_type result=process(data_to_process);
+  my_lock.lock(); // 2 为了写入数据，对互斥量再次上锁
+  write_result(data_to_process,result);
+}
+```
+
+你不需要让锁住的互斥量越过process()函数的调用，所以你可以在函数调用①前对互斥量手动解锁，并且在之后对其再次上锁②。
+
+
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
 
