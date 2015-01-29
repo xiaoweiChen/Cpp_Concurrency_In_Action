@@ -545,13 +545,17 @@ public:
   {
     if(&lhs==&rhs)
       return;
-    std::unique_lock<std::mutex> lock_a(lhs.m,std::defer_lock); // 1 std::def_lock
-    std::unique_lock<std::mutex> lock_b(rhs.m,std::defer_lock); // 1 留下未上锁的互斥量
+    std::unique_lock<std::mutex> lock_a(lhs.m,std::defer_lock); // 1 
+    std::unique_lock<std::mutex> lock_b(rhs.m,std::defer_lock); // 1 std::def_lock 留下未上锁的互斥量
     std::lock(lock_a,lock_b); // 2 互斥量在这里上锁
     swap(lhs.some_detail,rhs.some_detail);
   }
 };
 ```
+
+在列表3.9中，将`std::unique_lock`对象传递到`std::lock()`②，这是因为`std::unique_lock`支持lock(), try_lock()和unlock()成员函数。这些同名的成员函数在互斥低层做着实际的工作，并且仅更新`std::unique_lock`实例中的标识，来确定该实例是否拥有特定的互斥量。这个标志确保unlock()在析构函数中被正确调用。如果实例拥有互斥量，那么析构函数必须调用unlock()；但当实例中没有互斥量时，析构函数就不能去调用unlock()。这个标志可以通过owns_lock()成员变量进行查询。
+
+可能如你期望的那样，这个标志是被存储在某个地方的。因此，`std::unique_lock`对象的体积通常要比`std::lock_guard`对象大；当使用`std::unique_lock`替代`std::lock_guard`，因为会对标志进行适当的更新或检查，就会些轻微的性能惩罚。当`std::lock_guard`已经能够满足你的需求，那么我还是建议你继续使用它。当在需要更加灵活的锁时，你就最好选择`std::unique_lock`，因为它更适合于你的任务。你已经看到一个递延锁的例子；另外一种情况是锁的所有权需要从一个域转到另一个。
 
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
