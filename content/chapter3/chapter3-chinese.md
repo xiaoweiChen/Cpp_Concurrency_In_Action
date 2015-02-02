@@ -773,11 +773,58 @@ my_class& get_my_class_instance()
 
 只在初始化时保护数据，对于更一般的情况来说就是一个特例：对于很少有更新的数据结构来说。在大多数情况下，这种数据结构是只读的，并且多线程对其并发的读取也是很愉快的，不过一旦数据结构需要更新，那么就会有条件竞争的产生。必须承认，这里的确也需要一种保护机制。
 
+###3.3.2 保护很少更新的数据结构
+
+试想，为了将域名解析为其相关IP地址，我们在缓存(*cache*)中的存放了一张DNS入口表。通常情况下，一个给定的DNS条目将会在很长的一段时间内保持不变——在很多情况下，很多DNS入口会有很多年保持不变。虽然，新的入口可能会随着时间的推移，在用户访问不同网站时，被添加到表中，但是这些数据很有可能在其生命周期内保持不变。所以定期检查缓存中入口的有效性，就变的十分重要了；但是这也需要一次更新，也许这次更新只是对一些细节做了改动。
+
+虽然更新频度很低，但更新也是有可能发生的，并且当这个可缓存被多个线程访问，这个缓存就需要适当的保护措施，来对其处于更新状态时进行保护，也为了确保线程读到缓存中的有效数据。
+
+在没有使用专用数据结构的情况下，这种方式是符合预期，并且为并发更新和读取特别设计的(更多的例子在第6和第7章中介绍)。这样的更新要求更新线程独占数据结构的访问权，直到其完成更新操作。当改变完成，数据结构对于并发多线程访问又会是安全的。使用一个`std::mutex`来保护数据结构，这的确有些反应过度，因为在没有发生修改时，它将削减并发读取数据的可能性；这里需要另一种不同的互斥量。这种新的互斥量常被称为“读者-写者锁”（*reader-writer mutex*），因为其允许两中不同的使用方式：一个“作者”线程独占访问和共享访问，让多个“读者”线程并发访问。
+
+新的C++标准库应该不提供这样的互斥量，虽然已经提交给了标准委员会[3]。因为建议没有被采纳，这个例子在本节中使用的实现是Boost库提供的，其采纳了这个建议。你将在第8中看到，这种锁的也不能包治百病，其性能依赖与参与其中的处理器数量，同业也与读者和更新者线程的负载有关。为了确保增加复杂度后还能得到受益，在目标系统上的代码性能就很重要了。
+
+比起使用`std::mutex`实例进行同步，不如使用`boost::shared_mutex`来做同步。对于更新操作，可以使用`std::lock_guard<boost::shared_mutex>`和`std::unique_lock<boost::shared_mutex>`进行上锁，作为`std::mutex`的替代方案。与`std::mutex`所做的一样，这就能保证更新线程的独占访问。其他线程不需要去修改数据结构，其实现可以使用`boost::shared_lock<boost::shared_mutex>`获取共享(*share*)访问权。这与使用`std::unique_lock`一样，除非多线要在同时得到同一个`boost::shared_mutex`上有共享锁。唯一的限制就是，当任一线程拥有一个共享锁时，这个线程就会尝试获取一个独占锁，直到其他线程放弃他们的锁；同样的，当任一线程拥有一个独占锁是，其他线程就无法获得共享锁或独占锁，直到第一个线程放弃其拥有的锁。
+
+下面的代码清单展示了一个简单的DNS缓存，如同之前描述的那样，使用`std::map`持有缓存数据，使用`boost::shared_mutex`进行保护。
+
+清单3.13 使用`boost::shared_mutex`对数据结构进行保护
+```c++
+#include <map>
+#include <string>
+#include <mutex>
+#include <boost/thread/shared_mutex.hpp>
+
+class dns_entry;
+
+class dns_cache
+{
+  std::map<std::string,dns_entry> entries;
+  mutable boost::shared_mutex entry_mutex;
+public:
+  dns_entry find_entry(std::string const& domain) const
+  {
+    boost::shared_lock<boost::shared_mutex> lk(entry_mutex);  // 1
+    std::map<std::string,dns_entry>::const_iterator const it=
+       entries.find(domain);
+    return (it==entries.end())?dns_entry():it->second;
+  }
+  void update_or_add_entry(std::string const& domain,
+                           dns_entry const& dns_details)
+  {
+    std::lock_guard<boost::shared_mutex> lk(entry_mutex);  // 2
+    entries[domain]=dns_details;
+  }
+};
+```
+
+在清代3.13中，find_entry()使用了`boost::shared_lock<>`实例来保护其共享和只读权限①；这就使得，多线程可以同时调用find_entry()，且不会出错。另一方面，update_or_add_entry()使用`std::lock_guard<>`实例，当表格需要更新时②，为其提供独占访问权限；在update_or_add_entry()函数调用时，独占锁会阻止其他线程对数据结构进行修改，并且这些线程在这时，也不能调用find_entry()。
+
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
 
 [2] Herb Sutter, Exceptional C++: 47 Engineering Puzzles, Programming Problems, and Solutions (Addison Wesley Pro-fessional, 1999).
 
+[3] Howard E. Hinnant, “Multithreading API for C++0X—A Layered Approach,” C++ Standards Committee Paper N2094, http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2006/n2094.html.
 
 
 
