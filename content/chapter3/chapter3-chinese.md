@@ -703,7 +703,75 @@ void undefined_behaviour_with_double_checked_locking()
 
 这个模式为什么声名狼藉呢？因为这里有潜在的条件竞争，因为外部的读取锁①没有与内部的写入锁进行同步③。因此就会产生条件竞争，这个条件竞争不仅覆盖指针本身，还会影响到其指向的对象；即使一个线程知道另一个线程完成对指针进行写入，它可能没有看到新创建的some_resource实例，然后调用do_something()④后，得到不正确的结果。这个例子是在一种典型的条件竞争——数据竞争，C++标准中这就会被指定为“未定义行为”(*underfined behavior*)。这种竞争肯定是可以避免的。可以阅读第5章，那里有更多对内存模型的讨论，包括数据竞争(*data race*)的构成。
 
-C++标准委员会也认为条件竞争的处理很重要，所以C++标准库提供了`std::once_flag`和`std::call_once`来处理这种情况。比起锁住互斥量，并显式的检查指针，每个线程只需要使用`std::call_once`，在`std::call_once`的结束时，就能安全的知道指针已经被其他的线程初始化了。使用`std::call_once`比显式使用互斥量消耗的资源更少，特别是当初始化完成后。
+C++标准委员会也认为条件竞争的处理很重要，所以C++标准库提供了`std::once_flag`和`std::call_once`来处理这种情况。比起锁住互斥量，并显式的检查指针，每个线程只需要使用`std::call_once`，在`std::call_once`的结束时，就能安全的知道指针已经被其他的线程初始化了。使用`std::call_once`比显式使用互斥量消耗的资源更少，特别是当初始化完成后。下面的例子展示了与清单3.11中的同样的操作，这里使用了`std::call_once`。在这种情况下，初始化通过调用函数完成，同样这样操作使用类中的函数操作符来实现同样很简单。如同大多数在标准库中的函数一样，或作为函数被调用，或作为参数被传递，`std::call_once`可以和任何函数或可调用对象一起使用。
+
+```c++
+std::shared_ptr<some_resource> resource_ptr;
+std::once_flag resource_flag;  // 1
+
+void init_resource()
+{
+  resource_ptr.reset(new some_resource);
+}
+
+void foo()
+{
+  std::call_once(resource_flag,init_resource);  // 可以完整的进行一次初始化
+  resource_ptr->do_something();
+}
+```
+
+在这个例子中，`std::once_flag`①和初始化好的数据都是命名空间区域的对象，但是`std::call_once()`可仅作为延迟初始化的类型成员，如同下面的例子一样：
+
+清单3.12 使用`std::call_once`作为类成员的延迟初始化(线程安全)
+
+```c++
+class X
+{
+private:
+  connection_info connection_details;
+  connection_handle connection;
+  std::once_flag connection_init_flag;
+
+  void open_connection()
+  {
+    connection=connection_manager.open(connection_details);
+  }
+public:
+  X(connection_info const& connection_details_):
+      connection_details(connection_details_)
+  {}
+  void send_data(data_packet const& data)  // 1
+  {
+    std::call_once(connection_init_flag,&X::open_connection,this);  // 2
+    connection.send_data(data);
+  }
+  data_packet receive_data()  // 3
+  {
+    std::call_once(connection_init_flag,&X::open_connection,this);  // 2
+    return connection.receive_data();
+  }
+};
+```
+
+在这个例子中，第一个调用send_data()①或receive_data()③的线程完成初始化过程。使用成员函数open_connection()去初始化数据，也需要将this指针传进去。和其在在标准库中的函数一样，其接受可调用对象，比如`std::thread`的构造函数和`std::bind()`，通过向`std::call_once()`②传递一个额外的参数来完成这个操作。
+
+值得注意的是，`std::mutex`和`std::one_flag`的实例就不能拷贝和移动，所以当你使用它们作为类成员函数，如果你需要用到他们，你就得显示定义这些特殊的成员函数。
+
+还有一种情形的初始化过程中潜存着条件竞争：其中一个局部变量被声明为static类型。这种变量的在声明后就已经完成初始化；对于多线程调用的函数，这就意味着这里有条件竞争——抢着去定义这个变量。在很多在前C++11编译器(译者：不支持C++11标准的编译器)，在实践过程中，这样的条件竞争是确实存在的，因为在多线程中，每个线程都认为他们是第一个初始化这个变量线程；或一个线程对变量进行初始化，而另外一个线程要使用这个变量时，初始化过程还没完成。在C++11标准中，这些问题都被解决了：初始化及定义完全在一个线程中发生，并且没有其他线程可在初始化完成前对其进行处理，条件竞争终止于初始化阶段，这样比在之后再去处理好的多。在只需要一个全局实例情况下，这里提供一个`std::call_once`的替代方案
+
+```c++
+class my_class;
+my_class& get_my_class_instance()
+{
+  static my_class instance;  // 线程安全的初始化过程
+  return instance;
+}
+```
+
+多线程可以安全的调用get_my_class_instance()①函数，不用为数据竞争而担心。
+
+只在初始化时保护数据，对于更一般的情况来说就是一个特例：对于很少有更新的数据结构来说。在大多数情况下，这种数据结构是只读的，并且多线程对其并发的读取也是很愉快的，不过一旦数据结构需要更新，那么就会有条件竞争的产生。必须承认，这里的确也需要一种保护机制。
 
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
