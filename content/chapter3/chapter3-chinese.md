@@ -642,6 +642,68 @@ public:
 
 有时，只是没有一个合适粒度级别，因为并不是所有对数据结构的访问都需要同一级的保护。在这个例子中，就需要寻找一个合适的机制，去替换`std::mutex`。
 
+##3.3 保护共享数据的替代设施
+
+虽然互斥量是最通用的机制，但其并非保护共享数据的唯一方式；这里有很多替代方式可以在特定情况下，提供更加合适的保护。
+
+一个特别极端(但十分常见)的情况就是，共享数据在并发访问时和初始化的时候，都需要保护，但是之后需要进行隐式同步。这可能是因为数据是作为只读方式创建的，所以没有同步问题；或者可能因为必要的保护作为对数据操作的一部分，隐式的执行了。在任何情况下，在数据初始化后锁住一个互斥量，纯粹是为了保护其初始化过程，这是没有必要的，并且这会给性能带来不必要的冲击。出于以上的原因，C++标准提供了一种纯粹保护共享数据初始化过程的机制。
+
+###3.3.1 保护共享数据的初始化过程
+
+假设你与一个共享源，构建代价很昂贵；可能它会打开一个数据库连接或分配出很多的内存。延迟初始化(*Lazy initialization*)在单线程代码很常见——每一个操作都需要先对源进行检查，为了了解数据是否被初始化，然后在其使用前决定，数据是否需要初始化：
+
+```c++
+std::shared_ptr<some_resource> resource_ptr;
+void foo()
+{
+  if(!resource_ptr)
+  {
+    resource_ptr.reset(new some_resource);  // 1
+  }
+  resource_ptr->do_something();
+}
+```
+
+当共享数据对于并发访问是安全的，①是转为多线程代码时，需要保护的，但是下面天真的转换(*naïve【法语】：天真的*)会使得线程资源产生不必要的序列化。这是因为每个线程必须等待互斥量，为了确定数据源已经初始化了。
+
+清单 3.11 使用一个互斥量的延迟初始化(线程安全)过程
+```c++
+std::shared_ptr<some_resource> resource_ptr;
+std::mutex resource_mutex;
+void foo()
+{
+  std::unique_lock<std::mutex> lk(resource_mutex);  // 所有线程在此序列化 
+  if(!resource_ptr)
+  {
+    resource_ptr.reset(new some_resource);  // 只有初始化过程需要保护 
+  }
+  lk.unlock();
+  resource_ptr->do_something();
+}
+```
+
+这段代码相当常见了，也足够表现出没必要的线程话问题，很多人能想出更好的一些的办法来做这件事，包括声名狼藉的双重检查锁(*Double-Checked Locking*)模式：
+
+```c++
+void undefined_behaviour_with_double_checked_locking()
+{
+  if(!resource_ptr)  // 1
+  {
+    std::lock_guard<std::mutex> lk(resource_mutex);
+    if(!resource_ptr)  // 2
+    {
+      resource_ptr.reset(new some_resource);  // 3
+    }
+  }
+  resource_ptr->do_something();  // 4
+}
+```
+
+指针第一次读取数据不需要获取锁①，并且只有在指针为NULL时才需要获取锁。然后，当获取锁之后，指针会被再次检查一遍② (这就是双重检查的部分)，避免另一的线程在第一次检查后再做初始化，并且让当前线程获取锁。
+
+这个模式为什么声名狼藉呢？因为这里有潜在的条件竞争，因为外部的读取锁①没有与内部的写入锁进行同步③。因此就会产生条件竞争，这个条件竞争不仅覆盖指针本身，还会影响到其指向的对象；即使一个线程知道另一个线程完成对指针进行写入，它可能没有看到新创建的some_resource实例，然后调用do_something()④后，得到不正确的结果。这个例子是在一种典型的条件竞争——数据竞争，C++标准中这就会被指定为“未定义行为”(*underfined behavior*)。这种竞争肯定是可以避免的。可以阅读第5章，那里有更多对内存模型的讨论，包括数据竞争(*data race*)的构成。
+
+C++标准委员会也认为条件竞争的处理很重要，所以C++标准库提供了`std::once_flag`和`std::call_once`来处理这种情况。比起锁住互斥量，并显式的检查指针，每个线程只需要使用`std::call_once`，在`std::call_once`的结束时，就能安全的知道指针已经被其他的线程初始化了。使用`std::call_once`比显式使用互斥量消耗的资源更少，特别是当初始化完成后。
 
 ***
 [1] Tom Cargill, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9 (November–December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
