@@ -41,10 +41,57 @@ void wait_for_flag()
 
 第三个选择(也是优先的选择)是，使用C++标准库提供的工具去等待事件的发生。通过另一线程触发等待事件的机制，是最基本的唤醒方式(例如：如流水线上存在额外的任务时)，并且这种机制就称为“条件变量”(condition variable)。从概念上来说，一个条件变量会与多个事件或其他条件相关，并且一个或多个线程会等待条件的达成。当某些线程被终止时，为了将等待线程唤醒，并且允许他们继续执行，终止的线程将会向等待着的线程广播“条件达成”的信息。
 
+###4.1.1 等待条件达成
 
+C++标准库对条件变量有两套实现：`std::condition_variable`和`std::condition_variable_any`。都包含在<condition_variable>头文件中。两种类型都需要与一个互斥量一起才能工作，互斥量在这里可进行适当的同步；前者会被`std::mutex`限制，而后者和任何满足最低标准的互斥量一起时，可自由的工作，为了强调“任何”，从而加上了*_any*的后缀。因为` std::condition_variable_any`更加通用，这就可能从体积、性能，以及系统资源的使用方面产生额外的开销，所以`std::condition_variable`一般作为首选的类型，当对灵活性有硬性要求时，我们才会去考虑`std::condition_variable_any`。
 
+所以，如何使用`std::condition_variable`去处理之前提到的情况——当有数据需要处理时，如何唤醒休眠中的线程对其进行处理？以下清单展示了一种使用条件变量做唤醒的方式。
 
+清单4.1 使用`std::condition_variable`处理数据等待
+```c++
+std::mutex mut;
+std::queue<data_chunk> data_queue;  // 1
+std::condition_variable data_cond;
 
+void data_preparation_thread()
+{
+  while(more_data_to_prepare())
+  {
+    data_chunk const data=prepare_data();
+    std::lock_guard<std::mutex> lk(mut);
+    data_queue.push(data);  // 2
+    data_cond.notify_one();  // 3
+  }
+}
+
+void data_processing_thread()
+{
+  while(true)
+  {
+    std::unique_lock<std::mutex> lk(mut);  // 4
+    data_cond.wait(
+         lk,[]{return !data_queue.empty();});  // 5
+    data_chunk data=data_queue.front();
+    data_queue.pop();
+    lk.unlock();  // 6
+    process(data);
+    if(is_last_chunk(data))
+      break;
+  }
+}
+```
+
+首先，这里传递一些数据到队列①中供两个线程使用。当数据准备好时，队列使用`std::lock_guard`，并将准备好的数据压入队列中②，之后线程会对队列中的数据上锁。然后调用`std::condition_variable`的notify_one()成员函数，对等待的线程(如果有等待线程)进行通知③。
+
+另一种情况，当你有一个正在处理数据的线程。这个线程首先对互斥量上锁，但在这里`std::unique_lock`要比`std::lock_guard`④更加合适——且听我细细道来。线程之后会调用`std::condition_variable`的成员函数wait()，传递一个锁和一个lambda函数表达式(作为等待的条件⑤)。Lambda函数是C++11添加的行特性，它可以让一个匿名函数作为其他表达式的一部分，并且非常合适作为标准函数的谓词，例如wait()函数。在这个例子中，简单的lambda函数**[]{return !data_queue.empty();}**会去检查data_queue，当data_queue不为空时——那就意味着队列中已经有准备好数据了。附录A的A.5节有Lambda函数更多的信息。
+
+wait()会去检查这些条件(通过调用给定的lambda函数)，当条件满足(lambda函数返回true)时返回。当不满足条件(lambda函数返回false)，wait()函数将解锁互斥量，并且将这个线程(上段提到的处理数据的线程)置于阻塞或等待状态。当条件变量满足时，准备数据线程就会调用notify_one()，这个线程将会被唤醒，去获取互斥锁，并且对条件再次检查，因为wait()可能会在条件满足的情况下，继续持有锁。当条件不满足时，线程将对互斥量解锁，并且重新开始等待。这就是为什么用`std::unique_lock`而不使用`std::lock_guard`——等待中的线程必须在解锁互斥量的同时，等待互斥锁再次上锁，`std::lock_guard`没有这么灵活。当这个线程休眠时，互斥量保持锁住状态。准备数据的线程不会锁住互斥量，用来添加任务到队列中；同样的，等待线程也永不会知道条件何时达成。
+
+清单4.1使用了一个简单的lambda函数用于等待⑤，这个函数用于检查队列何时不为空，不过任意的函数和可调用对象都可以传入wait()。当你已经写好了一个函数去做检查条件(或许比清单中简单检查要复杂很多)，那就可以直接将这个函数传入wait()；不一定非要放在一个lambda表达式中。在调用wait()的过程中，一个条件变量可能会去检查给定条件若干次；不过，这种事情也发生在互斥量上，这样(仅)当提供测试条件的函数返回true时，结果就能被理解返回了。当等待线程重新获取互斥量，并且检查条件时，当另一个线程没有在第一时间相应，这就是所谓的“虚假唤醒”(*spurious wakeup*)。因为任何虚假唤醒的数量和频率都是不确定的，这里不建议使用一个有副作用的函数做条件检查。当你这样做了，就要有这种副作用将会接二连三的产生的心理准备。
+
+灵活的解锁`std::unique_lock`，不仅适用于去调用wait()；当你有数据需要处理，单还没有处理时⑥，你也会用到它。处理数据可能是一个耗时的操作，并且当你看过第3章后，你i就知道持有锁的时间过长是一个多么糟糕的主意。
+
+使用队列在多个线程中转移数据(如清单4.1)很常见。做的好的话，同步操作会限制队列本身，同步问题和条件竞争出现的概率也会降低。鉴于这些好处，现在从清单4.1中提取出一个通用线程安全的队列。
 
 
 
