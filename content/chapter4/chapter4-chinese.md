@@ -93,6 +93,214 @@ wait()会去检查这些条件(通过调用给定的lambda函数)，当条件满
 
 使用队列在多个线程中转移数据(如清单4.1)很常见。做的好的话，同步操作会限制队列本身，同步问题和条件竞争出现的概率也会降低。鉴于这些好处，现在从清单4.1中提取出一个通用线程安全的队列。
 
+###4.1.2 使用条件变量构建线程安全队列
+
+当你正在设计一个通用队列时，花一些时间想想有哪些操作需要添加到队列实现中去，就如之前在3.2.3节看到的线程安全的栈。看一下C++标准库提供的实现，找找灵感；`std::queue<>`容器的接口展示如下：
+
+清单4.2 `std::queue`接口
+```c++
+template <class T, class Container = std::deque<T> >
+class queue {
+public:
+  explicit queue(const Container&);
+  explicit queue(Container&& = Container());
+  template <class Alloc> explicit queue(const Alloc&);
+  template <class Alloc> queue(const Container&, const Alloc&);
+  template <class Alloc> queue(Container&&, const Alloc&);
+  template <class Alloc> queue(queue&&, const Alloc&);
+
+  void swap(queue& q);
+
+  bool empty() const;
+  size_type size() const;
+
+  T& front();
+  const T& front() const;
+  T& back();
+  const T& back() const;
+
+  void push(const T& x);
+  void push(T&& x);
+  void pop();
+  template <class... Args> void emplace(Args&&... args);
+};
+```
+
+当你忽略构造、赋值以及交换操作时，你就剩下了三组操作：1. 对整个队列的状态进行查询(empty()和size());2.查询在队列中的各个元素(front()和back())；3.修改队列的操作(push(), pop()和emplace())。这就和3.2.3中的栈一样了，因此你也会遇到在固有接口上的条件竞争。因此，你需要将front()和pop()合并成一个函数调用，就像之前在栈实现时合并top()和pop()一样。与清单4.1中的代码不同的是：当使用队列在多个线程中传递数据时，接收线程进程需要等待数据的压入。这里我们提供pop()函数的两个变种：try_pop()和wait_and_pop()。try_pop() ，尝试从队列中弹出数据，但总直接返回(当有失败时)，即使没有指可检索；wait_and_pop()，将会等待有值可检索的时候才返回。当你使用之前栈的方式来实现你的队列，你实现的队列接口就可能会下面这副摸样：
+
+清单4.3 线程安全队列的接口
+```c++
+#include <memory> // 为了使用std::shared_ptr
+
+template<typename T>
+class threadsafe_queue
+{
+public:
+  threadsafe_queue();
+  threadsafe_queue(const threadsafe_queue&);
+  threadsafe_queue& operator=(
+      const threadsafe_queue&) = delete;  // 不允许简单的赋值
+
+  void push(T new_value);
+
+  bool try_pop(T& value);  // 1
+  std::shared_ptr<T> try_pop();  // 2
+
+  void wait_and_pop(T& value);
+  std::shared_ptr<T> wait_and_pop();
+
+  bool empty() const;
+};
+```
+
+就像之前对栈做的那样，在这里你将很多构造函数剪裁掉了，并且禁止了对队列的简单赋值。和之前一样，你也需要提供两个版本的try_pop()和wait_for_pop()。第一个重载的try_pop()①在引用变量中存储着检索值，所以它可以用来返回值的状态；当检索到一个变量时，他将返回true，否则将返回false(详见A.2节)。第二个重载②就不能做这事了，以为它是用来直接返回检索值的。但当没有值可检索时，这个函数也可以返回NULL指针。
+
+那么问题来了，如何将以上这些和清单4.1中的代码相关联呢？好吧，我们现在就来看看怎么去关联，你可以从之前的代码中提取push()和wait_and_pop()，如以下清单所示。
+
+清单4.4 从清单4.1中提取push()和wait_and_pop()
+```c++
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+
+template<typename T>
+class threadsafe_queue
+{
+private:
+  std::mutex mut;
+  std::queue<T> data_queue;
+  std::condition_variable data_cond;
+public:
+  void push(T new_value)
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    data_queue.push(new_value);
+    data_cond.notify_one();
+  }
+
+  void wait_and_pop(T& value)
+  {
+    std::unique_lock<std::mutex> lk(mut);
+    data_cond.wait(lk,[this]{return !data_queue.empty();});
+    value=data_queue.front();
+    data_queue.pop();
+  }
+};
+threadsafe_queue<data_chunk> data_queue;  // 1
+
+void data_preparation_thread()
+{
+  while(more_data_to_prepare())
+  {
+    data_chunk const data=prepare_data();
+    data_queue.push(data);  // 2
+  }
+}
+
+void data_processing_thread()
+{
+  while(true)
+  {
+    data_chunk data;
+    data_queue.wait_and_pop(data);  // 3
+    process(data);
+    if(is_last_chunk(data))
+      break;
+  }
+}
+```
+
+线程队列的实例现在包含有互斥量和条件变量，所以独立的变量就不再需要了①，并且调用push()也不需要外部同步②。wait_and_pop()还要兼顾条件变量的等待③。
+
+另一个wait_and_pop()函数的重载写起来就很琐碎了，剩下的函数就像从清单3.5实现的栈中一个个的粘过来一样。最终的队列实现如下所示。
+
+清单4.5 使用条件变量的线程安全队列(完整版)
+```c++
+#include <queue>
+#include <memory>
+#include <mutex>
+#include <condition_variable>
+
+template<typename T>
+class threadsafe_queue
+{
+private:
+  mutable std::mutex mut;  // 1 互斥量必须是可变的 
+  std::queue<T> data_queue;
+  std::condition_variable data_cond;
+public:
+  threadsafe_queue()
+  {}
+  threadsafe_queue(threadsafe_queue const& other)
+  {
+    std::lock_guard<std::mutex> lk(other.mut);
+    data_queue=other.data_queue;
+  }
+
+  void push(T new_value)
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    data_queue.push(new_value);
+    data_cond.notify_one();
+  }
+
+  void wait_and_pop(T& value)
+  {
+    std::unique_lock<std::mutex> lk(mut);
+    data_cond.wait(lk,[this]{return !data_queue.empty();});
+    value=data_queue.front();
+    data_queue.pop();
+  }
+
+  std::shared_ptr<T> wait_and_pop()
+  {
+    std::unique_lock<std::mutex> lk(mut);
+    data_cond.wait(lk,[this]{return !data_queue.empty();});
+    std::shared_ptr<T> res(std::make_shared<T>(data_queue.front()));
+    data_queue.pop();
+    return res;
+  }
+
+  bool try_pop(T& value)
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    if(data_queue.empty())
+      return false;
+    value=data_queue.front();
+    data_queue.pop();
+    return true;
+  }
+
+  std::shared_ptr<T> try_pop()
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    if(data_queue.empty())
+      return std::shared_ptr<T>();
+    std::shared_ptr<T> res(std::make_shared<T>(data_queue.front()));
+    data_queue.pop();
+    return res;
+  }
+
+  bool empty() const
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    return data_queue.empty();
+  }
+};
+```
+
+尽管empty()是一个const成员函数，并且传入拷贝构造函数的other形参是一个const引用；因为其他线程可能有这个类型的非const引用对象，并调用变种成员函数，所以这里有必要对互斥量上锁。如果锁住互斥量是一个可变操作，那么这个互斥量对象就会标记为可变的①，之后他就可以在empty()和拷贝构造函数中被锁住了。
+
+条件变量在多个线程等待同一个事件时，也是很有用的。当线程用来分解工作负载，并且只有一个线程可以对通知做出反应，与清单4.1中使用的结构完全相同；至运行多个数据实例——处理线程(*processing thread*)。当新的数据准备完成，对notify_one()的调用将会触发一个正在执行wait()的线程，去检查条件和wait()函数的返回状态(因为你仅是向data_queue添加一个数据项)。 这里不保证线程一定会被通知到，即使只有一个等待线程被通知；所有处线程可能都在处理数据。
+
+另一种可能是，很多线程等待同一个事件，对于通知他们都需要做出回应。这会发生在共享数据正在被初始化的时候，在处理线程可以使用同一数据时，就要等待数据被初始化(有不错的机制可用来应对；可见第3章，3.3.1节)，或等待共享数据的更新，比如定期的重新初始化(*periodic reinitialization*)。在这些情况下，准备线程准备数据数据时，就会通过条件变量调用notify_all()成员函数，而非直接调用notify_one()函数。顾名思义，这就是全部线程在都去执行wait()(检查他们等待的条件是否满足)的原因。
+
+当等待线程只会等待一次，所以当条件为true时，它就不会再等待条件变量了，所以一个条件变量可能并非同步机制的最好选择。尤其是，条件在等待一组可用的数据块时。在这样的情况下，期望(*future*)就是一个适合的选择。
+
+
+
+
+
 
 
 
