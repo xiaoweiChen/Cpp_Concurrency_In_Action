@@ -307,9 +307,81 @@ C++标准库模型将这种一次性事件称为“期望” (*future*)。当一
 
 最基本的一次性事件，就是一个后台运行出的计算结果。在第2章中，你已经了解了`std::thread` 执行的任务不能有返回值，并且我能保证，这个问题将在使用期望后解决——现在就来看看是怎么解决的。
 
+###4.1.2 带返回值的后台任务
 
+假设，你有一个需要长时间的运算，你需要其最终能计算出一个有效的值，但是你现在并不需要这个值。可能你已经找到了生命、宇宙，以及万物的答案，就像道格拉斯·亚当斯[1]一样。你可以启动一个新线程来执行这个计算，但是这就以为这你必须关注如何传回计算的结果，因为`std::thread`并不提供直接接收返回值的机制。这里就需要`std::async`函数模板(也是在头文件<future>中声明的)了。
 
+你可以使用`std::async`启动一个异步任务，任务的结果你不着急要。与让`std::thread`对象等待运行方式的不同，`std::async`会返回一个`std::future`对象，这个对象持有最终计算出来的结果。当你需要这个值时，你只需要调用这个对象的get()成员函数；并且直到期望状态为就绪的情况下，线程才会阻塞；之后，返回计算结果。下面清单中代码就是一个简单的例子。
 
+清单4.6 使用`std::future`从异步任务中获取返回值
+```c++
+#include <future>
+#include <iostream>
+
+int find_the_answer_to_ltuae();
+void do_other_stuff();
+int main()
+{
+  std::future<int> the_answer=std::async(find_the_answer_to_ltuae);
+  do_other_stuff();
+  std::cout<<"The answer is "<<the_answer.get()<<std::endl;
+}
+```
+
+`std::async`允许你通过添加额外的调用参数，向函数传递额外的参数，与`std::thread` 做的方式一样。当第一个参数是一个指向成员函数的指针，第二个参数提供有这个函数成员类的具体对象(不是直接的，就是通过指针，还可以包装在`std::ref`中)，剩余的参数可作为成员函数的参数传入。否则，第二个和随后的参数将作为函数的参数，或作为指定可调用对象的第一个参数。就如`std::thread`，当参数右值(*rvalues*)时，拷贝操作将使用移动的方式转移原始数据。这就允许使用“只移动”类型作为函数对象和参数。来看一下下面的程序清单：
+
+ 清单4.7 使用`std::async`向函数传递参数
+```c++
+#include <string>
+#include <future>
+struct X
+{
+  void foo(int,std::string const&);
+  std::string bar(std::string const&);
+};
+X x;
+auto f1=std::async(&X::foo,&x,42,"hello");  // 调用p->foo(42, "hello")，p是指向x的指针
+auto f2=std::async(&X::bar,x,"goodbye");  // 调用tmpx.bar("goodbye")， tmpx是x的拷贝副本
+struct Y
+{
+  double operator()(double);
+};
+Y y;
+auto f3=std::async(Y(),3.141);  // 调用tmpy(3.141)，tmpy通过Y的移动构造函数得到
+auto f4=std::async(std::ref(y),2.718);  // 调用y(2.718)
+X baz(X&);
+std::async(baz,std::ref(x));  // 调用baz(x)
+class move_only
+{
+public:
+  move_only();
+  move_only(move_only&&)
+  move_only(move_only const&) = delete;
+  move_only& operator=(move_only&&);
+  move_only& operator=(move_only const&) = delete;
+  
+  void operator()();
+};
+auto f5=std::async(move_only());  // 调用tmp()，tmp是通过std::move(move_only())构造得到
+```
+
+在默认情况下，这取决于`std::async`是否启动一个线程，或是否在期望等待时同步任务。在大多数情况下，估计这就是你想要的结果，但是你也可以在函数调用之前，向`std::async`传递一个额外参数。这个参数的类型是`std::launch`，还可以是`std::launch::defered`，用来表明函数调用被延迟到wait()或get()函数调用时才执行，`std::launch::async` 为了表明函数必须在其所在的独立线程上执行，`std::launch::deferred | std::launch::async`为了表明实现可以选择这两种方式的一种。最后一个选项是默认的。当函数调用被延迟，它可能不会在运行了。如下所示：
+
+```c++
+auto f6=std::async(std::launch::async,Y(),1.2);  // 在新线程上执行
+auto f7=std::async(std::launch::deferred,baz,std::ref(x));  // 在wait()或get()调用时执行
+auto f8=std::async(
+              std::launch::deferred | std::launch::async,
+              baz,std::ref(x));  // 实现选择执行方式
+auto f9=std::async(baz,std::ref(x));
+f7.wait();  //  调用延迟函数
+```
+
+在本章的后面和第8章中，你将会再次看到这段程序，使用`std::async`会让分割算法到各个任务中变的容易，这样程序就能并发的执行了。不过，这不是让一个`std::future`与一个任务实例相关联的唯一方式；你也可以将任务包装入一个`std::packaged_task<>`实例中，或通过编写代码的方式，使用`std::promise<>`类型模板显示设置值。与`std::promise<>`对比，`std::packaged_task<>`具有更高层的抽象，所以我们从“高抽象”的模板说起。
+
+***
+[1] In *The Hitchhiker’s Guide* to the Galaxy, the computer Deep Thought is built to determine “the answer to Life,
+the Universe and Everything.” The answer is 42
 
 
 
