@@ -383,6 +383,84 @@ f7.wait();  //  调用延迟函数
 
 `std::packaged_task<>`对一个函数或可调用对象，绑定一个期望。当`std::packaged_task<>` 对象被调用，它就会调用相关函数或可调用对象，将期望状态置为就绪，返回值也会被存储为相关数据。这可以用在构建线程池的建筑块(可见第9章)，或用于其他任务的管理，比如在任务所在线程上运行任务，或将它们顺序的运行在一个特殊的后台线程上。当一个粒度较大的操作可以被分解为独立的子任务时，其中每个子任务就可以包含在一个`std::packaged_task<>`实例中，之后这个实例将传递到任务调度器或线程池中。这就是对任务的细节进行抽象了；调度器仅处理`std::packaged_task<>`实例，要比处理独立的函数高效的多。
 
+`std::packaged_task<>`的模板参数是一个函数签名，比如void()就是一个没有参数也没有返回值的函数，或int(std::string&, double*)就是有一个非常量引用的`std::string`和一个指向double类型的指针，并且返回类型是int。当你构造出一个`std::packaged_task<>`实例时，你必须传入一个函数或可调用对象，这个函数或可调用的对象需要能接收指定的参数和返回可转换为指定返回类型的值。类型可以不完全匹配；你可以用一个int类型的参数和返回一个float类型的函数，来构建`std::packaged_task<double(double)>`的实例，因为在这里，类型可以隐式转换。
+
+指定函数签名的返回类型可以用来标识，从get_future()返回的`std::future<>`的类型，不过函数签名的参数列表，可用来指定“打包任务”的函数调用操作符。例如，局部类定义`std::packaged_task<std::string(std::vector<char>*,int)>`将在下面的代码清代中使用。
+
+清单4.8 `std::packaged_task< >`的特化——局部类定义
+```c++
+template<>
+class packaged_task<std::string(std::vector<char>*,int)>
+{
+public:
+  template<typename Callable>
+  explicit packaged_task(Callable&& f);
+  std::future<std::string> get_future();
+  void operator()(std::vector<char>*,int);
+};
+```
+
+这里的`std::packaged_task`对象是一个可调用对象，并且它可以包含在一个`std::function`对象中，传递到`std::thread`对象中，就可作为线程函数；传递另一个函数中，就作为可调用对象，或可以直接进行调用。当`std::packaged_task`作为一个函数调用时，可为函数调用操作符提供所需的参数，并且返回值作为异步结果存储在`std::future`，可通过get_future()获取。你可以把一个任务包含入`std::packaged_task`，并且在检索期望之前，需要将`std::packaged_task`对象传入，以便调用时能及时的找到。
+
+当你需要异步任务的返回值时，你可以等待期望的状态变为“就绪”。下面的代码就是这么个情况。
+
+**线程间传递任务**
+
+很多图形架构需要特定的线程去更新界面，所以当一个线程需要界面的更新时，它需要发出一条信息给正确的线程，让特定的线程来做界面更新。`std::packaged_task`提供了完成这种功能的一种方法，且不需要发送一条自定义信息给图形界面相关线程。下面来看看代码。
+
+清单4.9 使用`std::packaged_task`执行一个图形界面线程
+```c++
+#include <deque>
+#include <mutex>
+#include <future>
+#include <thread>
+#include <utility>
+
+std::mutex m;
+std::deque<std::packaged_task<void()> > tasks;
+
+bool gui_shutdown_message_received();
+void get_and_process_gui_message();
+
+void gui_thread()  // 1
+{
+  while(!gui_shutdown_message_received())  // 2
+  {
+    get_and_process_gui_message();  // 3
+    std::packaged_task<void()> task;
+    {
+      std::lock_guard<std::mutex> lk(m);
+      if(tasks.empty())  // 4
+        continue;
+      task=std::move(tasks.front());  // 5
+      tasks.pop_front();
+    }
+    task();  // 6
+  }
+}
+
+std::thread gui_bg_thread(gui_thread);
+
+template<typename Func>
+std::future<void> post_task_for_gui_thread(Func f)
+{
+  std::packaged_task<void()> task(f);  // 7
+  std::future<void> res=task.get_future();  // 8
+  std::lock_guard<std::mutex> lk(m);  // 9
+  tasks.push_back(std::move(task));  // 10
+  return res;
+}
+```
+
+这段代码十分简单：图形界面线程①循环直到收到一条关闭图形界面的信息后关闭②，进行轮询界面消息处理③，例如用户点击，和执行在队列中的任务。当队列中没有任务④，它将再次循环；除非，他能在队列中提取出一个任务⑤，然后释放队列上的锁，并且执行任务⑥。这里，期望与任务相关，当任务执行完成时，其状态会被置为“就绪”状态。
+
+将一个任务传入队列，也很简单：提供的函数⑦可以提供一个打包好的任务，可以通过这个任务⑧调用get_future()成员函数获取期望对象，并且在任务被推入列表⑨之前，期望将返回调用函数⑩。当需要知道线程执行完任务时，向图形界面线程发布消息的代码，会等待期望改变状态；否则，则会丢弃这个期望。
+
+这个例子使用`std::packaged_task<void()>`创建任务，其包含了一个无参数无返回值的函数或可调用对象(如果当这个调用有返回值时，返回值会被丢弃)。这可能是最简单的任务，当时如你之前所见，`std::packaged_task`也可以用于一些复杂的情况——通过指定一个不同的函数签名作为模板参数，你不仅可以改变其返回类型(因此该类型的数据会存在期望相关的状态中)，而且也可以改变函数操作符的参数类型。这个例子可以简单的扩展成允许任务运行在图形界面线程上，且接受传参，还有通过`std::future`返回值，而不仅仅是完成一个指标。
+
+这些任务能作为一个简单的函数调用来表达吗？还有，这些任务的结果能从很多地方得到吗？这些情况可以中期望的第三中方法来解决：使用`std::promise`对值进行显示设置。
+
+
 ***
 [1] In *The Hitchhiker’s Guide* to the Galaxy, the computer Deep Thought is built to determine “the answer to Life,
 the Universe and Everything.” The answer is 42
