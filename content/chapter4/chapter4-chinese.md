@@ -460,7 +460,53 @@ std::future<void> post_task_for_gui_thread(Func f)
 
 这些任务能作为一个简单的函数调用来表达吗？还有，这些任务的结果能从很多地方得到吗？这些情况可以中期望的第三中方法来解决：使用`std::promise`对值进行显示设置。
 
+###4.2.3 使用std::promises
 
+当你有一个应用，需要处理很多网络连接，它会使用不同线程尝试连接没给接口，因为这能使网络尽早联通，尽早执行程序。当连接较少的时候，这样工作没有问题(也就是线程数量比较少)。不幸的是，随着连接数量的增长，这种方式变的越来越不合适；因为大量的线程会消耗大量的系统资源，还有可能造成上下文频繁切换(当线程数量超出硬件可接受的并发数时)，这都会对性能有影响。最极端的离例子就是，系统连接网络的能力会变的极差，因为系统资源被创建的线程消耗殆尽。在不同的应用程序中，存在着大量的网络连接，因此不同应用都会有一定数量的线程(可能只有一个)来处理网络连接，每个线程处理可同时处理多个连接事件。
+
+考虑一个线程处理多个连接事件。来自不同的端口连接的数据包基本上是以乱序方式进行处理的；同样的，数据包也将以乱序的方式进入队列。在很多情况下，另一些应用不是等待数据成功的发送，就是等待一批(新的)来自指定网络接口的数据接受成功。
+
+`std::promise<T>`提供设定值的方式(类型为T)，这个类型会和后面看到的`std::future<T>` 对象相关联。一对`std::promise/std::future`会为这种方式提供一个可行的机制；在期望上可以阻塞等待线程，同时，提供数据的线程可以使用组合中的“承诺”来对相关值进行设置，以及将期望的状态置为“就绪”。
+
+可以通过get_future()成员函数来获取与一个给定的`std::promise`相关的`std::future`对象，就像是与`std::packaged_task`相关。当承诺的值已经设置完毕(使用set_value()成员函数)，对应期望的状态变为“就绪”，并且可用于检索已存储的值。当你在设置值之前销毁`std::promise`，将会存储一个异常。在4.2.4节中，会详细描述异常是如何传送到线程的。
+
+清单4.10中，实现了一个线程处理多个接口，就如同我们所说的那样。在这个例子中，你可以使用一对`std::promise<bool>/std::future<bool>`找出一块传出成功的数据块；与期望相关值只是一个简单的“成功/失败”标识。对于传入包，与期望相关的数据就是数据包的有效负载。
+
+清单4.10 使用“承诺”解决单线程多连接问题
+```c++
+#include <future>
+void process_connections(connection_set& connections)
+{
+  while(!done(connections))  // 1
+  {
+    for(connection_iterator  // 2
+            connection=connections.begin(),end=connections.end();
+          connection!=end;
+          ++connection)
+    {
+      if(connection->has_incoming_data())  // 3
+      {
+        data_packet data=connection->incoming();
+        std::promise<payload_type>& p=
+            connection->get_promise(data.id);  // 4
+        p.set_value(data.payload);
+      }
+      if(connection->has_outgoing_data())  // 5
+      {
+        outgoing_packet data=
+            connection->top_of_outgoing_queue();
+        connection->send(data.payload);
+        data.promise.set_value(true);  // 6
+      }
+    }
+  }
+}
+```
+
+函数process_connections()中，直到done()返回true①为止。每一次循环，程序都会依次的检查每一个连接②，检索输入数据当有任何数据③或正在发送已入队的传出数据⑤。这里假设输入数据包是具有ID和有效负载的(有实际的数在其中)。一个ID映射到一个`std::promise`(可能是在相关容器中进行的依次查找)④，并且值是设置在包的有效负载中的。对于传出包，包是从传出队列中进行检索的，实际上从接口直接发送出去。当发送完成，与传出数据相关的“承诺”将置为true，来表明传输成功⑥。这是否能映射到实际网络协议上，取决于网络所用协议；这里的“承诺”/“期望”组合方式可能会在特殊的情况下无法工作，但是它与一些操作系统支持的异步输入/输出结构类似。
+
+上面的代码完全不理会异常。虽然，它可能在想象的世界中，一切工作都会很好的执行，但是这有悖常理。有时候磁盘满载，有时候你会找不到东西，有时候网络会断，还有时候数据库会奔溃。当你需要某个操作的结果时，你就需要在对应的线程上执行这个操作，因为代码可以通过一个异常来报告错误；不过使用`std::packaged_task`或`std::promise`，就会带来一些不必要的限制(在所有工作都工作正常的情况下)。因此，C++标准库提供了一种在以上情况下清理异常的方法，并且允许他们将异常存储为其相关的数据。
+ 
 ***
 [1] In *The Hitchhiker’s Guide* to the Galaxy, the computer Deep Thought is built to determine “the answer to Life,
 the Universe and Everything.” The answer is 42
