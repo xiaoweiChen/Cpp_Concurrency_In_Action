@@ -505,8 +505,65 @@ void process_connections(connection_set& connections)
 
 函数process_connections()中，直到done()返回true①为止。每一次循环，程序都会依次的检查每一个连接②，检索输入数据当有任何数据③或正在发送已入队的传出数据⑤。这里假设输入数据包是具有ID和有效负载的(有实际的数在其中)。一个ID映射到一个`std::promise`(可能是在相关容器中进行的依次查找)④，并且值是设置在包的有效负载中的。对于传出包，包是从传出队列中进行检索的，实际上从接口直接发送出去。当发送完成，与传出数据相关的“承诺”将置为true，来表明传输成功⑥。这是否能映射到实际网络协议上，取决于网络所用协议；这里的“承诺”/“期望”组合方式可能会在特殊的情况下无法工作，但是它与一些操作系统支持的异步输入/输出结构类似。
 
-上面的代码完全不理会异常。虽然，它可能在想象的世界中，一切工作都会很好的执行，但是这有悖常理。有时候磁盘满载，有时候你会找不到东西，有时候网络会断，还有时候数据库会奔溃。当你需要某个操作的结果时，你就需要在对应的线程上执行这个操作，因为代码可以通过一个异常来报告错误；不过使用`std::packaged_task`或`std::promise`，就会带来一些不必要的限制(在所有工作都工作正常的情况下)。因此，C++标准库提供了一种在以上情况下清理异常的方法，并且允许他们将异常存储为其相关的数据。
- 
+上面的代码完全不理会异常。虽然，它可能在想象的世界中，一切工作都会很好的执行，但是这有悖常理。有时候磁盘满载，有时候你会找不到东西，有时候网络会断，还有时候数据库会奔溃。当你需要某个操作的结果时，你就需要在对应的线程上执行这个操作，因为代码可以通过一个异常来报告错误；不过使用`std::packaged_task`或`std::promise`，就会带来一些不必要的限制(在所有工作都工作正常的情况下)。因此，C++标准库提供了一种在以上情况下清理异常的方法，并且允许他们将异常存储为相关结果的一部分。
+
+###4.2.4 为“期望”存储“异常”
+
+看完下面短小的代码端，思考一下，当你传递-1到square_root()中时，它将抛出一个异常，并且这个异常将会被调用者看到：
+
+```c++
+double square_root(double x)
+{
+  if(x<0)
+  {
+    throw std::out_of_range(“x<0”);
+  }
+  return sqrt(x);
+}
+```
+
+假设调用square_root()函数不是当前线程，
+
+```c++
+double y=square_root(-1);
+```
+
+你将这样的调用改为异步调用：
+```c++
+std::future<double> f=std::async(square_root,-1);
+double y=f.get();
+```
+
+如果行为是完全相同的时候，其结果是理想的；在任何情况下，y获得函数掉用的结果，当线程调用f.get()时，就能再看到异常了，即使在一个单线程例子中。
+
+好吧，事实的确如此：函数作为`std::async`的一部分时，当在调用时抛出一个异常，那么这个异常就会存储到“期望”的结果数据中，之后“期望”的状态被置为“就绪”，之后调用get()会抛出这个存储的异常。(注意：标准级别没有指定重新抛出的这个异常是原始的异常对象，还是一个拷贝；不同的编译器和库将会在这方面做出不同的选择)。当你将函数打包入`std::packaged_task`任务包中后，在这个任务被调用时，同样的事情也会发生；当打包函数抛出一个异常，这个异常将被存储在“期望”的结果中，准备在调用get()再次抛出。
+
+当然，通过函数的显示调用，`std::promise`也能提供同样的功能。当你希望存入的是一个异常而非一个数值时，你就可以调用set_exception()成员函数，而非set_value()。这通常是用在一个catch块中，为了捕获异常，并作为算法的一部分，为了用异常填充“承诺”：
+
+```c++
+extern std::promise<double> some_promise;
+try
+{
+  some_promise.set_value(calculate_value());
+}
+catch(...)
+{
+  some_promise.set_exception(std::current_exception());
+}
+```
+
+这里使用了`std::current_exception()`来检索抛出的异常；可用`std::copy_exception()`作为一个替换方案，`std::copy_exception()`会直接存储一个新的异常而不抛出：
+
+```c++
+some_promise.set_exception(std::copy_exception(std::logic_error("foo ")));
+```
+
+这就比使用try/catch块更加清晰，当异常类型是已知的，并且它应该优先被使用；不仅是因为代码实现简单，而且它给编译器提供了极大的代码优化空间。
+
+另一种向“期望”中存储异常的方式是，在没有调用“承诺”上的任何设置函数前，或正在调用包装好的任务时，销毁与`std::promise` 或`std::packaged_task`相关的“期望”对象。在这任何情况下，当“期望”的状态还不是“就绪”时，调用`std::promise`或`std::packaged_task`的析构函数，将会存储一个与`std::future_errc::broken_promise`错误状态相关的`std::future_error`异常；通过创建一个“期望”，你可以构造一个“承诺”为其提供值或异常；你可以通过销毁值和异常源，去违背“承诺”。在这种情况下，编译器没有在“期望”中存储任何东西，等待线程可能会永远的等下去。
+
+直到现在所有例子都在用`std::future`。不过，`std::future`确有局限性，在很多线程在等待的时候，只有一个线程能获取等待结果。当多个线程需要等待相同的事件的结果，你就需要使用`std::shared_future`来替代`std::future`了。
+
 ***
 [1] In *The Hitchhiker’s Guide* to the Galaxy, the computer Deep Thought is built to determine “the answer to Life,
 the Universe and Everything.” The answer is 42
