@@ -627,8 +627,11 @@ auto sf=p.get_future().share();
 对于C++标准库来说，时钟就是时间信息源。特别是，时钟是一个类，提供了四种不同的信息：
  
 ·现在时间
+
 ·时间类型
+
 ·时钟节拍
+
 ·通过时钟节拍的分布，判断时钟是否稳定
 
 时钟的当前时间可以通过调用静态成员函数now()从时钟类中获取；例如，`std::chrono::system_clock::now()`是将返回系统时钟的当前时间。特定的时间点类型可以通过time_point的数据typedef成员来指定，所以some_clock::now()的类型就是some_clock::time_point。
