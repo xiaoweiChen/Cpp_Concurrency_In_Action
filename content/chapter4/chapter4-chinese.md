@@ -564,6 +564,56 @@ some_promise.set_exception(std::copy_exception(std::logic_error("foo ")));
 
 直到现在所有例子都在用`std::future`。不过，`std::future`确有局限性，在很多线程在等待的时候，只有一个线程能获取等待结果。当多个线程需要等待相同的事件的结果，你就需要使用`std::shared_future`来替代`std::future`了。
 
+###4.2.5 多个线程的等待
+
+虽然`std::future`可以处理所有在线程间数据转移的必要同步，但是调用某一特殊` std::future`对象的成员函数，就会让这个线程的数据和其他线程的数据不同步。当多线程在没有额外同步的情况下，访问一个独立的`std::future`对象时，就会有数据竞争和未定义的行为。这是因为：`std::future`模型独享同步结果的所有权，并且通过调用get()函数，一次性的获取数据，这就让并发访问变的毫无意义——只有一个线程可以获取结果值，因为在第一次调用get()后，就没有值可以再获取了。
+
+如果你的并行代码没有办法让多个线程等待同一个事件，先别太失落；`std::shared_future`可以来帮你解决。不过，`std::future`是只移动的，所以其所有权可以在不同的实例中互相传递，但是只有一个实例可以获得特定的同步结果；`std::shared_future`实例是可拷贝的，所以多个对象可以引用同一关联“期望”的结果。
+
+在每一个`std::shared_future`的独立对象上成员函数调用返回的结果还是不同步的，所以为了在多个线程方位一个独立对象时，避免数据竞争，必须使用锁来对访问进行保护。优先使用的办法：为了替代只有一个拷贝对象的情况，可以让每个线程都拥有自己对应的拷贝对象。这样，当每个线程都通过自己拥有的`std::shared_future`对象获取结果，那么多个线程访问共享同步结果就是安全的。可见图4.1。
+
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter4/4.1.png) 
+
+图4.1 使用多个`std::shared_future`对象来避免数据竞争
+
+可能会使用`std::shared_future`的地方，例如，实现类似于复杂的电子表格的并行执行；每一个单元格有单一的终值，这个终值可能是有其他单元格中的数据通过公式计算得到的。公式计算得到的结果依赖于其他单元格，然后可以使用一个`std::shared_future`对象引用第一个单元格的数据。当每个单元格内的所有公式并行执行后，这些任务会以期望的方式完成工作；不过，当其中有计算需要依赖其他单元格的值，那么它就会被阻塞，直到依赖单元格的数据准备就绪。这将让系统在最大程度上使用可用的硬件并发。
+
+`std::shared_future`的实例同步`std::future`实例的状态。当`std::future`对象没有与其他对象共享同步状态所有权，那么所有权必须使用`std::move`将所有权传递到`std::shared_future`，其默认构造函数如下：
+
+```c++
+std::promise<int> p;
+std::future<int> f(p.get_future());
+assert(f.valid());  // 1 "期望" f 是合法的
+std::shared_future<int> sf(std::move(f));
+assert(!f.valid());  // 2 "期望" f 现在是不合法的
+assert(sf.valid());  // 3 sf 现在是合法的
+```
+
+这里，“期望”f开始是合法的①，因为它引用的是“承诺”p的同步状态，但是在转移sf的状态后，f就不合法了②，而sf就是合法的了③。
+
+如其他可移动对象一样，转移所有权是对右值的隐式操作，所以你可以通过`std::promise`对象的成员函数get_future()的返回值，直接构造一个`std::shared_future`对象，例如：
+
+```c++
+std::promise<std::string> p;
+std::shared_future<std::string> sf(p.get_future());  // 1 隐式转移所有权
+```
+
+这里转移所有权是隐式的；用一个右值构造`std::shared_future<>`，得到`std::future<std::string>`类型的实例①。
+
+`std::future`的一个额外的特征，可促进`std::shared_future`的使用，容器可以自动的对类型进行推断，从而初始化这个类型的变量(详见附录A，A.6节)。`std::future`有一个share()成员函数，可用来创建新的`std::shared_future` ，并且可以直接转移“期望”的所有权。这样就能保存很多类型，并且使得代码易于修改：
+
+``` c++
+std::promise< std::map< SomeIndexType, SomeDataType, SomeComparator,
+SomeAllocator>::iterator> p;
+auto sf=p.get_future().share();
+```
+
+在这个例子中，sf的类型推到为`std::shared_future<std::map<SomeIndexType, SomeDataType, SomeComparator, SomeAllocator>::iterator>`，一口气还真的很难念完。当比较器或分配器有所改动，你只需要对“承诺”的类型进行修改即可；“期望”的类型会自动更新，与“承诺”的修改进行匹配。
+
+有时候你需要限定等待一个事件的时间，不论是因为你在时间上有硬性规定(一段指定的代码需要在某段时间内完成)，还是因为在事件没有很快的触发时，有其他必要的工作需要特定线程来完成。为了处理这种情况，很多等待函数具有用于指定超时的变量。
+
+
+
 ***
 [1] In *The Hitchhiker’s Guide* to the Galaxy, the computer Deep Thought is built to determine “the answer to Life,
 the Universe and Everything.” The answer is 42
