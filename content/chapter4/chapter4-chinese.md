@@ -626,13 +626,13 @@ auto sf=p.get_future().share();
 
 对于C++标准库来说，时钟就是时间信息源。特别是，时钟是一个类，提供了四种不同的信息：
  
-·现在时间
+* 现在时间
 
-·时间类型
+* 时间类型
 
-·时钟节拍
+* 时钟节拍
 
-·通过时钟节拍的分布，判断时钟是否稳定
+* 通过时钟节拍的分布，判断时钟是否稳定
 
 时钟的当前时间可以通过调用静态成员函数now()从时钟类中获取；例如，`std::chrono::system_clock::now()`是将返回系统时钟的当前时间。特定的时间点类型可以通过time_point的数据typedef成员来指定，所以some_clock::now()的类型就是some_clock::time_point。
 
@@ -724,6 +724,91 @@ bool wait_loop()
 到此，有关时间点超时的基本知识你已经了解了。现在，让我们来了解一下如何在函数中使用超时。
 
 ###4.3.4 具有超时功能的函数
+
+使用超时的最简单方式就是，对一个特定线程添加一个延迟处理；当这个线程无所事事时，就不会占用可供其他线程处理的时间。你在4.1节中看过一个例子，你循环检查“done”标志。两个处理函数分别是`std::this_thread::sleep_for()`和`std::this_thread::sleep_until()`。他们的工作就像一个简单的闹铃：当线程因为指定时延而进入睡眠时，可使用sleep_for()唤醒；或因指定时间点睡眠的，可使用sleep_until唤醒。sleep_for()的使用如同在4.1节中的例子，有些事必须在指定时间范围内完成，所以耗时在这里就很重要。另一方面，sleep_until()允许在某个特定时间点将调度线程唤醒。这有可能在晚间备份，或在早上6:00打印工资条时使用，亦或挂起线程直到下一帧刷新时进行视频播放。
+
+当然，休眠只是超时处理的一种形式；你已经看到了，超时可以配合条件变量和“期望”一起使用。超时甚至可以在尝试获取一个互斥锁时(当互斥量支持超时时)使用。`std::mutex`和`std::recursive_mutex`都不支持超时锁，但是`std::timed_mutex`和`std::recursive_timed_mutex`支持。这两种类型也有try_lock_for()和try_lock_until()成员函数，可以在一段时期内尝试，或在指定时间点前获取互斥锁。表4.1展示了C++标准库中支持超时的函数。参数列表为“延时”(*duration*)必须是`std::duration<>`的实例，并且列出为“时间点”(*time_point*)必须是`std::time_point<>`的实例。
+
+表4.1 可接受超时的函数
+
+<table border=1>
+  <td>类型/命名空间</td>
+  <td>函数</td>
+  <td>返回值</td>
+<tr>
+  <td rowspan=2> std::this_thread[namespace] </td>
+  <td> sleep_for(duration) </td>
+  <td rowspan=2>N/A</td>
+</tr>
+<tr>
+  <td>sleep_until(time_point)</td>
+</tr>
+<tr>
+  <td rowspan = 2>std::condition_variable 或 std::condition_variable_any</td>
+  <td>wait_for(lock, duration)</td>
+  <td rowspan = 2>std::cv_status::time_out 或 std::cv_status::no_timeout</td>
+</tr>
+<tr>
+  <td>wait_until(lock, time_point)</td>
+</tr>
+<tr>
+  <td rowspan = 2> </td>
+  <td> wait_for(lock, duration, predicate)</td>
+  <td rowspan = 2>bool —— 当唤醒时，返回谓词的结果</td>
+</tr>
+<tr>
+  <td>wait_until(lock, duration, predicate)</td>
+</tr>
+<tr>
+  <td rowspan = 2>std::timed_mutex 或 std::recursive_timed_mutex</td>
+  <td>try_lock_for(duration)</td>
+  <td rowspan = 2> bool —— 获取锁时返回true，否则返回fasle</td>
+</tr>
+<tr>
+  <td>try_lock_until(time_point)</td>
+</tr>
+<tr>
+  <td rowspan = 2>std::unique_lock&lt;TimedLockable&gt</td>
+  <td>unique_lock(lockable, duration)</td>
+  <td>N/A —— 对新构建的对象调用owns_lock();</td>
+</tr>
+<tr>
+  <td>unique_lock(lockable, time_point)</td>
+  <td>当获取锁时返回true，否则返回false</td>
+</tr>
+<tr>
+  <td rowspan = 2></td>
+  <td>try_lock_for(duration)</td>
+  <td rowspan = 2>bool —— 当获取锁时返回true，否则返回false</td>
+</tr>
+<tr>
+  <td>try_lock_until(time_point)</td>
+</tr>
+<tr>
+  <td rowspan = 3>std::future&ltValueType&gt或std::shared_future&ltValueType&gt</td>
+  <td>wait_for(duration)</td>
+  <td>当等待超时，返回std::future_status::timeout</td>
+</tr>
+<tr>
+  <td rowspan = 2>wait_until(time_point)</td>
+  <td>当“期望”准备就绪时，返回std::future_status::ready</td>
+</tr>
+<tr>
+  <td>当“期望”持有一个为启动的延迟函数，返回std::future_status::deferred</td>
+</tr>
+</table>
+
+现在，我们讨论的机制有：条件变量、“期望”、“承诺”还有打包的任务。是时候从更高的角度去看待这些机制，怎么样使用这些机制，简化线程间的同步操作。
+
+##4.4 使用同步操作简化代码
+
+同步工具的使用在本章称为构建块，你可以之关注那些需要同步的操作，而非具体使用的机制。一种方式可以帮助你简化你的代码，需要为程序的并发，提供更多的函数化(是函数化编程的意思(*functional programming*))方法。比起在多个线程间直接共享数据，每个任务拥有自己的数据会应该会更好，并且结果可以对其他线程进行广播，这就需要使用“期望”来完成了。
+
+###4.4.1 使用“期望”的函数化编程
+
+###4.4.2 使用消息传递的同步操作
+
+##5 总结
 
 ***
 [1] In *The Hitchhiker’s Guide* to the Galaxy, the computer Deep Thought is built to determine “the answer to Life,
