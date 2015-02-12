@@ -616,7 +616,7 @@ auto sf=p.get_future().share();
 
 之前介绍过的所有阻塞调用，将会阻塞一段不确定的时间，将线程挂起直到等待的事件发生。在很多情况下，这样的方式很不错，但是在其他一些情况下，你就需要限制一下线程等待的时间了。这允许你发送一些类似“我还存活”的信息，无论是对交互式用户，或是其他进程，亦或当用户放弃等待，你可以按下“ 取消”键直接终止等待。
 
-介绍两种可能是你希望指定的超时方式：一种是“基于持续时间”的超时方式，另一种是“绝对”超时方式。第一种方式，需要指定一段时间(例如，30毫秒)；第二种方式，就是指定一个时间点(例如，协调世界时[UTC]17:30:15.045987023，2011年11月30日)。多数等待函数提供变量，对两种超时方式进行处理。处理持续时间的变量以“_for”作为后缀，处理绝对时间的变量以"_until"作为后缀。
+介绍两种可能是你希望指定的超时方式：一种是“时延”的超时方式，另一种是“绝对”超时方式。第一种方式，需要指定一段时间(例如，30毫秒)；第二种方式，就是指定一个时间点(例如，协调世界时[UTC]17:30:15.045987023，2011年11月30日)。多数等待函数提供变量，对两种超时方式进行处理。处理持续时间的变量以“_for”作为后缀，处理绝对时间的变量以"_until"作为后缀。
 
 所以，当`std::condition_variable`的两个成员函数wait_for()和wait_until()成员函数分别有两个负载，这两个负载都与wait()成员函数的负载相关——其中一个负载只是等待信号触发，或时间超期，亦或是一个虚假的唤醒，并且醒来时，会检查锁提供的谓词，并且只有在检查为true时才会返回(这时条件变量的条件达成)，或直接而超时。
 
@@ -642,13 +642,88 @@ auto sf=p.get_future().share();
 
 我们马上来看一下时间点是如何表示的，但在这之前，我们先看一下持续时间是怎么表示的。
 
-###4.3.2 持续时间
+###4.3.2 时延
+
+时延是时间部分最简单的；`std::chrono::duration<>`函数模板能够对时延进行处理(线程库使用到的所有C++时间处理工具，都在`std::chrono`命名空间内)。第一个模板参数是一个类型表示(比如，int，long或double)，第二个模板参数是制定部分，表示每一个单元所用秒数。例如，当几分钟的时间要存在short类型中时，可以写成`std::chrono::duration<short, std::ratio<60, 1>>`，因为60秒是才是1分钟，所以第二个参数写成`std::ratio<60, 1>`。另一方面，当需要将毫秒级计数存在double类型中时，可以写成`std::chrono::duration<double, std::ratio<1, 1000>>`，因为1秒等于1000毫秒。
+
+标准库在`std::chrono`命名空间内，为延时变量提供一系列预定义类型：nanoseconds[纳秒] , microseconds[微秒] , milliseconds[毫秒] , seconds[秒] , minutes[分]和hours[时]。比如，你要在一个合适的单元表示一段超过500年的时延，预定义类型可充分利用了大整型，来表示所要表示的时间类型。当然，这里也定义了一些国际单位制(SI, [法]le Système international d'unités)分数，可从`std::atto(10^(-18))`到`std::exa(10^(18))`(题外话：当你的平台支持128位整型);为了当指定自定义时延类型，例如，`std::duration<double, std::centi>`，就可以使用一个double类型的变量表示1/100。
+
+当不要求截断值的情况下(时转换成秒是没问题，但是秒转换成时就不行)时延的转换是隐式的。显示转换可以由`std::chrono::duration_cast<>`来完成。
+
+```c++
+std::chrono::milliseconds ms(54802);
+std::chrono::seconds s=
+       std::chrono::duration_cast<std::chrono::seconds>(ms);
+```
+
+这里的结果就是截断的，而不是进行了舍入，所以s最后的值将为54。
+
+延迟支持计算，所以你能够对两个时延变量进行加减，或者是对一个时延变量乘除一个常数(模板的第一个参数)来获得一个新延迟变量。例如，5*seconds(1)与seconds(5)或minutes(1)-seconds(55)一样。在时延中可以通过count()成员函数获得单位时间的数量。例如，`std::chrono::milliseconds(1234).count()`就是1234。
+
+基于时延的等待可由`std::chrono::duration<>`来完成。例如，你等待一个“期望”状态变为就绪已经35毫秒：
+
+```c++
+std::future<int> f=std::async(some_task);
+if(f.wait_for(std::chrono::milliseconds(35))==std::future_status::ready)
+  do_something_with(f.get());
+```
+
+等待函数会返回一个状态值，来表示等待是超时，还是继续等待。在这种情况下，你可以等待一个“期望”，所以当函数等待超时时，会返回`std::future_status::timeout`；当“期望”状态改变，函数会返回`std::future_status::ready`；当“期望”的任务延迟了，函数会返回`std::future_status::deferred`。基于时延的等待是使用内部库提供的稳定时钟，来进行计时的；所以，即使系统时钟在等待时被调整(向前或向后)，35毫秒的时延在这里意味着，的确耗时35毫秒。当然，难以预料的系统调度和不同操作系统的时钟精度都意味着：在线程中，从调用到返回的实际时间可能要比35毫秒长。
+
+时延中没有特别好的办法来处理以上情况，所以我们暂且停下对时延的讨论。现在，我们就要来看看时间点是怎么样工作的。
 
 ###4.3.3 时间点
 
+时钟的时间点可以用`std::chrono::time_point<>`的类型模板实例来表示，实例的第一个参数用来指定所要使用的时钟，第二个函数参数用来表示时间的计量单位(特化的`std::chrono::duration<>`)。一个时间点的值就是时间的长度(在指定时间的倍数内)，例如，指定“unix时间戳”(*epoch*)为一个时间点。时间戳是时钟的一个基本属性，但并不是可以直接查询，或在C++标准中指定。通常，unix时间戳表示1970年1月1日 00:00，即计算机启动应用程序时。时钟可能共享一个时间戳，或具有独立的时间戳。当两个时钟共享一个时间戳时，其中一个time_point类型可以与另一个时钟类型中的time_point相关联。这里，虽然你无法知道unix时间戳是什么，但是你可以通过对指定time_pointl类型使用time_since_epoch()来获取时间戳。这个成员函数会返回一个时延值，这个时延值是指定时间点到时钟的unix时间戳锁用时。
+
+例如，你i可能指定了一个时间点`std::chrono::time_point<std::chrono::system_clock, std::chrono::minutes>`。这就与系统时钟有关，且实际中的一分钟与系统时钟精度应该不相同(通常差几秒)。
+
+你可以通过`std::chrono::time_point<>`实例来加/减时延，来获得一个新的时间点，所以`std::chrono::hight_resolution_clock::now() + std::chrono::nanoseconds(500)`将得到500纳秒后的时间。当你知道一块代码的最大时延时，这对于计算绝对时间的超时是一个好消息，当等待时间内，等待函数进行多次调用；或，非等待函数且占用了等待函数时延中的时间。
+
+你也可以减去一个时间点(二者需要共享同一个时钟)。结果是两个时间点的时间差。这对于代码块的计时是很有用的，例如：
+
+```c++
+auto start=std::chrono::high_resolution_clock::now();
+do_something();
+auto stop=std::chrono::high_resolution_clock::now();
+std::cout<<”do_something() took “
+  <<std::chrono::duration<double,std::chrono::seconds>(stop-start).count()
+  <<” seconds”<<std::endl;
+```
+
+`std::chrono::time_point<>`实例的时钟参数可不仅是能够指定unix时间戳的。当你想一个等待函数(绝对时间超时的方式)传递时间点时，时间点的时钟参数就被用来测量时间。当时钟变更时，会产生严重的后果，因为等待轨迹随着时钟的改变而改变，并且知道调用时钟的now()成员函数时，才能返回一个超过超时时间的值。当时钟向前调整，这就有可能减小等待时间的总长度(与稳定时钟的测量相比)；当时钟向后调整，就有可能增加等待时间的总长度。
+
+如你期望的那样，后缀为_unitl的(等待函数的)变量会使用时间点。通常是使用某些时钟的`::now()`(程序中一个固定的时间点)作为偏移，虽然时间点与系统时钟有关，可以使用`std::chrono::system_clock::to_time_point()` 静态成员函数，在用户可视时间点上进行调度操作。例如，当你有一个对多等待500毫秒的，且与条件变量相关的事件，你可以参考如下代码：
+
+清单4.11 等待一个条件变量——有超时功能
+```c++
+#include <condition_variable>
+#include <mutex>
+#include <chrono>
+
+std::condition_variable cv;
+bool done;
+std::mutex m;
+
+bool wait_loop()
+{
+  auto const timeout= std::chrono::steady_clock::now()+
+      std::chrono::milliseconds(500);
+  std::unique_lock<std::mutex> lk(m);
+  while(!done)
+  {
+    if(cv.wait_until(lk,timeout)==std::cv_status::timeout)
+      break;
+  }
+  return done;
+}
+```
+
+这种方式是我们推崇的，当你没有什么事情可以等待时，可在一定时限中等待条件变量。在这种方式中，循环的整体长度是有限的。如你在4.1.1节中所见，当使用条件变量(且无事可待)时，你就需要使用循环，这是为了处理假唤醒。当你在循环中使用wait_for()时，你可能在等待了足够长的时间后结束等待(在假唤醒之前)，且下一次等待有开始了。这可能重复很多次，使得等待时间无边无际。
+
+到此，有关时间点超时的基本知识你已经了解了。现在，让我们来了解一下如何在函数中使用超时。
+
 ###4.3.4 具有超时功能的函数
-
-
 
 ***
 [1] In *The Hitchhiker’s Guide* to the Galaxy, the computer Deep Thought is built to determine “the answer to Life,
