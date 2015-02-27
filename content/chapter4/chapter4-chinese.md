@@ -816,14 +816,14 @@ bool wait_loop()
 
 为了描述在函数化(PF)并发中使用“期望”，让我们来看看一个简单的实现——快速排序算法。该算法的基本思想很简单：给定一个数据列表，然后选取其中一个数为“中间”值，之后将列表中的其他数值分成两组——一组比中间值大，另一组比中间值小。之后对小于“中间”值的组进行排序，并返回排序好的列表；再返回“中间”值；再对比“中间”值大的组进行排序，并返回排序的列表。图4.2中展示了10个整数在这种方式下进行排序的过程。
 
-![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter4/4-2.png) 
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter4/4-2.png)
 
 图4.2 FP-模式的递归排序
 
 下面清单中的代码是FP-模式的顺序实现，它需要传入列表，并且返回一个列表，而非与`std::sort()`做同样的事情。
 (译者：`std::sort()`是无返回值的，因为参数接收的是迭代器，所以其可以对原始列表直进行修改与排序。可参考[sort()](http://www.cplusplus.com/reference/algorithm/sort/?kw=sort))
 
-清单4.12 顺序实现的快速排序
+清单4.12 快速排序——顺序实现版
 ```c++
 template<typename T>
 std::list<T> sequential_quick_sort(std::list<T> input)
@@ -861,7 +861,45 @@ std::list<T> sequential_quick_sort(std::list<T> input)
 
 **快速排序 FP模式线程强化版**
 
+因为还是使用函数化模式，所以使用“期望”很容易将其转化为并行的版本，如下面的程序清单所示。其中的操作与前面相同，不同的是它们现在并行运行。
 
+清单4.13 快速排序——“期望”并行版
+```c++
+template<typename T>
+std::list<T> parallel_quick_sort(std::list<T> input)
+{
+  if(input.empty())
+  {
+    return input;
+  }
+  std::list<T> result;
+  result.splice(result.begin(),input,input.begin());
+  T const& pivot=*result.begin();
+
+  auto divide_point=std::partition(input.begin(),input.end(),
+                [&](T const& t){return t<pivot;});
+  
+  std::list<T> lower_part;
+  lower_part.splice(lower_part.end(),input,input.begin(),
+                divide_point);
+
+  std::future<std::list<T> > new_lower(  // 1
+                std::async(&parallel_quick_sort<T>,std::move(lower_part)));
+
+  auto new_higher(
+                parallel_quick_sort(std::move(input)));  // 2
+
+  result.splice(result.end(),new_higher);  // 3
+  result.splice(result.begin(),new_lower.get());  // 4
+  return result;
+}
+```
+
+这里最大的变化是，当前线程不对小于“中间”值部分的列表进行排序，使用`std::async()`①在另一线程对其进行排序。大于部分列表，如同之前一样，使用递归的方式进行排序②。通过递归调用parallel_quick_sort()，你就可以利用可用的硬件并发了。`std::async()`会启动一个新线程，这样当你递归三次时，就会有八个线程在运行了；当你递归十次(对于大约有1000个元素的列表)，如果硬件能处理这十次递归调用，你将会创建1024个执行线程。当运行库认为这样做产生了太多的任务时(也许是因为数量超过了硬件并发的最大值)，运行库可能会同步的切换新产生的任务。当任务过多时(已影响性能)，这些任务应该在使用get()函数获取的线程上运行，而不是在新线程上运行，这样就能避免任务向线程传递的开销。值的注意的是，这完全符合`std::async`的实现，为每一个任务启动一个线程(甚至在任务超额时；在`std::launch::deferred`没有明确规定的情况下)；或为了同步执行所有任务(在`std::launch::async`有明确规定的情况下)。当你依赖运行库的自动缩放，建议你去查看一下你的实现文档，了解一下将会有怎么样的行为表现。
+
+比起使用`std::async()`，你可以写一个spawn_task()函数对`std::packaged_task`和`std::thread`做简单的包装，如清单4.14中的代码所示；你需要为函数结果创建一个`std::packaged_task`对象， 可以从这个对象中获取“期望”，或在线程中执行它，返回“期望”。其本身并不提供太多的好处(并且事实上会造成大规模的超额任务)，但是它会为转型成一个更复杂的实现铺平道路，将会实现向一个队列添加任务，而后使用线程池的方式来运行它们。我们将在第9章再讨论线程池。使用`std::async`更适合于当你知道你在干什么，并且要完全控制在线程池中构建或执行过任务的线程。
+
+其他先不管，回到parallel_quick_sort函数。因为你只是直接递归去获取new_higher列表，你可以如之前一样对new_higher进行拼接③。但是，new_lower列表是`std::future<std::list<T>>`的实例，而非是一个简单的列表，所以你需要调用get()成员函数在调用splice()④之前去检索数值。
 
 ###4.4.2 使用消息传递的同步操作
 
