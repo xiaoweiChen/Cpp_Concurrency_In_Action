@@ -768,7 +768,7 @@ bool wait_loop()
   <td>try_lock_until(time_point)</td>
 </tr>
 <tr>
-  <td rowspan = 2>std::unique_lock&lt;TimedLockable&gt</td>
+  <td rowspan = 2>std::unique_lock&lt;TimedLockable&gt;</td>
   <td>unique_lock(lockable, duration)</td>
   <td>N/A —— 对新构建的对象调用owns_lock();</td>
 </tr>
@@ -785,7 +785,7 @@ bool wait_loop()
   <td>try_lock_until(time_point)</td>
 </tr>
 <tr>
-  <td rowspan = 3>std::future&ltValueType&gt或std::shared_future&ltValueType&gt</td>
+  <td rowspan = 3>std::future&lt;ValueType&gt;或std::shared_future&lt;ValueType&gt;</td>
   <td>wait_for(duration)</td>
   <td>当等待超时，返回std::future_status::timeout</td>
 </tr>
