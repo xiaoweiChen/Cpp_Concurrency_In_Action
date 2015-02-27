@@ -806,6 +806,63 @@ bool wait_loop()
 
 ###4.4.1 使用“期望”的函数化编程
 
+术语“函数化编程”(*functional programming ( FP )*)引用于一种编程方式，这种方式中的函数结果只依赖于传入函数的参数，并不依赖外部状态。当一个函数与数学概念相关时，当你使用相同的函数调用这个函数两次，这两次的结果会完全相同。在C++标准库中很多与数学相关的函数都有这个特性，例如， sin（正弦）, cos（余弦）和sqrt（平方根）；当然，还有基本类型间的简单运算，例如， 3+3， 6*9，或1.3/4.7。一个纯粹的函数不会改变任何外部状态，并且这种特性完全限制了函数的返回值。
+
+很容易想象这是一种什么样的情况，特别是当并行发生时，因为在第三章时我们讨论过，很多问题发生在共享数据上。当共享数据没有被修改，那么就不存在条件竞争，并且没有必要使用互斥量去保护共享数据。这可对编程进行极大的简化，例如Haskell语言[2]，在Haskell中函数默认就是这么的“纯粹”；这种纯粹对的方式，在并发编程系统中越来越受欢迎。因为大多数函数都是纯粹的，那么非纯粹的函数对共享数据的修改就显得更为突出，所以其很容易适应应用的整体结构。
+
+函数化编程的好处，并不限于那些将“纯粹”作为默认方式(范型)的语言。C++是一个多范型的语言，其也可以写出FP类型的程序。在C++11中这种方式要比C++98简单许多，因为C++11支持lambda表达式(详见附录A，A.6节)，还加入了[Boost](http://zh.wikipedia.org/wiki/Boost_C%2B%2B_Libraries)和[TR1](http://zh.wikipedia.org/wiki/C%2B%2B_Technical_Report_1)中的`std::bind`，以及自动可以自行推断类型的自动变量(详见附录A，A.7节)。“期望”作为拼图的最后一块，它使得函数化编程模式并发化(*FP-style concurrency*)在C++中成为可能；一个“期望”对象可以在线程间互相传递，并允许其中一个计算结果依赖于另外一个的结果，而非对共享数据的显式访问。
+
+**快速排序 FP模式版**
+
+为了描述在函数化(PF)并发中使用“期望”，让我们来看看一个简单的实现——快速排序算法。该算法的基本思想很简单：给定一个数据列表，然后选取其中一个数为“中间”值，之后将列表中的其他数值分成两组——一组比中间值大，另一组比中间值小。之后对小于“中间”值的组进行排序，并返回排序好的列表；再返回“中间”值；再对比“中间”值大的组进行排序，并返回排序的列表。图4.2中展示了10个整数在这种方式下进行排序的过程。
+
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter4/4-2.png) 
+
+图4.2 FP-模式的递归排序
+
+下面清单中的代码是FP-模式的顺序实现，它需要传入列表，并且返回一个列表，而非与`std::sort()`做同样的事情。
+(译者：`std::sort()`是无返回值的，因为参数接收的是迭代器，所以其可以对原始列表直进行修改与排序。可参考[sort()](http://www.cplusplus.com/reference/algorithm/sort/?kw=sort))
+
+清单4.12 顺序实现的快速排序
+```c++
+template<typename T>
+std::list<T> sequential_quick_sort(std::list<T> input)
+{
+  if(input.empty())
+  {
+    return input;
+  }
+  std::list<T> result;
+  result.splice(result.begin(),input,input.begin());  // 1
+  T const& pivot=*result.begin();  // 2
+
+  auto divide_point=std::partition(input.begin(),input.end(),
+             [&](T const& t){return t<pivot;});  // 3
+
+  std::list<T> lower_part;
+  lower_part.splice(lower_part.end(),input,input.begin(),
+             divide_point);  // 4
+  auto new_lower(
+             sequential_quick_sort(std::move(lower_part)));  // 5
+  auto new_higher(
+             sequential_quick_sort(std::move(input)));  // 6
+
+  result.splice(result.end(),new_higher);  // 7
+  result.splice(result.begin(),new_lower);  // 8
+  return result;
+}
+```
+
+虽然接口的形式是FP模式的，但当你使用FP模式时，你需要做大量的拷贝操作，所以在内部你会使用“普通”的命令模式。你选择第一个数为“中间”值，使用splice()①将它与前面的列表分离。虽然这种方式产生的结果可能不是最优的(会有大量的比较和交换操作)，但是对`std::list`做任何事都需要花费较长的时间，因为列表访问是遍历的。你知道你想要什么样的结果，所以你可以直接将要使用的“中间”值进行拼接。现在你还需要使用“中间”值进行比较，所以这里使用了一个引用②，为了避免过多的拷贝。之后，你可以使用`std::partition`将序列中的值分成小于“中间”值的组和大于“中间”值的组③。最简单的方法就是使用lambda函数指定区分的标准；使用已获取的引用避免对“中间”值的拷贝(详见附录A，A.5节，更多有关lambda函数的信息)。
+
+`std::partition()`对列表进行重置，并返回一个指向首元素(*不*小于“中间”值)的迭代器。迭代器的类型全称可能会很长(*long-winded*)，所以你可以使用auto类型说明符，让编译器帮助你定义迭代器类型的变量(详见附录A，A.7节)。
+
+现在，你已经选择了FP模式的接口；所以，当你要使用递归对两部分排序是，你将需要创建两个列表。你可以用splice()函数来做这件事，将input列表小于divided_point的值移动到新列表lower_part④中。其他数继续留在input列表中。而后，你可以使用递归调用⑤⑥的方式，对两个列表进行排序。这里显式使用`std::move()`将列表传递到类函数中，这种方式还是为了避免大量的拷贝操作。最终，你可以再次使用splice()，将result中的结果以正确的顺序进行拼接。new_higher指向的值放在“中间”值的后面⑦，new_lower指向的值放在“中间”值的前面⑧。
+
+**快速排序 FP模式线程强化版**
+
+
+
 ###4.4.2 使用消息传递的同步操作
 
 ##5 总结
@@ -813,6 +870,8 @@ bool wait_loop()
 ***
 [1] In *The Hitchhiker’s Guide* to the Galaxy, the computer Deep Thought is built to determine “the answer to Life,
 the Universe and Everything.” The answer is 42
+
+[2] See http://www.haskell.org/.
 
 
 
