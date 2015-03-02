@@ -899,7 +899,27 @@ std::list<T> parallel_quick_sort(std::list<T> input)
 
 比起使用`std::async()`，你可以写一个spawn_task()函数对`std::packaged_task`和`std::thread`做简单的包装，如清单4.14中的代码所示；你需要为函数结果创建一个`std::packaged_task`对象， 可以从这个对象中获取“期望”，或在线程中执行它，返回“期望”。其本身并不提供太多的好处(并且事实上会造成大规模的超额任务)，但是它会为转型成一个更复杂的实现铺平道路，将会实现向一个队列添加任务，而后使用线程池的方式来运行它们。我们将在第9章再讨论线程池。使用`std::async`更适合于当你知道你在干什么，并且要完全控制在线程池中构建或执行过任务的线程。
 
-其他先不管，回到parallel_quick_sort函数。因为你只是直接递归去获取new_higher列表，你可以如之前一样对new_higher进行拼接③。但是，new_lower列表是`std::future<std::list<T>>`的实例，而非是一个简单的列表，所以你需要调用get()成员函数在调用splice()④之前去检索数值。
+清单4.14 spawn_task的简单实现
+```c++
+template<typename F,typename A>
+std::future<std::result_of<F(A&&)>::type>
+   spawn_task(F&& f,A&& a)
+{
+  typedef std::result_of<F(A&&)>::type result_type;
+  std::packaged_task<result_type(A&&)>
+       task(std::move(f)));
+  std::future<result_type> res(task.get_future());
+  std::thread t(std::move(task),std::move(a));
+  t.detach();
+  return res;
+}
+```
+
+其他先不管，回到parallel_quick_sort函数。因为你只是直接递归去获取new_higher列表，你可以如之前一样对new_higher进行拼接③。但是，new_lower列表是`std::future<std::list<T>>`的实例，而非是一个简单的列表，所以你需要调用get()成员函数在调用splice()④之前去检索数值。在这之后，等待后台任务完成，并且将结果移入splice()调用中；get()返回一个包含结果的右值引用，所以这个结果是可以移出的(详见附录A，A.1.1节，有更多有关右值引用和移动语义的信息)。
+
+即使假设，使用`std::async()`是对可用硬件并发最好的选择，但是这样的并行实现对于快速排序来说，依然不是最理想的。其中， `std::partition`做了很多工作，即使那样做依旧是顺序调用，但就现在的情况来说，已经足够好了。如果你对实现最快并行的可能感兴趣的话，你可以去查阅一些学术文献。
+
+因为避开了共享易变数据，函数化编程可算作是并发编程的范型；并且也是CSP(*Communicating Sequential Processer*[3],通讯顺序进程)的范型，这里线程理论上是完全分开的，也就是没有共享数据，但是有通讯通道允许信息在不同线程间进行传递。这种发型被Erlang语言(http://www.erlang.org/)所采纳，并且在MPI(*Message Passing Interface*，消息传递接口) (http://www.mpi-forum.org/)上常用来做C和C++的高性能运算。现在你应该不会在对学习它们而感到惊奇了吧，因为只需遵守一些约定，C++就能支持它们；在接下来的一节中，我们会讨论实现这种方式。
 
 ###4.4.2 使用消息传递的同步操作
 
@@ -911,6 +931,7 @@ the Universe and Everything.” The answer is 42
 
 [2] See http://www.haskell.org/.
 
+[3] *Communicating Sequential Processes*, C.A.R. Hoare, Prentice Hall, 1985. Available free online at http://www.usingcsp.com/cspbook.pdf.
 
 
 
