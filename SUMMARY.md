@@ -2,7 +2,7 @@
 * [第2章 线程管理](content/chapter2/chapter2-chinese.md)
 * [第3章 线程间共享数据](content/chapter3/chapter3-chinese.md)
 * [第4章 同步并发操作](content/chapter4/chapter4-chinese.md)
-* [第5章 C++内存模型和原子类型上操作]()
+* [第5章 C++内存模型和原子类型上操作](content/chapter5/chapter5-chinese.md)
 * [第6章 设计基于锁的并发数据结构]()
 * [第7章 设计无锁的并发数据结构]()
 * [第8章 设计并行代码]()
