@@ -65,7 +65,41 @@ C++是一个系统级别的编程语言。标准委员会的目标之一就是�
 
 ##5.2 C++中的原子操作和原子类型
 
+原子操作是一类不可分割的操作。当这样操作在任意线程中进行一半的时候，你是不能查看的；它的状态要不就是完成，要不就是未完成。如果从一个对象中读取一个值的加载操作是原子的话，并且对对象的所有修改也都是原子的话，那么加载操作要不就会检索对象初始化的值，要不就将值存在某一次修改中。
+
+另一方面，非原子操作可能会被视为由一个线程完成一半的操作。如果这种是一个存储操作，那么可被其他线程观察到的值可能，既不是存储前的值，也不是已存储的值。如果非原子操作是一个加载操作，那么它可能会去检索对象的部分成员，或是有另一个线程修改了对象的值，并且检索之后的对象；因此，检索出来的值可能既不是第一个值，也不是第二个值，可能是某种两者结合的值。这就是一个简单的条件竞争(如第3章所描述)，但是这种级别的竞争会构成数据竞争(详见5.1节)，并且会有未定义行为的发生。
+
+在C++中，大多数情况下，你需要一个原子类型去执行一个原子操作，所以我们来看一下原子类型。
+
 ###5.2.1 标准原子类型
+
+标准原子类型(*atomic types*)可以在<atomic>头文件中找到。所有在这种类型上的操作都是原子的，虽然可以使用互斥量去达到原子操作的效果，但只有在这些类型上的操作是原子的(语言明确定义)。实际上，标准原子类型自身可能会效仿：它们(大多数)都有一个is_lock_free()成员函数，这个函数允许用户决定是否直接对一个给定类型使用原子指令(x.is_lock_free()返回true)，或对编译器或运行库使用内部锁(x.is_lock_free()返回false)。
+
+只用`std::atomic_flag`类型不提供is_lock_free()成员函数。这个类型是一个简单的布尔标志，并且在这种类型上的操作都需要是无锁的(*lock-free*)；当你有一个简单无锁的布尔标志是，你可以使用其实现一个简单的锁，并且实现其他基础的原子类型。当你觉得“真的很简单”的时候，就说明：`std::atomic_flag`对象初始化很明确，之后可做查询和设置(使用test_and_set()成员函数)，或清除(使用clear()成员函数)。这就是：无赋值，无拷贝结构，没有测试和清除，没有其他任何操作。
+
+剩下的原子类型都可以通过特化`std::atomic<>`类型模板而访问到，并且拥有更多的功能，但可能不都是无锁的(如之前解释的那样)。在最流行的平台上，会期望原子变量都是无锁的内置类型(例如`std::atomic<int>`和`std::atomic<void*>`)，但这不是必须的。你在后面将会看到，每个特化接口所反映出的类型特点；位操作(如&=)就没有为普通指针所定义，所以它也就不能为原子指针多定义。
+
+除了直接使用`std::atomic<>`类型模板外，你可以使用在表5.1中所示的原子类型集。由于历史原因，原子类型已经添加入C++标准中，这些备选类型名可能参考相应的`std::atomic<>`特化类型，或是特化的基类。在同一程序中混合使用备选名与`std::atomic<>`特化类名，会使代码不可移植。
+
+表5.1 标准原子类型的备选名和与其相关的`std::atomic<>`特化类
+
+| 原子类型 | 相关特化类 |
+| ------------ | -------------- |
+| atomic_bool | std::atomic&lt;bool> |
+| atomic_char | std::atomic&lt;char> |
+| atomic_schar | std::atomic&lt;signed char> |
+| atomic_uchar | std::atomic&lt;unsigned char> |
+| atomic_int | std::atomic&lt;int> |
+| atomic_uint | std::atomic&lt;unsigned> |
+| atomic_short | std::atomic&lt;short> |
+| atomic_ushort | std::atomic&lt;unsigned short> |
+| atomic_long | std::atomic&lt;long> |
+| atomic_ulong | std::atomic&lt;unsigned long> |
+| atomic_llong | std::atomic&lt;long long> |
+| atomic_ullong | std::atomic&lt;unsigned long long> |
+| atomic_char16_t | std::atomic&lt;char16_t> |
+| atomic_char32_t | std::atomic&lt;char32_t> |
+| atomic_wchar_t | std::atomic&lt;wchar_t> |
 
 ###5.2.2 std::atomic_flag的相关操作
 
