@@ -220,7 +220,43 @@ x=b.exchange(false, std::memory_order_acq_rel);
 
 这是一种新型操作，叫做“比较/交换”，它的形式表现为compare_exchange_weak()和compare_exchange_strong()成员函数。“比较/交换”操作是原子类型编程的基石；它比较原子变量的当前值和提供的预期值，当两值相等时，存储所需要的值。当两值不等，期望值就会被更新为原子变量中的值。“比较/交换”函数值是一个bool变量，当返回true时执行存储操作，当false则更新期望值。
 
+对于compare_exchange_weak()函数，当原始值与期望值一致时，存储也可能会不成功；在这个例子中变量的值不会发生改变，并且compare_exchange_weak()的返回是false。这可能发生在缺少独立“比较-交换”指令的机器上，当处理器不能保证这个操作能够自动的完成——可能是因为线程的操作将指令队列从中间关闭，并且另一个线程安排的指令将会被操作系统所替换(这里线程数多于处理器数量)。这被称为“伪失败”(*spurious failure*)，因为造成这种情况的原因是时间，而不是变量值。
+
+因为compare_exchange_weak()可以“伪失败”，所以这里通常使用一个循环：
+
+```c++
+bool expected=false;
+extern atomic<bool> b; // 设置些什么
+while(!b.compare_exchange_weak(expected,true) && !expected);
+```
+
+在这个例子中，循环中expected的值始终是false，表示compare_exchange_weak()会莫名的失败。
+
+另一方面，如果实际值与期望值不符，compare_exchange_strong()就能保证值返回false。这就能消除对循环的需要，就可以知道是否成功的改变了一个变量，或已让另一个线程完成。
+
+如果你想要改变变量值，且无论初始值是什么(可能是根据当前值更新了的值)，更新后的期望值将会变更有用；经历每次循环的时候，期望值都会重新加载，所以当没有其他线程同时修改期望时，在循环中对compare_exchange_weak()或compare_exchange_strong()的调用都会在下一次(第二次)成功。如果值的计算很容易存储，那么使用compare_exchange_weak()能更好的避免一个双重循环的执行，即使compare_exchange_weak()可能会“伪失败”(因此compare_exchange_strong()包含一个循环)。另一方面，如果值计算的存储本身是耗时的，那么当期望值不变时，使用compare_exchange_strong()可以避免对值的重复计算。对于`std::atomic<boo>`这些都不重要——毕竟只可能有两种值——但是对于更大一些的原子类型就有较大的影响了。
+
+当 “比较/交换”函数很少操作两个拥有内存顺序的参数。这就允许内存顺序语义在成功和失败的例子中有所不同；其可能是对memory_order_acq_rel语义的一次成功调用，而对memory_order_relaxed语义的一次失败的调动。一次失败的“比较/交换”将不会进行存储，所以它将不能拥有memeory_order_release或memory_order_acq_rel语义。因此，这里不能保证提供的这些值能作为失败的顺序。你也不可以提供严格的失败内存顺序；如果你需要memory_order_aquire或memory_order_seq_cst作为失败语序，你必须要像指定它们是成功语序时那样做。
+
+如果你没有指定失败的语序，那就假设和成功的顺序是一样的，除了release部分的顺序：memory_order_release编程memory_order_relaxed，并且memoyr_order_acq_rel变成memory_order_acquire。如果你都不指定，他们默认顺序将为memory_order_seq_cst，这个顺序提供去排序无论顺序是成功，还是失败。下面对compare_exchange_weak()的调用等价于：
+
+```c++
+std::atomic<bool> b;
+bool expected;
+b.compare_exchange_weak(expected,true,
+  memory_order_acq_rel,memory_order_acquire);
+b.compare_exchange_weak(expected,true,memory_order_acq_rel);
+```
+
+我在5.3节中会详解对于不同内存顺序选择的结果。
+
+`std::atomic<bool>`和`std::atomic_flag`的不同是，`std::atomic<bool>`不是无锁的；其实现需要一个内置的互斥量，为了保证操作的原子性。当处于特殊情况时，你可以使用is_lock_free()成员函数，去检查`std::atomic<bool>`上的操作是否无锁。这就是另一个所有原子类型都拥有的特征，除了`std::atomic_flag`之外。
+
+第二简单的原子类型就是特化原子指针——`std::atomic<T*>`，接下来就看看它是如何工作的吧。
+
 ###5.2.4 std::atomic<T*>:指针运算
+
+
 
 ###5.2.5 标准的原子整型的相关操作
 
