@@ -256,7 +256,31 @@ b.compare_exchange_weak(expected,true,memory_order_acq_rel);
 
 ###5.2.4 std::atomic<T*>:指针运算
 
+原子指针类型，可以使用内置或自定义类型T，通过特化`std::atomic<T*>`进行定义，就如同使用bool类型定义`std::atomic<bool>`类型一样。虽然接口几乎一致，但是它的操作是对于相关的指针类型的值，而非bool值本身。就像`std::atomic<bool>`，虽然它既不能拷贝构造，也不能拷贝赋值，但是他可以通过合适的类型指针进行构造和赋值。如同必须的成员函数is_lock_free()一样，`std::atomic<T*>`也有load(), store(), exchange(), compare_exchange_weak()和compare_exchage_strong()成员函数，与`std::atomic<bool>`的语义相同，获取与返回的类型都是T*，而不是bool。
 
+`std::atomic<T*>`提供新的操作都是指针运算运算。基本操作有fetch_add()和fetch_sub()提供，它们在存储地址上做原子加法和减法，为+=, -=, ++和--提供简易的封装。操作对于内置类型的操作，如你所预期：如果x是`std::atomic<Foo*>`类型的数组的首地址，然后x+=3让其偏移到第四个元素的地址，并且返回一个普通的Foo*类型值，这个指针值是指向数组中第四个元素。fetch_add()和fetch_sub()的返回值略有不同(所以x.ftech_add(3)让x指向第四个元素，并且函数返回指向第一个元素的地址)。这种操作也被称为“交换-相加”，并且这是一个原子的“读-改-写”操作，如同exchange()和compare_exchange_weak()/compare_exchange_strong()一样。正像其他操作那样，返回值是一个普通的T*值，而非是`std::atomic<T*>`对象的引用，所以调用代码可以基于之前的值进行操作：
+
+```c++
+class Foo{};
+Foo some_array[5];
+std::atomic<Foo*> p(some_array);
+Foo* x=p.fetch_add(2);  // p加2，并返回原始值
+assert(x==some_array);
+assert(p.load()==&some_array[2]);
+x=(p-=1);  // p减1，并返回原始值
+assert(x==&some_array[1]);
+assert(p.load()==&some_array[1]);
+```
+
+函数也接受内存顺序语义作为给定的函数参数：
+
+```c++
+p.fetch_add(3,std::memory_order_release);
+```
+
+因为fetch_add()和fetch_sub()都是“读-改-写”操作，它们可以拥有任意的内存顺序标签，以及加入到一个释放序列中。指定的语序时不可能是操作符的形式，因为没办法提供必要的信息：这些形式都具有memory_order_seq_cst语义。
+
+剩下的基本原子类型基本上都差不多：它们都是整型原子类型，并且都拥有同样的接口(除了相关的内置类型不一样)。下面我们就看看这一类类型。
 
 ###5.2.5 标准的原子整型的相关操作
 
