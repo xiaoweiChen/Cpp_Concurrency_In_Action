@@ -311,3 +311,47 @@ p.fetch_add(3,std::memory_order_release);
 表5.3 每一个原子类型所能使用的操作
 
 ###5.2.7 原子操作的释放函数
+
+直到现在，我都还在限制自己，不去描述成员函数对原子类型操作的形式。但是，在不同的原子类型中也有等价的非成员函数存在着。大多数非成员函数的命名与对应成员函数相关，但是需要“atomic_”作为前缀(比如，`std::atomic_load()`)。这些函数都会被不同的原子类型所重载。在指定一个内存序列标签时，他们会分成两种：一种没有标签，另一种将“_explicit”作为后缀，并且需要一个额外的参数，或将内存顺序作为标签，亦或只有标签(例如，`std::atomic_store(&atomic_var,new_value)`与`std::atomic_store_explicit(&atomic_var,new_value,std::memory_order_release`)。但是，原子对象被成员函数隐式引用，所有释放函数都持有一个指向原子对象的指针(作为第一个参数)。
+
+例如，`std::atomic_is_lock_free()`只有一种类型(虽然会被其他类型所重载)，并且对于同一个对象a，`std::atomic_is_lock_free(&a)`返回值与a.is_lock_free()相同。同样的，`std::atomic_load(&a)`和a.load()的作用一样，但是与a.load(std::memory_order_acquire)等价的操作是`std::atomic_load_explicit(&a, std::memory_order_acquire)`。
+
+释放函数的设计是为了要与C语言兼容，在C中只能使用指针，而不能使用引用。例如，compare_exchange_weak()和compare_exchange_strong()成员函数的第一个参数(期望值)是一个引用，而`std::atomic_compare_exchange_weak()`(第一个参数是指向对象的指针)的第二个参数是一个指针。`std::atomic_compare_exchange_weak_explicit()`也需要指定成功和失败的内存序列，而“比较/交换”成员函数都有一个单内存序列形式(默认是`std::memory_order_seq_cst`)，重载函数可以分别获取成功和失败内存序列。
+
+对`std::atomic_flag`的操作是反潮流的，在那些操作中它们“标志”的名称为：`std::atomic_flag_test_and_set()`和`std::atomic_flag_clear()`，但是以“_explicit”为后缀的额外操作也能够指定内存顺序：`std::atomic_flag_test_and_set_explicit()`和`std::atomic_flag_clear_explicit()`。
+
+C++标准库也对在一个原子类型中的`std::shared_ptr<>`智能指针类型提供释放函数。这打破了“只有原子类型，才能提供原子操作”的原则，这里`std::shared_ptr<>`肯定不是原子类型。但是，C++标准委员会感觉对此提供额外的函数是很重要的。可使用的原子操作有：load, store, exchange和compare/exchange，这些操作都能重载与标准原子类型，并且获取一个`std::shared_ptr<>*`作为第一个参数：
+
+```c++
+std::shared_ptr<my_data> p;
+void process_global_data()
+{
+  std::shared_ptr<my_data> local=std::atomic_load(&p);
+  process_data(local);
+}
+void update_global_data()
+{
+  std::shared_ptr<my_data> local(new my_data);
+  std::atomic_store(&p,local);
+}
+```
+
+作为和原子操作一同使用的其他类型，也提供“_explicit”变量，允许你指定所需的内存顺序，并且`std::atomic_is_lock_free()`函数可以用来确定，实现是否使用锁来保证原子性。
+
+如之前的描述，标准原子类型不仅仅是为了避免数据竞争所造成的未定义操作，它们允许用户对不同线程上的操作进行强制排序。这种强制排序是数据保护和同步操作的基础，例如，`std::mutex`和`std::future<>`。考虑的更多些，让我继续了解本章的真实意义：内存模型在并发方面的细节，如何使用原子操作同步数据和强制排序。
+
+##5.3 同步操作和强制排序
+
+###5.3.1 同步确序
+
+###5.3.2 不定序执行
+
+###5.3.3 原子操作的内存顺序
+
+###5.3.4 释放队列与同步相关
+
+###5.3.5 栅栏
+
+###5.3.6 原子操作对非原子的操作排序
+
+##5.4 总结
