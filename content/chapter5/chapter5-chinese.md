@@ -284,6 +284,12 @@ p.fetch_add(3,std::memory_order_release);
 
 ###5.2.5 标准的原子整型的相关操作
 
+如同普通的操作集合一样(load(), store(), exchange(), compare_exchange_weak(), 和compare_exchange_strong())，在`std::atomic<int>`和`std::atomic<unsigned long long>`也是有一套完整的操作可以供使用：fetch_add(), fetch_sub(), fetch_and(), fetch_or(), fetch_xor()，还有复合赋值方式((+=, -=, &=, |=和^=)，以及++和--(++x, x++, --x和x--)。虽然对于普通的整型来说，这些复合赋值方式还不完全，但也十分接近完整：只有除法、乘法和移位操作不在其中。因为整型原子值通常用来作计数器，或者是掩码，所以以上操作的缺失显得不是那么明显；如果需要，额外的操作可以将compare_exchange_weak()放入循环中完成。
+
+对于`std::atomic<T*>`类型紧密相关的两个函数就是fetch_add()和fetch_sub()；函数原子的执行它们的操作，并且返回旧值，而符合赋值运算返回的是新值。前缀加减和后缀加减和普通用法一样：++x对变量进行自加，并且返回新值；而x++对变量自加，返回旧值。正如你预期的那样，在这两个例子中，结果都是相关整型的一个值。
+
+我们已经看过所有基本原子类型；剩下的就是`std::atomic<>`类型模板，而非其特化类型。那么接下来让我们来了解一下`std::atomic<>`类型模板。
+
 ###5.2.6 std::atomic<>主要类的模板
 
 ###5.2.7 原子操作的释放函数
