@@ -515,6 +515,158 @@ assert⑤语句是永远不会触发的，因为不是存储x的操作①发生�
 
 **自由序列**
 
+在原子类型上的操作以自由序列执行，没有任何同步关系。在同一线程中对于同一变量的操作还是服从先发执行的关系，但是这里不同线程几乎不需要相对的顺序。唯一的要求是，在访问同一线程中的单个原子变量不能重排序；当一个给定线程已经看到一个原子变量的特定值，线程随后的读操作就不会去检索变量较早的那个值。当使用memory_order_relaxed，就不需要任何额外的同步，对于每个变量的修改顺序只是线程间共享的事情。
+
+为了演示如何不去限制你的非限制操作，你只需要两个线程，就如同下面代码清单那样。
+
+清单5.5 非限制操作只有非常少的顺序要求
+```c++
+#include <atomic>
+#include <thread>
+#include <assert.h>
+
+std::atomic<bool> x,y;
+std::atomic<int> z;
+
+void write_x_then_y()
+{
+  x.store(true,std::memory_order_relaxed);  // 1
+  y.store(true,std::memory_order_relaxed);  // 2
+}
+void read_y_then_x()
+{
+  while(!y.load(std::memory_order_relaxed));  // 3
+  if(x.load(std::memory_order_relaxed))  // 4
+    ++z;
+}
+int main()
+{
+  x=false;
+  y=false;
+  z=0;
+  std::thread a(write_x_then_y);
+  std::thread b(read_y_then_x);
+  a.join();
+  b.join();
+  assert(z.load()!=0);  // 5
+}
+```
+
+这次assert⑤可能会触发，因为加载x的操作④可能读取到false，即使加载y的操作③读取到true，并且存储x的操作①先发与存储y的操作②。x和y是两个不同的变量，所以这里没有顺序去保证每个操作产生相关值的可见性。
+
+非限制操作对于不同变量可以自由重排序，只要它们服从任意的先发执行关系即可(比如，在同一线程中)。它们不会引入同步相关的顺序。清单5.5中的先发执行关系如图5.4所示(只是其中一个可能的结果)。尽管，在不同的存储/加载操作间有着先发执行关系，这里不是在一对存储于载入之间了，所以载入操作可以看到“违反”顺序的存储操作。
+
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter5/5-4.png)
+
+图5.4 非限制原子操作与先发执行
+
+让我们来看一个略微复杂的例子，其有三个变量和五个线程。
+
+清单5.6 非限制操作——多线程版
+```c++
+#include <thread>
+#include <atomic>
+#include <iostream>
+
+std::atomic<int> x(0),y(0),z(0);  // 1
+std::atomic<bool> go(false);  // 2
+
+unsigned const loop_count=10;
+
+struct read_values
+{
+  int x,y,z;
+};
+
+read_values values1[loop_count];
+read_values values2[loop_count];
+read_values values3[loop_count];
+read_values values4[loop_count];
+read_values values5[loop_count];
+
+void increment(std::atomic<int>* var_to_inc,read_values* values)
+{
+  while(!go)
+    std::this_thread::yield();  // 3 自旋，等待信号
+  for(unsigned i=0;i<loop_count;++i)
+  {
+    values[i].x=x.load(std::memory_order_relaxed);
+    values[i].y=y.load(std::memory_order_relaxed);
+    values[i].z=z.load(std::memory_order_relaxed);
+    var_to_inc->store(i+1,std::memory_order_relaxed);  // 4
+    std::this_thread::yield();
+  }
+}
+
+void read_vals(read_values* values)
+{
+  while(!go)
+    std::this_thread::yield(); // 5 自旋，等待信号
+  for(unsigned i=0;i<loop_count;++i)
+  {
+    values[i].x=x.load(std::memory_order_relaxed);
+    values[i].y=y.load(std::memory_order_relaxed);
+    values[i].z=z.load(std::memory_order_relaxed);
+    std::this_thread::yield();
+  }
+}
+
+void print(read_values* v)
+{
+  for(unsigned i=0;i<loop_count;++i)
+  {
+    if(i)
+      std::cout<<",";
+    std::cout<<"("<<v[i].x<<","<<v[i].y<<","<<v[i].z<<")";
+  }
+  std::cout<<std::endl;
+}
+
+int main()
+{
+  std::thread t1(increment,&x,values1);
+  std::thread t2(increment,&y,values2);
+  std::thread t3(increment,&z,values3);
+  std::thread t4(read_vals,values4);
+  std::thread t5(read_vals,values5);
+
+  go=true;  // 6 开始执行主循环的信号
+
+  t5.join();
+  t4.join();
+  t3.join();
+  t2.join();
+  t1.join();
+
+  print(values1);  // 7 打印最终结果
+  print(values2);
+  print(values3);
+  print(values4);
+  print(values5);
+}
+```
+
+这段代码本质上很简单。你拥有三个全局原子变量①和五个线程。每一个线程循环10次，使用memory_order_relaxed读取三个原子变量的值，并且将它们存储在一个数组上。其中三个线程每次通过循环④来更新其中一个原子变量，这时剩下的两个线程就只负责读取。当所有线程都“加入”，就能打印出来每个线程存到数组上的值了。
+
+原子变量go②用来确保循环在同时退出。启动线程是昂贵的操作，并且没有明确的延迟，第一个线程可能在最后一个线程开始前结束。每个线程都在等待go变为true前都在进行循环③⑤，并且一旦go设置为true所有线程都会开始运行⑥。
+
+程序一种可能的输出为：
+```
+(0,0,0),(1,0,0),(2,0,0),(3,0,0),(4,0,0),(5,7,0),(6,7,8),(7,9,8),(8,9,8),(9,9,10)
+(0,0,0),(0,1,0),(0,2,0),(1,3,5),(8,4,5),(8,5,5),(8,6,6),(8,7,9),(10,8,9),(10,9,10)
+(0,0,0),(0,0,1),(0,0,2),(0,0,3),(0,0,4),(0,0,5),(0,0,6),(0,0,7),(0,0,8),(0,0,9)
+(1,3,0),(2,3,0),(2,4,1),(3,6,4),(3,9,5),(5,10,6),(5,10,8),(5,10,10),(9,10,10),(10,10,10)
+(0,0,0),(0,0,0),(0,0,0),(6,3,7),(6,5,7),(7,7,7),(7,8,7),(8,8,7),(8,8,9),(8,8,9)
+```
+
+前三行中线程都做了更新，后两行线程只是做读取。每三个值都是一组x，y和z，并按照这样的顺序依次循环。对于输出，需要注意的一些事是：
+
+1. 第一组值中x增1，第二组值中y增1，并且第三组中z增1。<br>
+2. x元素只在给定集中增加，y和z也一样，但是增加是不均匀的，并且相对顺序在所有线程中都不同。<br>
+3. 线程3看不到x或y的任何更新；他能看到的只有z的更新。这并不妨碍别的线程观察z的更新，并同时观察x和y的更新。<br>
+
+对于非限制操作，这个结果是合法的，但是不是唯一合法的输出。任意组值都用三个变量保持一致，值从0到10依次递增，并且线程递增给定变量，所以打印出来的值在0到10的范围内都是合法的。
+
 **了解自由序列**
 
 **获取-释放序列**
