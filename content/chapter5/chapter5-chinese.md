@@ -691,6 +691,108 @@ int main()
 
 **获取-释放序列**
 
+这个序列是自由序列(*relaxed ordering*)的加强版；虽然操作依旧没有统一的顺序，但是在这个序列引入了同步。在这种序列模型中，原子加载就是“获取”(*acquire*)操作(memory_order_acquire)，原子存储就是“释放”操作(memory_order_release)，原子读-改-写操作(例如fetch_add()或exchange())在这里，不是“获取”，就是“释放”，或者两者兼有的操作(memory_order_acq_rel)。这里，同步在线程释放和获取间，是成对的(*pairwise*)。释放操作与获取操作同步，这样就能读取已写入的值。这意味着不同线程看到的序列虽还是不同，但这些序列都是受限的。下面列表中是使用获取-释放序列(而非序列一致方式)，对清单5.4的一次重写。
+
+清单5.7 获取-释放不意味着统一操作顺序
+```c++
+#include <atomic>
+#include <thread>
+#include <assert.h>
+
+std::atomic<bool> x,y;
+std::atomic<int> z;
+void write_x()
+{
+  x.store(true,std::memory_order_release);
+}
+void write_y()
+{
+  y.store(true,std::memory_order_release);
+}
+void read_x_then_y()
+{
+  while(!x.load(std::memory_order_acquire));
+  if(y.load(std::memory_order_acquire))  // 1
+    ++z;
+}
+void read_y_then_x()
+{
+  while(!y.load(std::memory_order_acquire));
+  if(x.load(std::memory_order_acquire))
+    ++z;
+}
+int main()
+{
+  x=false;
+  y=false;
+  z=0;
+  std::thread a(write_x);
+  std::thread b(write_y);
+  std::thread c(read_x_then_y);
+  std::thread d(read_y_then_x);
+  a.join();
+  b.join();
+  c.join();
+  d.join();
+  assert(z.load()!=0); // 3
+}
+```
+
+在这个例子中断言③可能会触发(就如同自由排序那样)，因为可能在加载x②和y③的时候，读取到的是false。因为x和y是由不同线程写入，所以序列中的每一次释放到获取都不会影响到其他线程的操作。
+
+图5.6展示了清单5.7的先行关系，对于读取的结果，两个(读取)线程看到的是两个完全不同的世界。如前所述，这可能是因为这里没有对先行顺序进行强制规定导致的。
+
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter5/5-5.png)
+
+图5.6 获取-释放，以及先行过程
+
+为了了解获取-释放序列有什么优点，你需要考虑将两次存储由一个线程来完成，就像清单5.5那样。当你需要使用memory_order_release改变y中的存储，并且使用memory_order_acquire来加载y中的值，就像下面程序清单所做的那样，而后，就会影响到序列中对x的操作。
+
+清单5.8 获取-释放操作会影响序列中的释放操作
+```c++
+#include <atomic>
+#include <thread>
+#include <assert.h>
+
+std::atomic<bool> x,y;
+std::atomic<int> z;
+
+void write_x_then_y()
+{
+  x.store(true,std::memory_order_relaxed);  // 1 自旋，等待y被设置为true
+  y.store(true,std::memory_order_release);  // 2
+}
+void read_y_then_x()
+{
+  while(!y.load(std::memory_order_acquire));  // 3
+  if(x.load(std::memory_order_relaxed))  // 4
+    ++z;
+}
+int main()
+{
+  x=false;
+  y=false;
+  z=0;
+  std::thread a(write_x_then_y);
+  std::thread b(read_y_then_x);
+  a.join();
+  b.join();
+  assert(z.load()!=0);  // 5
+}
+```
+
+最后，读取y③时会得到true，和存储时写入的一样②。因为存储使用的是memory_order_release，读取使用的是memory_order_acquire，存储就与读取就同步了。存储x①先行与加载y②，因为这两个操作是由同一个线程完成的。因为对y的存储同步与对y的加载，存储x也就先行于对y的加载，并且扩展先行与x的读取。因此，加载x的值必为true，并且断言⑤不会触发。如果对于y的加载不是在while循环中，那么情况可能就会有所不同；加载y的时候可能会读取到false，在这种情况下对于读取到的x是什么值，就没有要求了。为了保证同步，加载和释放操作必须成对。所以，无论有何影响，释放操作存储的值，必须要让获取操作看到。当存储如②或加载如③，都是一个释放操作时，对x的访问就无序了，也就无法保证④处读到的是true，并且还会触发断言。
+
+你也可以将获取-释放序列与之前提到记录员和他的小隔间相关联，不过你可能需要添加很多东西到这个模型中。首先，试想每个存储操作做一部分更新，那么当你电话给一个人，让他写下一个数字，你也需要告诉他更新哪一部分：“请在423组中写下99”。对于某一组的最后一个值的存储，你也需要告诉那个人：“请写下147，这是最后存储在423组的值”。小隔间中的人会即使写下这一信息，以及告诉他的值。这个就是存储-释放操作的模型。下一次，你告诉另外一个人写下一组值时，你需要改变组号：“请在组424中写入41”
+
+当你询问一个时，你就要做出一个选择：你要不就仅仅询问一个值(这就是一次自由加载，这种情况下，小隔间中的人会给你的)，要不询问一个值以及其关于组的信息(是否是某组中的最后一个，这就是加载-获取模型)。当你询问组信息，且值不是组中的最后一个，隔间中的人会这样告诉你，“这个值是987，它是一个‘普通’值”，但当这个值是最后一个时，他会告诉你：“数字为987，这个值是956组的最后一个，来源于Anne”。现在，获取-释放的语义就很明确了：当你查询一个值，你告诉他你知道到所有组后，她会低头查看他的列表，看你知道的这些数，是不是在对应组的最后，并且告诉你那个值的属性，或继续在列表中查询。
+
+如何理解这个模型中获取-释放的语义？让我们看一下我们的例子。首先，线程a运行write_x_then_y函数，然后告诉在x屋的记录员，“请写下true作为组1的一部分，信息来源于线程a”，之后记录员工整的写下了这些信息。而后，线程a告诉在y屋的记录员，“请写下true作为组1的一部分，信息来源于线程a”。在此期间，线程b运行read_y_then_x。线程b持续向y屋的记录员询问值与组的信息，知道它听到记录员说“true”。记录员可能不得不告诉他很多遍，不过最终记录员还是说了“true”。y屋的记录员不仅仅是说“true”，他还要说“组1最后是由线程a写入”。
+
+现在，线程b会持续询问x屋的记录员，但这次他会说“请给我一个值，我知道这个值是组1的值，并且是由线程a写入的”。所以现在，x屋中的记录员就开始查找组1中由线程a写入的值。这里他注意到，他写入的值是true，同样也是他列表中的最后一个值，所以它必须读出这个值；否则，他讲打破这个游戏的规则。
+
+当你回看5.3.2节中对“线程间先行”的定义，一个很重要的特性就是它的传递：当A线程间先行于B，并且B线程间先行于C，那么A就线程间先行于C。这就意味着，获取-释放序列可以在若干线程间使用同步数据，甚至可以在“中间”线程接触到这些数据前，使用这些数据。
+
 **传递同步相关的获取-释放序列**
 
 **获取-释放序列和memory_order_consume的数据相关性**
