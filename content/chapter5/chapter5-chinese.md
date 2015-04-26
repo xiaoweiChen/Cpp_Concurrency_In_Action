@@ -864,7 +864,73 @@ void thread_3()
 
 **获取-释放序列和memory_order_consume的数据相关性**
 
-###5.3.4 释放队列与同步发生
+在介绍本章节的时候，我说过，memory_order_consume是“获取-释放”序列模型的一部分，但是在前面我们没有对其进行过多的讨论。这是因为memory_order_consume很特别：它完全依赖于数据，并且其展示了与线程间先行关系(可见5.3.2节)的不同之处。
+
+这里有两种新关系用来处理数据依赖：前序依赖(*dependency-ordered-before*)和携带依赖(*carries-a-dependency-to*)。就像前列(*sequenced-before*)，携带依赖对于数据依赖的操作，严格应用于一个独立线程和其基本模型；如果A操作结果要使用操作B的操作数，而后A将携带依赖与B。如果A操作的结果是一个标量，比如int，而后的关系仍然适用于，当A的结果存储在一个变量中，并且这个变量需要被其他操作使用。这个操作是也是可以传递的，所以当A携带依赖B，并且B携带依赖C，就额可以得出A携带依赖C的关系。
+
+当其不影响线程间的先行关系时，对于同步来说，这并未带来任何的好处，但是它做到：当A前序依赖B，那么A线程间也前序依赖B。
+
+这种内存序列的一个很重要使用方式，是在原子操作载入指向数据的指针时。当使用memory_order_consume作为加载语义，并且memory_order_release作为之前的存储语义，你要保证指针指向的值是已同步的，并且不需要对其他任何非独立数据施加任何同步要求。下面的代码就展示了这么一个场景。
+
+清单5.10 使用`std::memroy_order_consume`同步数据
+```c++
+struct X
+{
+int i;
+std::string s;
+};
+
+std::atomic<X*> p;
+std::atomic<int> a;
+
+void create_x()
+{
+  X* x=new X;
+  x->i=42;
+  x->s="hello";
+  a.store(99,std::memory_order_relaxed);  // 1
+  p.store(x,std::memory_order_release);  // 2
+}
+
+void use_x()
+{
+  X* x;
+  while(!(x=p.load(std::memory_order_consume)))  // 3
+    std::this_thread::sleep(std::chrono::microseconds(1));
+  assert(x->i==42);  // 4
+  assert(x->s=="hello");  // 5
+  assert(a.load(std::memory_order_relaxed)==99);  // 6
+}
+
+int main()
+{
+  std::thread t1(create_x);
+  std::thread t2(use_x);
+  t1.join();
+  t2.join();
+}
+```
+
+尽管，对a的存储①在存储p②之前，并且存储p的操作标记为memory_order_release，加载p的操作标记为memory_order_consume。这就意味着存储p仅先行那些需要加载p的操作。同样，也意味着X结构体中数据成员所在的断言语句④⑤，不会被触发，这是因为对x变量操作的表达式对加载p的操作携带有依赖。另一方面，对于加载变量a的断言就不能确定是否会被触发；这个操作并不依赖于p的加载操作，所以这里没法保证数据已经被读取。当然，这个情况也是很明显的，因为这个操作被标记为memory_order_relaxed。
+
+有时，你不想为携带依赖增加其他的开销。你想让编译器在寄存器中缓存这些值，以及优化重排序操作代码，而不是对这些依赖大惊小怪。这种情况下，你可以使用`std::kill_dependecy()`来显式打破依赖链。`std::kill_dependency()`是一个简单的函数模板，其会复制提供的参数给返回值，但是依旧会打破依赖链。例如，当你拥有一个全局的只读数组，当其他线程对数组索引进行检索时，你使用的是`std::memory_order_consume`，那么你可以使用`std::kill_dependency()`让编译器知道这里不需要重新读取该数组的内容，就像下面的例子一样：
+
+```c++
+int global_data[]={ … };
+std::atomic<int> index;
+
+void f()
+{
+  int i=index.load(std::memory_order_consume);
+  do_something_with(global_data[std::kill_dependency(i)]);
+}
+```
+
+当然，你不需要在如此简单的场景下使用`std::memory_order_consume`，但是你可以在类似情况，且代码较为复杂时，调用`std::kill_dependency()`。你必须记住，这是为了优化，所以这种方式必须谨慎使用，并且需要性能数据证明其存在的意义。
+
+现在，我们已经讨论了所有基本内存序列，是时候看看更加复杂的同步关系了————释放队列。
+
+###5.3.4 释放队列与同步
 
 ###5.3.5 栅栏
 
