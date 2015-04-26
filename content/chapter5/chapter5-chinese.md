@@ -793,7 +793,74 @@ int main()
 
 当你回看5.3.2节中对“线程间先行”的定义，一个很重要的特性就是它的传递：当A线程间先行于B，并且B线程间先行于C，那么A就线程间先行于C。这就意味着，获取-释放序列可以在若干线程间使用同步数据，甚至可以在“中间”线程接触到这些数据前，使用这些数据。
 
-**传递同步相关的获取-释放序列**
+**与同步传递相关的获取-释放序列**
+
+为了考虑传递顺序，你至少需要三个线程。第一个线程用来修改共享变量，并且对其中一个做“存储-释放”处理。然后第二个线程使用“加载-获取”读取由“存储-释放”操作过的变量，并且再对第二个变量进行“存储-释放”操作。最后，由第三个线程通过“加载-获取”读取第二个共享变量。提供“加载-获取”操作，来读取被“存储-释放”操作写入的值，是为了保证同步关系，这里即便是中间线程没有对共享变量做任何操作，第三个线程也可以读取被第一个线程操作过的变量。下面的代码可以用来描述这样的场景。
+
+清单5.9 使用获取和释放顺序进行同步传递
+```c++
+std::atomic<int> data[5];
+std::atomic<bool> sync1(false),sync2(false);
+
+void thread_1()
+{
+  data[0].store(42,std::memory_order_relaxed);
+  data[1].store(97,std::memory_order_relaxed);
+  data[2].store(17,std::memory_order_relaxed);
+  data[3].store(-141,std::memory_order_relaxed);
+  data[4].store(2003,std::memory_order_relaxed);
+  sync1.store(true,std::memory_order_release);  // 1.设置sync1
+}
+
+void thread_2()
+{
+  while(!sync1.load(std::memory_order_acquire));  // 2.直到sync1设置后，循环结束
+  sync2.store(true,std::memory_order_release);  // 3.设置sync2
+}
+void thread_3()
+{
+  while(!sync2.load(std::memory_order_acquire));   // 4.直到sync1设置后，循环结束
+  assert(data[0].load(std::memory_order_relaxed)==42);
+  assert(data[1].load(std::memory_order_relaxed)==97);
+  assert(data[2].load(std::memory_order_relaxed)==17);
+  assert(data[3].load(std::memory_order_relaxed)==-141);
+  assert(data[4].load(std::memory_order_relaxed)==2003);
+}
+```
+
+尽管thread_2只接触到变量syn1②和sync2③，不过这对于thread_1和thread_3的同步就足够了，这就能保证断言不会触发。首先，thread_1将数据存储到data中先行与存储sync1①（它们在同一个线程内）。因为加载sync1①的是一个while循环，它最终会看到thread_1存储的值(是从“释放-获取”对的后半对获取)。因此，对于sync1的存储先行与最终对于sync1的加载(在while循环中)。thread_3的加载操作④，位于存储sync2③操作的前面(也就是先行)。存储sync2③因此先行于thread_3的加载④，加载又先行与存储sync2③，存储sync2又先行与加载sync2④，加载syn2又先行与加载data。因此，thread_1存储数据到data的操作先行于thread_3中对data的加载，并且保证断言都不会触发。
+
+在这个例子中，你可以将sync1和sync2，通过在thread_2中使用“读-改-写”操作(memory_order_acq_rel)，将其合并成一个独立的变量。其中会使用compare_exchange_strong()来保证thread_1对变量只进行一次更新：
+
+```c++
+std::atomic<int> sync(0);
+void thread_1()
+{
+  // ...
+  sync.store(1,std::memory_order_release);
+}
+
+void thread_2()
+{
+  int expected=1;
+  while(!sync.compare_exchange_strong(expected,2,
+              std::memory_order_acq_rel))
+    expected=1;
+}
+void thread_3()
+{
+  while(sync.load(std::memory_order_acquire)<2);
+  // ...
+}
+```
+
+如果你使用“读-改-写”操作，选择语义就很重要了。在这个例子中，你想要同时进行获取和释放的语义，所以memory_order_acq_rel是一个合适的选择，但你也可以使用其他序列。使用memory_order_acquire语义的fetch_sub是不会和任何东西同步的，即使它存储了一个值，这是因为其没有释放操作。同样的，使用memory_order_release语义的fetch_or也不会和任何存储操作进行同步，因为对于fetch_or的读取，并不是一个获取操作。使用memory_order_acq_rel语义的“读-改-写”操作，每一个动作都包含获取和释放操作，所以可以和之前的存储操作进行同步，并且可以对随后的加载操作进行同步，就像上面例子中那样。
+
+如果你将“获取-释放”操作和“序列一致”操作进行混合，“序列一致”的加载动作，就像使用了获取语义的加载操作；并且序列一致的存储操作，就如使用了释放语义的存储。“序列一致”的读-改-写操作行为，就像同时使用了获取和释放的操作。“自由操作”依旧那么自由，但其会和额外的同步进行绑定（也就是使用“获取-释放”的语义）。
+
+尽管潜在的结果并不那么直观，每个使用锁的同学都不得不去解决同一个序列问题：锁住互斥量是一个获取操作，并且解锁这个互斥量是一个释放操作。随着互斥量的增多，你必须确保同一个互斥量在你读取变量或修改变量的时候是锁住的，并且同样适合于这里；你的获取和释放操作必须在同一个变量上，以保证访问顺序。当数据被一个互斥量所保护时，锁的性质就保证得到的结果是没有区别的，因为锁住与解锁的操作都是序列一致的操作。同样的，当你对原子变量使用获取和释放序列，为的是构建一个简单的锁，那么这里的代码必然要使用锁，即使内部操作不是序列一致的，其外部表现将会是序列一致的。
+
+当你的原子操作不需要严格的序列一致序列，成对同步的“获取-释放”序列可以提供，比全局序列一致性操作，更加低廉的潜在同步。这里还需要对心理代价进行权衡，为了保证序列能够正常的工作，还要保证非直观的跨线程行为是没有问题的。
 
 **获取-释放序列和memory_order_consume的数据相关性**
 
