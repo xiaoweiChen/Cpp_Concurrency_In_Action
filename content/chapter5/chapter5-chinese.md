@@ -932,6 +932,67 @@ void f()
 
 ###5.3.4 释放队列与同步
 
+回到5.3.1节，我提到过，通过其他线程，即使有(有序的)多个“读-改-写”操作(所有操作都已经做了适当的标记)在存储和加载操作之间，你依旧可以获取原子变量存储与加载的同步关系。现在，我已经讨论所有可能使用到的内存序列“标签”，我在这里可以做一个简单的概述。当存储操作被标记为memory_order_release，memory_order_acq_rel或memory_order_seq_cst，加载被标记为memory_order_consum，memory_order_acquire或memory_order_sqy_cst，并且操作链上的每一加载操作都会读取之前操作写入的值，因此链上的操作构成了一个释放序列(*release sequence*)，并且初始化存储同步(对应memory_order_acquire或memory_order_seq_cst)或是前序依赖(对应memory_order_consume)的最终加载。操作链上的任何原子“读-改-写”操作可以拥有任意个存储序列(甚至是memory_order_relaxed)。
+
+为了了解这些操作意味着什么，以及其重要性，考虑一个atomic<int>用作对一个共享队列的元素进行计数：
+
+清单5.11 使用原子操作从队列中读取数据
+```c++
+#include <atomic>
+#include <thread>
+
+std::vector<int> queue_data;
+std::atomic<int> count;
+
+void populate_queue()
+{
+  unsigned const number_of_items=20;
+  queue_data.clear();
+  for(unsigned i=0;i<number_of_items;++i)
+  {
+    queue_data.push_back(i);
+  }
+
+  count.store(number_of_items,std::memory_order_release);  // 1 初始化存储
+}
+
+void consume_queue_items()
+{
+  while(true)
+  {
+    int item_index;
+    if((item_index=count.fetch_sub(1,std::memory_order_acquire))<=0)  // 2 一个“读-改-写”操作
+    {
+      wait_for_more_items();  // 3 等待更多元素
+      continue;
+    }
+    process(queue_data[item_index-1]);  // 4 安全读取queue_data
+  }
+}
+
+int main()
+{
+  std::thread a(populate_queue);
+  std::thread b(consume_queue_items);
+  std::thread c(consume_queue_items);
+  a.join();
+  b.join();
+  c.join();
+}
+```
+
+一种处理方式是让线程产生数据，并存储到一个共享缓存中，而后调用count.store(number_of_items, memory_order_release)①让其他线程知道数据是可用的。线程群消耗着队列中的元素，之后可能调用count.fetch_sub(1, memory_order_acquire)②向队列索取一个元素，不过在这之前，需要对共享缓存进行完整的读取④。一旦count归零，那么队列中就没有更多的元素了，当元素耗尽时线程必须等待③。
+
+当有一个消费者线程时，这还好；fetch_sub()是一个带有memory_order_acquire的读取操作，并且存储操作是带有memory_order_release语义，所以这里存储与加载同步，线程是可以从缓存中读取元素的。当有两个读取线程时，第二个fetch_sub()操作将看到被第一个线程修改的值，且没有值通过store写入其中。先不管释放序列的规则，这里第二个线程与第一个线程不存在先行关系，并且其对共享缓存中值的读取也不安全，除非第一个fetch_sub()是带有memory_order_release语义的，这个语义为两个消费者线程间建立了不必要的同步。无论是释放序列的规则，还是带有memory_order_release语义的fetch_sub操作，第二个消费者看到的是一个空的queue_data，无法从其获取任何数据，并且这里还会产生条件竞争。幸运的是，第一个fetch_sub()对释放顺序做了一些事情，所以store()能同步与第二个fetch_sub()操作。这里，两个消费者线程间不需要同步关系。这个过程在图5.7中展示，其中虚线表示的就是释放顺序，实线表示的是先行关系。
+
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter5/5-7.png)
+
+图5.7 清单5.11中对队列操作的释放顺序
+
+操作链中可以有任意数量的链接，但是提供的都是“读-改-写”操作，比如fetch_sub()，store()，每一个都会与使用memory_order_acquire语义的操作进行同步。在这里例子中，所有链接都是一样的，并且都是获取操作，但它们可由不同内存序列语义组成的操作混合。(译者：也就是不是单纯的获取操作)
+
+虽然，大多数同步关系，是对原子变量的操作应用了内存序列，但这里依旧有必要额外介绍一个对于排序的约束——栅栏(*fences*)。
+
 ###5.3.5 栅栏
 
 ###5.3.6 原子操作对非原子的操作排序
