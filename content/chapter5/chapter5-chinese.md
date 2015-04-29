@@ -1057,4 +1057,55 @@ void write_x_then_y()
 
 ###5.3.6 原子操作对非原子的操作排序
 
+当你使用一个普通的非原子bool类型来替换清单5.12中的x(就如同你下面看到的代码)，行为和替换前完全一样。
+
+清单5.13 使用非原子操作执行序列
+```c++
+#include <atomic>
+#include <thread>
+#include <assert.h>
+
+bool x=false;  // x现在是一个非原子变量
+std::atomic<bool> y;
+std::atomic<int> z;
+
+void write_x_then_y()
+{
+  x=true;  // 1 在栅栏前存储x
+  std::atomic_thread_fence(std::memory_order_release);
+  y.store(true,std::memory_order_relaxed);  // 2 在栅栏后存储y
+}
+
+void read_y_then_x()
+{
+  while(!y.load(std::memory_order_relaxed));  // 3 在#2写入前，持续等待
+  std::atomic_thread_fence(std::memory_order_acquire);
+  if(x)  // 4 这里读取到的值，是#1中写入
+    ++z;
+}
+int main()
+{
+  x=false;
+  y=false;
+  z=0;
+  std::thread a(write_x_then_y);
+  std::thread b(read_y_then_x);
+  a.join();
+  b.join();
+  assert(z.load()!=0);  // 5 断言将不会触发
+}
+```
+
+栅栏仍然为存储x①和存储y②，还有加载y③和加载x④提供一个执行序列，并且这里仍然有一个先行关系，在存储x和加载x之间，所以断言⑤不会被触发。②中的存储和③中对y的加载，都必须是原子操作；否则，将会在y上产生条件竞争，不过一旦读取线程看到存储到y的操作，栅栏将会对x执行有序的操作。这个执行顺序意味着，x上不存在条件竞争，即使它被另外的线程修改或被其他线程读取。
+
+不仅是栅栏可对非原子操作排序。你在清单5.10中看到memory_order_release/memory_order_consume对，也可以用来排序非原子访问，为的是可以动态分配对象，并且本章中的许多例子都可以使用普通的非原子操作，去替代标记为memory_order_relaxed的操作。
+
+对非原子操作的排序，可以通过使用原子操作进行，这里“前序”作为“先行”的一部分，就显得十分重要了。如果一个非原子操作是“序前”于一个原子操作，并且这个原子操作需要“先行”与另一个线程的一个操作，那么这个非原子操作也就“先行”于在另外线程的那个操作了。 这一序列操作，就是在清单5.13中对x的操作，并且这也就是清单5.2能工作的原因。对于C++标准库的高级同步工具来说，这些都是基本，例如互斥量和条件变量。可以回看它们都是如何工作的，可以对清单5.1中简单的自旋锁展开更加深入的思考。
+
+使用`std::memory_order_acquire`序列的lock()操作是在flag.test_and_set()上的一个循环，并且使用`std::memory_order_release`序列的unlock()调用flag.clear()。当第一个线程调用lock()时，标志最初是没有的，所以第一次调用test_and_set()将会设置标志，并且返回false，表示线程现在已锁，并且结束循环。之后，线程可以自由的修改由互斥量保护的数据。这时，任何想要调用lock()的线程，将会看到已设置的标志，而后会被test_and_set()中的循环所阻塞。
+
+当线程带锁线程完成对保护数据的修改，它会调用unlock()，相当于调用带有`std::memory_order_release`语义的flag.clear()。这与随后其他线程访问flag.test_and_set()时调用lock()同步(见5.3.1节)，这是因为对lock()的调用带有`std::memory_order_acquire`语义。因为对于保护数据的修改，必须先于unlock()的调用，所以修改“先行”于unlock()，并且还“先行”于之后第二个线程对lock()的调用(因为同步关系是在unlock()和lock()中产生的)，还“先行”于当第二个线程获取锁后，对保护数据的任何访问。
+
+虽然，其他互斥量的内部实现不尽相同，不过基本原理都是一样的:在某一内存位置上，lock()作为一个获取操作存在，在同样的位置上unlock()作为一个释放操作存在。
+
 ##5.4 总结
