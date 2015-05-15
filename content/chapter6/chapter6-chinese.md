@@ -58,7 +58,85 @@
 
 ##6.2 基于锁的并发数据结构
 
+基于锁的并发数据结构设计，需要确保，当数据被访问时上锁，以及持有锁的时间最短。对于只有一个互斥量的数据结构来说，这挺难的。你需要保证数据不被锁之外的操作所访问到，并且还要保证不会在固有结构上产生条件竞争(如第3章所述)。当你使用多个互斥量来保护数据结构中不同的区域时，问题会暴露的更明显，当操作获取多于一个互斥锁时，就有可能产生死锁。所以，在设计时，使用多个互斥量时需要格外小心。
+
+在本节中，你将使用6.1.1节中的指导建议，来设计一些简单的数据结构——使用互斥量和锁的方式来保护数据。在每一个例子中，你都能找到，在保证数据结构是线程安全的前提下，提高数据结构并发访问的概率(机会)。
+
+我们先来看看在第3章中，栈的实现；这个实现就是一个非常非常简单的数据结构，并且它只使用了一个互斥量。不过，这个结构线程安全吗？它离真正的并发访问又差多少呢？
+
 ###6.2.1 线程安全栈——使用锁
+
+我们先把第3章中线程安全的栈拿过来看看：(这里试图实现一个线程安全版的`std:stack<>`)
+
+清单6.1 线程安全栈的类定义
+```c++
+#include <exception>
+
+struct empty_stack: std::exception
+{
+  const char* what() const throw();
+};
+
+template<typename T>
+class threadsafe_stack
+{
+private:
+  std::stack<T> data;
+  mutable std::mutex m;
+public:
+  threadsafe_stack(){}
+  threadsafe_stack(const threadsafe_stack& other)
+  {
+    std::lock_guard<std::mutex> lock(other.m);
+    data=other.data;
+  }
+
+  threadsafe_stack& operator=(const threadsafe_stack&) = delete;
+
+  void push(T new_value)
+  {
+    std::lock_guard<std::mutex> lock(m);
+    data.push(std::move(new_value));  // 1
+  }
+  std::shared_ptr<T> pop()
+  {
+    std::lock_guard<std::mutex> lock(m);
+    if(data.empty()) throw empty_stack();  // 2
+    std::shared_ptr<T> const res(
+      std::make_shared<T>(std::move(data.top())));  // 3
+    data.pop();  // 4
+    return res;
+  }
+  void pop(T& value)
+  {
+    std::lock_guard<std::mutex> lock(m);
+    if(data.empty()) throw empty_stack();
+    value=std::move(data.top());  // 5
+    data.pop();  // 6
+  }
+  bool empty() const
+  {
+    std::lock_guard<std::mutex> lock(m);
+    return data.empty();
+  }
+};
+```
+
+让我们对照着指导意见，看看它们在这里是如何应用的。
+
+首先，如你所见，互斥量m能保证基本的线程安全，那就是对每个成员函数今进行加锁保护。这就保证在同一时间，只有一个线程可以访问到数据，所以能都保证，数据结构的“不变量”被破坏时，不会被其他线程看到。
+
+其次，在empty()和pop()成员函数之间会存在潜在的竞争，不过因为代码会在pop()函数上锁时，显式的查询栈是否为空，所以这里的竞争是非恶性的。pop()通过对弹出值的直接返回，可以避免`std::stack<>`中top()和pop()两成员函数之间的潜在竞争。
+
+再次，这个类中也有一些异常源。对互斥量上锁是，可能会抛出异常，不过不仅是极其罕见的(因为这意味这问题不在锁上，就是在系统资源上)，其也是每个成员函数所做的第一个操作。因为无数据修改，所以其是安全的。因为解锁一个互斥量是不会失败的，所以这里会一直很安全，并且使用`std::lock_guard<>`也能保证互斥量上锁的状态。
+
+对data.push()①的调用可能会抛出一个异常，不是拷贝/移动数据值时，就是内存不足的时候。不管是哪种，`std::stack<>`都能保证其实安全的，所以这里也没有问题。
+
+在第一个重载pop()中，代码可能会抛出一个empty_stack的异常②，不过数据没有被修改，所以其是安全的。对于res的创建③，也可能会抛出一个异常，这有两方面的原因：对`std::make_shared`的调用，可能无法分配出足够的内存去创建新的对象，并且内部数据需要对新对象进行引用；或者，当拷贝或移动到新分配的内存中，拷贝或移动构造返回时，可能会抛出异常。两种情况下，c++运行库和标准库能确保，这里不会出现内存泄露，并且新创建的对象(如果有的话)都能被正确销毁。因为你还是没有对栈进行任何修改，所以这里也不会有问题。当调用data.pop()④时，其能确保不抛出异常，并且返回结果，所以这个重载pop()函数“异常-安全”。
+
+第二个重载pop()类似，除了在拷贝赋值或移动赋值的时候会抛出异常⑤，当构造一个新对象和一个`std::shared_ptr`实例时都不会抛出异常。同样，在调用data.pop()⑥（这个成员函数保证不会抛出异常）之前，依旧没有对数据结构进行修改，所以这个函数也为“异常-安全”。
+
+最后，empty()也不会修改任何数据，所以其也是“异常-安全”函数。
 
 ###6.2.2 线程安全队列——使用锁和条件变量
 
