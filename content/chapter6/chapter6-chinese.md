@@ -138,7 +138,168 @@ public:
 
 最后，empty()也不会修改任何数据，所以其也是“异常-安全”函数。
 
+因为在调用用户代码会持有锁，所以这里有两个可能会产生死锁地方：拷贝构造或移动构造时(①，③)和在对数据项进行拷贝赋值或移动赋值操作⑤的时候；还有一个潜在死锁的地方是在，用户定义的操作符new上。当这些函数，无论是调用栈的成员函数，对已经插入或删除的数据进行操作，还是在栈的成员函数被调用时，以任意方式获取锁的方式，都有可能造成死锁。不过，用户要对栈负责，当栈未对一个数据进行拷贝或分配是，你就不能想当然的将其添加到栈中。
+
+因为所有成员函数都使用`st::lack_guard<>`来保护数据，所以栈的成员函数能有“线程安全”的表现。当然，构造与析构函数不是“线程安全”的，不过这也不成问题，因为对象的构造与析构只能有一次。调用一个不完全构造对象或是已销毁对象的成员函数，无论在那种编程方式下，都是不可取的。所以，用户就要保证在栈对象完成构建前，其他线程是无法对其进行访问的；并且，一定要保证在栈对象销毁后，所有线程都要停止对其进行访问。
+
+即使在多线程情况下，因为使用锁，并发的调用成员函数是安全的，也要保证在单线程的情况下，数据结构做出正确反应。序列化的线程会隐性的限制程序的性能，这里就是栈争议声最大的地方：当一个线程在等待锁时，它就会无所事事。同样的，对于栈来说，等待添加元素也是没有意义的，所以当一个线程需要等待时，其会定期检查empty()或pop()，以及对empty_stack异常进行关注。这样的现实会限制栈的实现的方式，在线程等待的时候，会浪费宝贵的资源去检查数据，或是用户必须写外部等待和提示代码(例如，使用条件变量)，这就使内部锁失去存在的意义——这就意味着资源的浪费。第4章中的队列，就是一种使用条件内部变量进行等待的数据结构，接下来我们就来了解一下。
+
 ###6.2.2 线程安全队列——使用锁和条件变量
+
+第4章中的线程安全队列，在清单6.2中重现一下。和使用仿`std::stack<>`建立的栈很像，这里队列的建立也是参照了`std::queue<>`。不过，还是要与标准容器的接口不同的，因为我们要写的是能在多线程下安全并发访问的数据结构。
+
+清单6.2 使用条件变量实现的线程安全队列
+```c++
+template<typename T>
+class threadsafe_queue
+{
+private:
+  mutable std::mutex mut;
+  std::queue<T> data_queue;
+  std::condition_variable data_cond;
+public:
+  threadsafe_queue()
+  {}
+
+  void push(T new_value)
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    data_queue.push(std::move(data));
+    data_cond.notify_one();  // 1
+  }
+
+  void wait_and_pop(T& value)  // 2
+  {
+    std::unique_lock<std::mutex> lk(mut);
+    data_cond.wait(lk,[this]{return !data_queue.empty();});
+    value=std::move(data_queue.front());
+    data_queue.pop();
+  }
+
+  std::shared_ptr<T> wait_and_pop()  // 3
+  {
+    std::unique_lock<std::mutex> lk(mut);
+    data_cond.wait(lk,[this]{return !data_queue.empty();});  // 4
+    std::shared_ptr<T> res(
+      std::make_shared<T>(std::move(data_queue.front())));
+    data_queue.pop();
+    return res;
+  }
+
+  bool try_pop(T& value)
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    if(data_queue.empty())
+      return false;
+    value=std::move(data_queue.front());
+    data_queue.pop();
+    return true;
+  }
+
+  std::shared_ptr<T> try_pop()
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    if(data_queue.empty())
+      return std::shared_ptr<T>();  // 5
+    std::shared_ptr<T> res(
+      std::make_shared<T>(std::move(data_queue.front())));
+    data_queue.pop();
+    return res;
+  }
+
+  bool empty() const
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    return data_queue.empty();
+  }
+};
+```
+
+除了在push()①中调用data_cond.notify_one()和wait_and_pop()，6.2中对队列的实现与6.1中对栈的实现十分相近。两个重载try_pop()除了在队列为空时抛出异常，其他的与6.1中pop()函数完全一样。不同的是，在6.1中当值可以检索的时候返回的是一个bool值，而在6.2中，当指针指向空值的时候会返回NULL指针⑤。着同样也是实现栈的一个有效途径。所以，即使你排除掉wait_and_pop()函数，之前对栈的分析依旧适用于这里。
+
+新wiat_and_pop()函数，是等待队列向栈尽心输入的一个解决方案；比起持续调用empty()，等待线程调用wait_and_pop()函数和数据结构处理等待中的条件变量的方式要好很多。对于data_cond.wait()的调用，直到队列中有一个元素的时候，才会返回，所以你就不用担心会出现一个空队列的情况了，还有，数据会一直被互斥锁保护。这些函数不会添加新的条件竞争或是死锁的可能，因为不变量这里并未发生变化。
+
+异常安全在这里的会有一些变化，当不止一个线程等待对队列进行推送操作是，只会有一个线程，因得到data_cond.notify_one()，而继续工作着。但是，如果这个工作线程在wait_and_pop()中抛出一个异常，例如构造新的`std::shared_ptr<>`对象④，那么其他线程则会永世长眠。当这种情况是不可接受时，这里的调用就需要改成data_cond.notify_all()，这个函数将唤醒所有的工作线程，但是，当大多线程发现队列依旧是空时，又会耗费很多资源让线程重新进入睡眠状态。第二种替代方案是，当有异常抛出的时候，让wait_and_pop()函数调用notify_one()，从而让个另一个线程可以去尝试索引存储的值。第三种替代方案就是，将`std::shared_ptr<>`的初始化过程，移到push()中，并且存储`std::shared_ptr<>`实例，而非直接使用数据的值。将`std::shared_ptr<>`拷贝到内部`std::queue<>`中，就不会抛出异常了，这样，wait_and_pop()又是安全的了。下面的程序清单，就是根据第三种方案进行修订的。
+
+清单6.3 持有`std::shared_ptr<>`实例的线程安全队列
+```c++
+template<typename T>
+class threadsafe_queue
+{
+private:
+  mutable std::mutex mut;
+  std::queue<std::shared_ptr<T> > data_queue;
+  std::condition_variable data_cond;
+public:
+  threadsafe_queue()
+  {}
+
+  void wait_and_pop(T& value)
+  {
+    std::unique_lock<std::mutex> lk(mut);
+    data_cond.wait(lk,[this]{return !data_queue.empty();});
+    value=std::move(*data_queue.front());  // 1
+    data_queue.pop();
+  }
+
+  bool try_pop(T& value)
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    if(data_queue.empty())
+      return false;
+    value=std::move(*data_queue.front());  // 2
+    data_queue.pop();
+    return true;
+  }
+
+  std::shared_ptr<T> wait_and_pop()
+  {
+    std::unique_lock<std::mutex> lk(mut);
+    data_cond.wait(lk,[this]{return !data_queue.empty();});
+    std::shared_ptr<T> res=data_queue.front();  // 3
+    data_queue.pop();
+    return res;
+  }
+
+  std::shared_ptr<T> try_pop()
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    if(data_queue.empty())
+      return std::shared_ptr<T>();
+    std::shared_ptr<T> res=data_queue.front();  // 4
+    data_queue.pop();
+    return res;
+  }
+
+  void push(T new_value)
+  {
+    std::shared_ptr<T> data(
+    std::make_shared<T>(std::move(new_value)));  // 5
+    std::lock_guard<std::mutex> lk(mut);
+    data_queue.push(data);
+    data_cond.notify_one();
+  }
+
+  bool empty() const
+  {
+    std::lock_guard<std::mutex> lk(mut);
+    return data_queue.empty();
+  }
+};
+```
+
+让`std::shared_ptr<>`持有数据的结果显而易见：弹出函数会持有一个变量的引用，为了接收这个新值，必须对存储的指针进行解引用①，②；并且，在返回到调用函数前，弹出函数都会返回一个`std::shared_ptr<>`实例，这里实例可以在队列中做检索③，④。
+
+数据被`std::shared_otr<>`持有的好处：当新的实例分配结束时，其不会被锁在push()⑤的锁当中，而在清单6.2中，只能在pop()持有锁时完成。因为内存分配通常是代价昂贵的操作，这种方式对队列的性能有很大的帮助，其削减了互斥量持有的时间，允许其他线程在分配内存的同时，对队列执行其他的操作。
+
+就像栈的例子那样，使用互斥量保护整个数据结构，不过会限制队列对并发的支持；虽然，多线程可能被队列中的各种成员函数所阻塞，但是仍有一个线程能在任意时间内进行工作。不过，这种限制的部分来源是因为在实现中使用了`std::queue<>`；因为使用标准容器的原因，数据要不处于保护中，要不就没有。要对数据结构实现进行具体的控制，需要提供更多细粒度锁，来完成高等级的并发。
 
 ###6.2.3 线程安全队列——使用细粒度锁和条件变量
 
+在清单6.2和6.3中，使用一个互斥量对一个数据(data_queue)进行保护。为了使用细粒度锁，需要看一下队列内部的组成结构，并且将一个互斥量与每个数据相关联。
+
+对于队列来说，最简单的数据结构就是单链表了，就如图6.1那样。队列里包含一个头指针，其指向链表中的第一个元素，并且每一个元素都会指向下一个元素。从队列中删除数据，其实就是将头指针指向下一个元素，并将之前头指针指向的值进行返回。
+
+向队列中添加元素是要从结尾进行的。为了做到这点，队列里还有一个尾指针，其指向链表中的最后一个元素。新节点的加入将会改变尾指针的next指针，之前最后一个元素将会指向新添加进来的元素，新添加进来的元素的next将会使新的尾指针。当链表为空时，头/尾指针皆为NULL。
+
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter6/6-1.png)
