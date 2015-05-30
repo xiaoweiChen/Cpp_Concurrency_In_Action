@@ -304,6 +304,8 @@ public:
 
 ![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter6/6-1.png)
 
+图6.1 用单链表表示的队列
+
 下面的清单中的代码，是一个简单的队列实现，基于清单6.2代码的精简版本；因为这个队列仅供单线程使用，所以这实现中只有一个try_pop()函数；并且，没有wait_and_pop()函数。
 
 清单6.4 队列实现——单线程版
