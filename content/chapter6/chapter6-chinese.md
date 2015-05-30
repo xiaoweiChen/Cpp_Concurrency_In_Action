@@ -303,3 +303,120 @@ public:
 向队列中添加元素是要从结尾进行的。为了做到这点，队列里还有一个尾指针，其指向链表中的最后一个元素。新节点的加入将会改变尾指针的next指针，之前最后一个元素将会指向新添加进来的元素，新添加进来的元素的next将会使新的尾指针。当链表为空时，头/尾指针皆为NULL。
 
 ![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter6/6-1.png)
+
+下面的清单中的代码，是一个简单的队列实现，基于清单6.2代码的精简版本；因为这个队列仅供单线程使用，所以这实现中只有一个try_pop()函数；并且，没有wait_and_pop()函数。
+
+清单6.4 队列实现——单线程版
+```c++
+template<typename T>
+class queue
+{
+private:
+  struct node
+  {
+    T data;
+    std::unique_ptr<node> next;
+
+    node(T data_):
+    data(std::move(data_))
+    {}
+  };
+
+  std::unique_ptr<node> head;  // 1
+  node* tail;  // 2
+
+public:
+  queue()
+  {}
+  queue(const queue& other)=delete;
+  queue& operator=(const queue& other)=delete;
+  std::shared_ptr<T> try_pop()
+  {
+    if(!head)
+    {
+      return std::shared_ptr<T>();
+    }
+    std::shared_ptr<T> const res(
+      std::make_shared<T>(std::move(head->data)));
+    std::unique_ptr<node> const old_head=std::move(head);
+    head=std::move(old_head->next);  // 3
+    return res;
+  }
+
+  void push(T new_value)
+  {
+    std::unique_ptr<node> p(new node(std::move(new_value)));
+    node* const new_tail=p.get();
+    if(tail)
+    {
+      tail->next=std::move(p);  // 4
+    }
+    else
+    {
+      head=std::move(p);  // 5
+    }
+    tail=new_tail;  // 6
+  }
+};
+```
+
+首先，注意在清单呢6.4中使用了`std::unique_ptr<node>`来管理节点，因为其能保证节点(其引用数据的值)在删除时候，不需要使用delete操作显式删除。这样的关系链表，管理着从头结点到尾节点的每一个原始指针。
+
+虽然，这种实现对于单线程来说没什么问题，但是，当你在多线程情况下，尝试使用细粒度锁时，就会出现问题。因为在给定的实现中有两个数据项(head①和tail②)；即使，使用两个互斥量，来保护头指针和尾指针，也会出现问题。
+
+显而易见的问题就是push()可以同时修改头指针⑤和尾指针⑥，所以push()函数会同时获取两个互斥量。虽然会将两个互斥量都上锁，但这还不是太糟糕的问题。糟糕的问题是push()和pop()都能访问next指针指向的节点：push()可更新tail->next④，而后try_pop()读取read->next③。当队列中只有一个元素时，head==tail，所以head->next和tail->next是同一个对象，并且这个对象需要保护。不过，“在同一个对象在未被head和tail同时访问时，push()和try_pop()锁住的是同一个锁”，就不对了。所以，你就没有比之间实现更好的选择了。这里会“柳暗花明又一村”吗？
+
+**通过分离数据实现并发**
+
+你可以使用“预分配一个虚拟节点(无数据)，确保这个节点永远在队列的最后，用来分离头尾指针能访问的节点”的办法，走出这个困境。对于一个空队列来说，head和tail都属于虚拟指针，而非空指针。这个办法挺好，因为当队列为空时，try_pop()不能访问head->next了。当添加一个节点入队列时(这时有真实节点了)，head和tail现在指向不同的节点，所以就不会在head->next和tail->next上产生竞争。这里的缺点是，你必须额外添加一个间接层次的指针数据，来做虚拟节点。下面的代码描述了这个方案如何实现。
+
+清单6.5 带有虚拟节点的队列
+```c++
+template<typename T>
+class queue
+{
+private:
+  struct node
+  {
+    std::shared_ptr<T> data;  // 1
+    std::unique_ptr<node> next;
+  };
+
+  std::unique_ptr<node> head;
+  node* tail;
+
+public:
+  queue():
+    head(new node),tail(head.get())  // 2
+  {}
+  queue(const queue& other)=delete;
+  queue& operator=(const queue& other)=delete;
+
+  std::shared_ptr<T> try_pop()
+  {
+    if(head.get()==tail)  // 3
+    {
+      return std::shared_ptr<T>();
+    }
+    std::shared_ptr<T> const res(head->data);  // 4
+    std::unique_ptr<node> old_head=std::move(head);
+    head=std::move(old_head->next);  // 5
+    return res;  // 6
+  }
+
+  void push(T new_value)
+  {
+    std::shared_ptr<T> new_data(
+      std::make_shared<T>(std::move(new_value)));  // 7
+    std::unique_ptr<node> p(new node);  //8
+    tail->data=new_data;  // 9
+    node* const new_tail=p.get();
+    tail->next=std::move(p);
+    tail=new_tail;
+  }
+};
+```
+
+对于try_pop()做了很少的修改。首先，你可以拿head和tail③进行比较，这就要比检查指针是否为空的好，因为虚拟节点意味着head不可能是空指针。因为head是一个`std::unique_ptr<node>`对象，你需要使用head.get()来做比较。其次，因为node现在存在数据指针中①，你就可以对指针进行直接检索④，而非构造一个T类型的新实例。push()函数改动最大：首先，你必须在堆上创建一个T类型的实例，并且让其与一个`std::shared_ptr<>`对象相关联⑦(节点使用`std::make_shared`就是为了避免内存二次分配，避免增加引用次数)。创建的新节点就成为了虚拟节点，所以你不需要为new_value提供构造函数⑧。反而这里你需要将new_value的副本赋给之前的虚拟节点⑨。最终，为了让虚拟节点存在在队列中，你不得不使用构造函数来创建它②。
+
+**等待数据弹出**
