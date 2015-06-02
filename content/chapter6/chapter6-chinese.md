@@ -421,4 +421,85 @@ public:
 
 对于try_pop()做了很少的修改。首先，你可以拿head和tail③进行比较，这就要比检查指针是否为空的好，因为虚拟节点意味着head不可能是空指针。因为head是一个`std::unique_ptr<node>`对象，你需要使用head.get()来做比较。其次，因为node现在存在数据指针中①，你就可以对指针进行直接检索④，而非构造一个T类型的新实例。push()函数改动最大：首先，你必须在堆上创建一个T类型的实例，并且让其与一个`std::shared_ptr<>`对象相关联⑦(节点使用`std::make_shared`就是为了避免内存二次分配，避免增加引用次数)。创建的新节点就成为了虚拟节点，所以你不需要为new_value提供构造函数⑧。反而这里你需要将new_value的副本赋给之前的虚拟节点⑨。最终，为了让虚拟节点存在在队列中，你不得不使用构造函数来创建它②。
 
+那么现在，我确信你会对如何对如何修改队列，让其变成一个线程安全的队列感到惊讶。好吧，现在的push()只能访问tail，而不能访问head，这就是一个进步try_pop()可以访问head和tail，但是tail只需在最初进行比较，所以所存在的时间很短。重大的提升在于，虚拟节点意味着try_pop()和push()不能对同一节点进行操作，所以这里已经不再需要互斥了。那么，你只需要使用一个互斥量来保护head和tail就够了。那么，现在应该锁哪里？
+
+我们的目的是为了最大程度的并发化，所以你需要上锁的时间，要尽可能的小。push()很简单：互斥量需要对tail的访问进行上锁，这就意味着你需要你需要对每一个新分配的节点进行上锁⑧，还有在你对当前尾节点进行赋值的时候⑨也需要上锁。锁需要持续到函数结束时才能解开。
+
+try_pop()就不简单了。首先，你需要使用互斥量锁住head，一直到head弹出。本质上，互斥量决定了哪一个线程来进行弹出操作。一旦head被改变⑤，你擦能解锁互斥量；当在返回结果时，互斥量就不需要进行上锁了⑥。这使得访问tail需要一个尾互斥量。因为，你需要只需要访问tail一次，且只有在访问时才需要互斥量。这个操作最好是通过函数进行包装。事实上，因为代码只有在成员需要head时，互斥量才上锁，这项也需要包含在包装函数中。最终代码如下所示。
+
+清单6.6 线程安全队列——细粒度锁版
+```c++
+template<typename T>
+class threadsafe_queue
+{
+private:
+  struct node
+  {
+    std::shared_ptr<T> data;
+    std::unique_ptr<node> next;
+  };
+  std::mutex head_mutex;
+  std::unique_ptr<node> head;
+  std::mutex tail_mutex;
+  node* tail;
+
+  node* get_tail()
+  {
+    std::lock_guard<std::mutex> tail_lock(tail_mutex);
+    return tail;
+  }
+
+  std::unique_ptr<node> pop_head()
+  {
+    std::lock_guard<std::mutex> head_lock(head_mutex);
+    if(head.get()==get_tail())
+    {
+      return nullptr;
+    }
+    std::unique_ptr<node> old_head=std::move(head);
+    head=std::move(old_head->next);
+    return old_head;
+  }
+public:
+  threadsafe_queue():
+  head(new node),tail(head.get())
+  {}
+  threadsafe_queue(const threadsafe_queue& other)=delete;
+  threadsafe_queue& operator=(const threadsafe_queue& other)=delete;
+
+  std::shared_ptr<T> try_pop()
+  {
+     std::unique_ptr<node> old_head=pop_head();
+     return old_head?old_head->data:std::shared_ptr<T>();
+  }
+
+  void push(T new_value)
+  {
+    std::shared_ptr<T> new_data(
+      std::make_shared<T>(std::move(new_value)));
+    std::unique_ptr<node> p(new node);
+    node* const new_tail=p.get();
+    std::lock_guard<std::mutex> tail_lock(tail_mutex);
+    tail->data=new_data;
+    tail->next=std::move(p);
+    tail=new_tail;
+  }
+};
+```
+
+让我们用挑剔的目光来看一下上面的代码，并考虑6.1.1节中给出的知道意见。在你观察不变量前，你需要确定的状态有：
+
+- tail->next == nullptr
+
+- tail->data == nullptr
+
+- head == taill(意味着空列表)
+
+- 单元素列表 head->next = tail
+
+- 在列表中的每一个节点x，x!=tail且x->data指向一个T类型的实例，并且x->next指向列表中下一个节点。x->next == tail意味着x就是列表中最后一个节点
+
+- 顺着head的next节点找下去，最终会找到tail
+ 
+
 **等待数据弹出**
