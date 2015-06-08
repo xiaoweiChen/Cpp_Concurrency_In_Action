@@ -542,3 +542,186 @@ std::unique_ptr<node> pop_head() // 这是个有缺陷的实现
 OK，所以清单6.6提供了一个使用细粒度锁的线程安全队列，不过只有try_pop()可以并发访问(且只有一个重载存在)。那么在清单6.2中方便的wait_and_pop()呢？你能通过细粒度锁实现一个相同功能的接口吗？
 
 当然，答案是“是的”，不过的确有些困难，困难在哪里？修改push()是相对简单的：只需要在函数体末尾添加data_cond.notify_ont()函数的调用即可(如同清单6.2中那样)。当然，事实并没有那么简单：你使用细粒度锁，是为了保证最大程度的并发。当你将互斥量和notify_one()混用的时，如果被通知的线程在互斥量解锁后被唤醒，那么这个线程就不得不等待互斥量上锁。另一方面，当解锁操作在notify_one()之前调用，那么互斥量可能会等待线程醒来，来获取互斥锁(假设没有其他线程对互斥量上锁)。这可能是一个微小的改动，但是对于一些情况来说，就显的很重要了。
+
+wait_and_pop()就有些复杂了，因为需要确定在哪里等待，也就是函数在哪里之心，并且需要确定那些互斥量需要上锁。等待的条件是“队列非空”，这就意味着head!=tail。这样写的话，就需要同时获取head_mutex和tail_mutex，并对其进行上锁，不过你在清单6.6中已经使用tail_mutex来保护对tail的读取，以及不用和自身记性比较，所以这种逻辑也同样适用于这里。如果有函数让head!=get_tail()，你只需要持有head_mutex，然后你就可以使用锁，对data_cond.wait()的调用进行保护。当你将等待逻辑添加入结构当中，那么实现的方式与try_pop()基本上是一样的。
+
+对于try_pop()和wait_and_pop()的重载都需要深思熟虑。当你将返回`std::shared_ptr<>`替换为，从old_head后索引出值，并且拷贝赋值给value参数进行返回，那么这里将会存在异常安全问题。这里，数据项在互斥锁未上锁的情况下被删除；将剩下的数据返回给调用者。不过，当拷贝赋值抛出异常(可能性很大)，数据项将会丢失，因为它没有被返回队列原来的位置上。
+
+当T类型有无异常抛出的移动赋值操作，或无异常抛出的交换操作，你可以使用它，不过，你肯定喜欢一种通用的解决方案，无论T是什么类型，这个方案都能使用。在这种情况下，在节点从列表中删除前，你就不得不将有可能抛出异常的代码，放在锁保护的范围内，来保证异常安全性。这也就意味着你需要对pop_head()进行重载，查找索引值在列表改动前的位置。
+
+相比之下，empty()就更加的简单:只需要锁住head_mutex，并且检查head==get_tail()(详见清单6.10)就可以了。最终的代码，在清单6.7，6.8，6.9和6.10中。
+
+清单6.7 可上锁和等待的线程安全队列——内部机构及接口
+```c++
+template<typename T>
+class threadsafe_queue
+{
+private:
+  struct node
+  {
+    std::shared_ptr<T> data;
+    std::unique_ptr<node> next;
+  };
+
+  std::mutex head_mutex;
+  std::unique_ptr<node> head;
+  std::mutex tail_mutex;
+  node* tail;
+  std::condition_variable data_cond;
+public:
+  threadsafe_queue():
+    head(new node),tail(head.get())
+  {}
+  threadsafe_queue(const threadsafe_queue& other)=delete;
+  threadsafe_queue& operator=(const threadsafe_queue& other)=delete;
+
+  std::shared_ptr<T> try_pop();
+  bool try_pop(T& value);
+  std::shared_ptr<T> wait_and_pop();
+  void wait_and_pop(T& value);
+  void push(T new_value);
+  void empty();
+};
+```
+
+向队列中添加新节点是相当简单的——下面的实现与上面的代码差不多。
+
+清单6.8 可上锁和等待的线程安全队列——推入新节点
+```c++
+template<typename T>
+void threadsafe_queue<T>::push(T new_value)
+{
+  std::shared_ptr<T> new_data(
+  std::make_shared<T>(std::move(new_value)));
+  std::unique_ptr<node> p(new node);
+  {
+    std::lock_guard<std::mutex> tail_lock(tail_mutex);
+    tail->data=new_data;
+    node* const new_tail=p.get();
+    tail->next=std::move(p);
+    tail=new_tail;
+  }
+  data_cond.notify_one();
+}
+```
+
+如同之前所提到的，复杂部分都在pop那边，所以提供很多帮助性函数去简化这部分就很重要了。下一个清单中将展示wait_and_pop()的实现，以及先关的帮助函数。
+
+清单6.9 可上锁和等待的线程安全队列——wait_and_pop()
+```c++
+template<typename T>
+class threadsafe_queue
+{
+private:
+  node* get_tail()
+  {
+    std::lock_guard<std::mutex> tail_lock(tail_mutex);
+    return tail;
+  }
+
+  std::unique_ptr<node> pop_head()  // 1
+  {
+    std::unique_ptr<node> old_head=std::move(head);
+    head=std::move(old_head->next);
+    return old_head;
+  }
+
+  std::unique_lock<std::mutex> wait_for_data()  // 2
+  {
+    std::unique_lock<std::mutex> head_lock(head_mutex);
+    data_cond.wait(head_lock,[&]{return head.get()!=get_tail();});
+    return std::move(head_lock);  // 3
+  }
+
+  std::unique_ptr<node> wait_pop_head()
+  {
+    std::unique_lock<std::mutex> head_lock(wait_for_data());  // 4
+    return pop_head();
+  }
+
+  std::unique_ptr<node> wait_pop_head(T& value)
+  {
+    std::unique_lock<std::mutex> head_lock(wait_for_data());  // 5
+    value=std::move(*head->data);
+    return pop_head();
+  }
+public:
+  std::shared_ptr<T> wait_and_pop()
+  {
+    std::unique_ptr<node> const old_head=wait_pop_head();
+    return old_head->data;
+  }
+
+  void wait_and_pop(T& value)
+  {
+    std::unique_ptr<node> const old_head=wait_pop_head(value);
+  }
+};
+```
+
+清单6.9中所示的pop部分的实现中有一些帮助函数来降低代码的复杂度，例如pop_head()①和wait_for_data()②，这些函数分别是删除头结点和等待队列中有数据弹出的。wait_for_data()特别值得关注，因为其不仅等待使用lambda函数对条件变量进行等待，而且它还会将锁的实例返回给调用者③。这就需要保证，同一个锁在执行与wait_pop_head()重载④⑤，相关的操作时，锁已持有的。pop_head()是对try_pop()代码的复用，将在下面进行展示：
+
+清单6.10 可上锁和等待的线程安全队列——try_pop()和empty()
+```c++
+template<typename T>
+class threadsafe_queue
+{
+private:
+  std::unique_ptr<node> try_pop_head()
+  {
+    std::lock_guard<std::mutex> head_lock(head_mutex);
+    if(head.get()==get_tail())
+    {
+      return std::unique_ptr<node>();
+    }
+    return pop_head();
+  }
+
+  std::unique_ptr<node> try_pop_head(T& value)
+  {
+    std::lock_guard<std::mutex> head_lock(head_mutex);
+    if(head.get()==get_tail())
+    {
+      return std::unique_ptr<node>();
+    }
+    value=std::move(*head->data);
+    return pop_head();
+  }
+public:
+  std::shared_ptr<T> try_pop()
+  {
+    std::unique_ptr<node> old_head=try_pop_head();
+    return old_head?old_head->data:std::shared_ptr<T>();
+  }
+
+  bool try_pop(T& value)
+  {
+    std::unique_ptr<node> const old_head=try_pop_head(value);
+    return old_head;
+  }
+
+  void empty()
+  {
+    std::lock_guard<std::mutex> head_lock(head_mutex);
+    return (head.get()==get_tail());
+  }
+};
+```
+
+这个队列的实现将作为第7章无锁队列的基础。这是一个无界(*unbounded*)队列;线程可以持续向队列中添加数据项，即使没有元素被删除。与之相反的就是有界(*bounded*)队列，在有界队列中，队列在创建的时候最大长度就已经是固定的了。当有界队列满载时，尝试在向其添加元素的操作将会失败或者阻塞，直到有元素从队列中弹出。在任务执行时(详见第8章)，有界队列对于线程间的工作花费是很有帮助的。其会阻止线程对队列进行填充，并且可以避免线程从较远的地方对数据项进行索引。
+
+这里无界队列的实现，很容易扩展成，可在push()中等待跳进变量的定长队列。相对于等待队列中具有数据项(pop()执行完成后)，你就需要等待队列中数据项小于最大值就可以了。对于有界队列更多的讨论，超出了本书的范围，就不在多说；现在越过队列，想想更加复杂的数据结构进发。
+
+##6.3 基于锁设计更加复杂的数据结构
+
+栈和队列都很简单：接口相对固定，并且它们应用于比较特殊的情况。并不是所有数据结构都像它们一样简单；大多数数据结构支持更加多样化的操作。原则上，这将增大并行的可能性，但是也让对数据保护变得更加困难，因为要考虑对所有能访问到的部分。当为了并发访问对数据结构进行设计时，这一系列原有的操作，就变得越发重要，需要重点处理。
+
+先来看看，在查找表的设计中，所遇到的一些问题。
+
+###6.3.1 编写一个使用锁的线程安全查找表
+
+**为细粒度锁设计一个映射结构**
+
+###6.3.2 编写一个使用锁的线程安全链表
+
+##6.4 小结
