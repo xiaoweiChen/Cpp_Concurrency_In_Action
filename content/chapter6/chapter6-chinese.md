@@ -505,7 +505,7 @@ public:
 
 有趣的部分在于try_pop()上。事实证明，不仅需要对tail_mutex上锁，来保护对tail的读取；还要保证在从头读取数据时，不会产生数据竞争。如果没有这些互斥量，当一个线程调用try_pop()的同时，另一个线程调用push()，那么这里操作顺序将不可预测。尽管，每一个成员函数都持有一个互斥量，这些互斥量能保护数据不会同时被多个线程访问到；并且，队列中的所有数据来源，都是通过调用push()得到的。因为线程可能会无序的方位同一数据，所以这里就会有数据竞争(正如你在第5章看到的那样)，以及未定义行为。幸运的是，在get_tail()中的tail_mutex结局的了所有的问题。因为调用get_tail()将会锁住同名锁，就像push()一样，这就为两个操作规定好了顺序。要不就是get_tail()在push()之前被调用，这种情况下，线程可以看到旧的尾节点，要不就是在push()之后完成，这种情况下，线程就能看到tail的新值，以及新数据前的真正tail的值。
 
-当get_tail()调用前，head_mutex已经上锁，这一步也是很重要的哦。如果不这样，调用pop_head()时就会被get_tail()和head_mutex所卡住，因为其他线程嗲用try_pop()(以及pop_head())时，都需要先获取锁，然后阻止从下面的过程中初始化线程：
+当get_tail()调用前，head_mutex已经上锁，这一步也是很重要的哦。如果不这样，调用pop_head()时就会被get_tail()和head_mutex所卡住，因为其他线程调用try_pop()(以及pop_head())时，都需要先获取锁，然后阻止从下面的过程中初始化线程：
 
 ```c++
 std::unique_ptr<node> pop_head() // 这是个有缺陷的实现
@@ -716,11 +716,197 @@ public:
 
 栈和队列都很简单：接口相对固定，并且它们应用于比较特殊的情况。并不是所有数据结构都像它们一样简单；大多数数据结构支持更加多样化的操作。原则上，这将增大并行的可能性，但是也让对数据保护变得更加困难，因为要考虑对所有能访问到的部分。当为了并发访问对数据结构进行设计时，这一系列原有的操作，就变得越发重要，需要重点处理。
 
-先来看看，在查找表的设计中，所遇到的一些问题。
+先来看看，在查询表的设计中，所遇到的一些问题。
 
-###6.3.1 编写一个使用锁的线程安全查找表
+###6.3.1 编写一个使用锁的线程安全查询表
+
+查询表或字典是一种类型的值(键值)和另一种类型的值进行关联(映射的方式)。一般情况下，这样的结构允许代码通过键值对相关的数据值进行查询。在C++标准库中，这种相关工具有：`std::map<>`, `std::multimap<>`, `std::unordered_map<>`以及`std::unordered_multimap<>`。
+
+查询表的使用与栈和队列不同。栈和队列上，几乎每个操作都会对数据结构进行修改，不是添加一个元素，就是删除一个，而对于查询表来说，几乎不需要什么修改。清单3.13中有个例子，是一个简单的域名系统(DNS)缓存，其特点是，相较于`std::map<>`削减了很多的接口。和队列和栈一样，标准容器的接口不适合多线程进行并发访问，因为这些接口在设计的时候都存在固有的条件竞争，所以这些接口需要砍掉，以及重新修订。
+
+并发访问时，`std::map<>`接口最大的问题在于——迭代器。虽然，在多线程访问(或修改)容器时，可能会有提供安全访问的迭代器，但这就问题棘手之处。要想正确的处理迭代器，你可能会碰到下面这个问题：当迭代器引用的元素被其他线程删除时，迭代器在这里就是个问题了。线程安全的查询表，第一次接口削减，需要绕过迭代器。`std::map<>`(以及标准库中其他相关容器)给定的接口对于迭代器的依赖是很严重的，其中有些接口需要先放在一边，先对一些简单接口进行设计。
+
+查询表的基本操作有：
+
+- 添加一对“键值-数据”
+
+- 修改指定键值所对应的数据
+
+- 删除一组值
+
+- 通过给定键值，获取对应数据
+
+容器也有一些操作是非常有用的，比如：查询容器是否为空，键值列表的完整快照和“键值-数据”的完整快照。
+
+如果你坚持之前的简单线程安全指导意见，例如：不要返回一个引用，并且用一个简单的互斥锁对每一个成员函数进行上锁，以确保每一个函数线程安全。最有可能的条件竞争在于，当一对“键值-数据”加入时；当两个线程都添加一个数据，那么肯定一个先一个后。一种方式是合并“添加”和“修改”操作，为一个成员函数，就像清单3.13对域名系统缓存所做的那样。
+
+从接口角度看，有一个问题很是有趣，那就是任意(*if any*)部分获取相关数据。一种选择是允许用户提供一个“默认”值，在键值没有对应值的时候进行返回：
+
+```c++
+mapped_type get_value(key_type const& key, mapped_type default_value);
+```
+
+在种情况下，当default_value没有明确的给出时，默认构造出的mapped_type实例将被使用。也可以扩展成返回一个`std::pair<mapped_type, bool>`来代替mapped_type实例，其中bool代表返回值是否是当前键对应的值。另一个选择是，返回一个有指向数据的智能指针；当指针的值是NULL时，那么这个键值就没有对应的数据。
+
+如我们之前所提到的，当接口确定时，那么(假设没有接口间的条件竞争)就需要保证线程安全了，可以通过对每一个成员函数使用一个互斥量和一个简单的锁，来保护底层数据。不过，当独立的函数对数据结构进行读取和修改时，就会降低并发的可能性。一个选择是使用一个互斥量去面对多个读者线程，或一个作者线程，如同在清单3.13中对`boost::shared_mutex`的使用一样。虽然，这将提高并发访问的可能性，但是在同一时间内，也只有一个线程能对数据结构进行修改。理想很美好，现实很骨感？我们应该能做的更好！
 
 **为细粒度锁设计一个映射结构**
+
+在对队列的讨论中(在6.2.3节)，为了允许细粒度锁能正常工作，需要对于数据结构的细节进行仔细的考虑，而非直接使用已存在的容器，例如`std::map<>`。这里列出三个常见关联容器的方式：
+
+- 二叉树，比如：红黑树
+
+- 有序数组
+
+- 哈希表
+
+二叉树的方式，不会对提高并发访问的概率；每一个查找或者修改操作都需要访问根节点，因此，根节点需要上锁。虽然，访问线程在向下移动时，这个锁可以进行释放，但相比横跨整个数据结构的单锁，并没有什么优势。
+
+有序数组是最坏的选择，因为你无法提前言明数组中哪段是有序的，所以你需要用一个锁将整个数组锁起来。
+
+那么就剩哈希表了。假设有固定数量的桶，每个桶都有一个键值(关键特性)，以及散列函数。这就意味着你可以安全的对每个桶上锁。当你再次使用互斥量(支持多读者单作者)时，你就能将并发访问的可能性增加N倍，这里N是桶的数量。当然，缺点也是有的：对于键值的操作，需要有合适的函数。C++标准库提供`std::hash<>`模板，可以直接使用。对于特化的类型，比如int，以及通用库类型`std::string`，并且用户可以简单的对键值类型进行特化。如果你去效仿标准无序容器，并且获取函数对象的类型作为哈希表的模板参数，用户可以选择是否特化`std::hash<>`的键值类型，或者提供一个独立的哈希函数。
+
+那么，让我们来看一些代码吧。怎样的实现才能完成一个线程安全的查询表？下面就是一种方式。
+
+清单6.11 线程安全的查询表
+```c++
+template<typename Key,typename Value,typename Hash=std::hash<Key> >
+class threadsafe_lookup_table
+{
+private:
+  class bucket_type
+  {
+  private:
+    typedef std::pair<Key,Value> bucket_value;
+    typedef std::list<bucket_value> bucket_data;
+    typedef typename bucket_data::iterator bucket_iterator;
+
+    bucket_data data;
+    mutable boost::shared_mutex mutex;  // 1
+
+    bucket_iterator find_entry_for(Key const& key) const  // 2
+    {
+      return std::find_if(data.begin(),data.end(),
+      [&](bucket_value const& item)
+      {return item.first==key;});
+    }
+  public:
+    Value value_for(Key const& key,Value const& default_value) const
+    {
+      boost::shared_lock<boost::shared_mutex> lock(mutex);  // 3
+      bucket_iterator const found_entry=find_entry_for(key);
+      return (found_entry==data.end())?
+        default_value:found_entry->second;
+    }
+
+    void add_or_update_mapping(Key const& key,Value const& value)
+    {
+      std::unique_lock<boost::shared_mutex> lock(mutex);  // 4
+      bucket_iterator const found_entry=find_entry_for(key);
+      if(found_entry==data.end())
+      {
+        data.push_back(bucket_value(key,value));
+      }
+      else
+      {
+        found_entry->second=value;
+      }
+    }
+
+    void remove_mapping(Key const& key)
+    {
+      std::unique_lock<boost::shared_mutex> lock(mutex);  // 5
+      bucket_iterator const found_entry=find_entry_for(key);
+      if(found_entry!=data.end())
+      {
+        data.erase(found_entry);
+      }
+    }
+  };
+
+  std::vector<std::unique_ptr<bucket_type> > buckets;  // 6
+  Hash hasher;
+
+  bucket_type& get_bucket(Key const& key) const  // 7
+  {
+    std::size_t const bucket_index=hasher(key)%buckets.size();
+    return *buckets[bucket_index];
+  }
+
+public:
+  typedef Key key_type;
+  typedef Value mapped_type;
+
+  typedef Hash hash_type;
+  threadsafe_lookup_table(
+    unsigned num_buckets=19,Hash const& hasher_=Hash()):
+    buckets(num_buckets),hasher(hasher_)
+  {
+    for(unsigned i=0;i<num_buckets;++i)
+    {
+      buckets[i].reset(new bucket_type);
+    }
+  }
+
+  threadsafe_lookup_table(threadsafe_lookup_table const& other)=delete;
+  threadsafe_lookup_table& operator=(
+    threadsafe_lookup_table const& other)=delete;
+
+  Value value_for(Key const& key,
+                  Value const& default_value=Value()) const
+  {
+    return get_bucket(key).value_for(key,default_value);  // 8
+  }
+
+  void add_or_update_mapping(Key const& key,Value const& value)
+  {
+    get_bucket(key).add_or_update_mapping(key,value);  // 9
+  }
+
+  void remove_mapping(Key const& key)
+  {
+    get_bucket(key).remove_mapping(key);  // 10
+  }
+};
+```
+
+这个实现中使用了`std::vector<std::unique_ptr<bucket_type>>`⑥来保存桶，其允许在构造函数中指定构造桶的数量。默认为19个，其是一个任意的[质数](http://zh.wikipedia.org/zh-cn/%E7%B4%A0%E6%95%B0);哈希表在有质数个桶时，工作效率最高。每一个桶都会被一个`boost::shared_mutex`①实例锁保护，来允许并发读取，或对每一个桶，只有一个线程对其进行修改。
+
+因为桶的数量是固定的，所以get_bucket()⑦可以无锁调用，⑧⑨⑩也都一样。并且对桶的互斥量上锁，要不就是共享(只读)所有权的时候③，要不就是在获取唯一(读/写)权的时候④⑤。这里的互斥量，可适用于每个成员函数。
+
+这三个函数都使用到了find_entry_for()成员函数②，在桶上用来确定数据是否在桶中。每一个桶都包含一个“键值-数据”的`std::list<>`列表，所以添加和删除数据，就会很简单。
+
+已经从并发的角度考虑了，并且所有成员都会被互斥锁保护，所以这样的实现就是“异常安全”的吗？value_for是不能修改任何值的，所以其不会有问题；如果value_for抛出异常，也不会对数据结构有任何影响。remove_mapping修改链表时，将会调用erase，不过这就能保证没有异常抛出，那么这里也是安全的。那么就剩add_or_update_mapping了，其可能会在其两个if分支上抛出异常。push_back是异常安全的，如果有异常抛出，其也会将链表恢复成原来的状态，所以这个分支是没有问题的。唯一的问题就是在赋值阶段，这将替换已有的数据；当复制阶段抛出异常，用于原依赖的始状态没有改变。不过，这不会影响数据结构的整体，以及用户提供类型的属性，所以你可以放心的将问题交给用户处理。
+
+在本节开始时，我提到查询表的一个“可有可无”(*nice-to-have*)的特性，会将选择当前状态的快照，例如，一个`std::map<>`。这将要求锁住整个容器，用来保证拷贝副本的状态是可以索引的，这将要求锁住所有的桶。因为对于查询表的“普通”的操作，需要在同一时间获取一个桶上的一个锁，而这个操作将要求查询表将所有桶都锁住。因此，只要每次以相同的顺序进行上锁(例如，递增桶的索引值)，就不会产生死锁。实现如下所示：
+
+清单6.12 获取整个threadsafe_lookup_table作为一个`std::map<>`
+```c++
+std::map<Key,Value> threadsafe_lookup_table::get_map() const
+{
+  std::vector<std::unique_lock<boost::shared_mutex> > locks;
+  for(unsigned i=0;i<buckets.size();++i)
+  {
+    locks.push_back(
+      std::unique_lock<boost::shared_mutex>(buckets[i].mutex));
+  }
+  std::map<Key,Value> res;
+  for(unsigned i=0;i<buckets.size();++i)
+  {
+    for(bucket_iterator it=buckets[i].data.begin();
+        it!=buckets[i].data.end();
+        ++it)
+    {
+      res.insert(*it);
+    }
+  }
+  return res;
+}
+```
+
+清单6.11中的查询表实现，就增大的并发访问的可能性，这个查询表作为一个整体，通过单独的操作，对每一个桶进行锁定，并且通过使用`boost::shared_mutex`允许读者线程对每一个桶进行并发访问。如果细粒度锁和哈希表结合起来，会更有效的增加并发的可能性吗？
+
+在下一节中，你将使用到一个线程安全列表(支持迭代器)。
 
 ###6.3.2 编写一个使用锁的线程安全链表
 
