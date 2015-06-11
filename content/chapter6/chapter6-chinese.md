@@ -910,4 +910,142 @@ std::map<Key,Value> threadsafe_lookup_table::get_map() const
 
 ###6.3.2 编写一个使用锁的线程安全链表
 
+链表类型是数据结构中的一个基本类型，所以应该是比较好修改成线程安全的，对么？其实这取决于你要添加什么样的功能，这其中需要你提供迭代器的支持，为了让基本数据类型的代码不会太复杂，我去掉了一些功能。迭代器的问题在于，STL类的迭代器需要持有容器内部属于的引用。当容器可被其他线程修改时，有时这个引用还是有效的；实际上，这里就需要迭代器持有锁，对指定的结构中的部分进行上锁。在给定STL类迭代器的生命周期中，让其完全脱离容器的控制是很糟糕的。
+
+替代方案就是提供迭代函数，例如，将for_each作为容器本身的一部分。这就能让容器来对迭代的部分进行负责和锁定，不过这将违反第3章指导意见对避免死锁建议。为了让for_each在任何情况下都有用，在其持有内部锁的时候，必须调用用户提供的代码。不仅如此，而且需要传递一个对容器中元素的引用到用户代码中，为的就是让用户代码对容器中的元素进行操作。你可以为了避免传递引用，而传出一个拷贝到用户代码中；不过当数据很大时，拷贝所要付出的代价也很大。
+
+所以，可以将避免死锁的工作(因为用户提供的操作需要获取内部锁)，还有避免对引用(不被锁保护)进行存储时的条件竞争，交给用户去做。这样的链表就可以被查询表所使用了，这样很安全，因为你知道这里的实现不会有任何问题。
+
+那么剩下的问题就是哪些操作需要列表所提供。如果你愿在花点时间看一下清单6.11和6.12中的代码，你会看到下面这些操作是需要的：
+
+- 向列表添加一个元素
+
+- 当某个条件满足时，就从链表中删除某个元素
+
+- 当某个条件满足时，从链表中查找某个元素
+
+- 当某个条件满足时，更新链表中的某个元素
+
+- 将当前容器中链表中的每个元素，复制到另一个容器中
+
+提供了这些操作，我们的链表才能是一个比较好的通用容器，这将帮助我们添加更多功能，比如，在指定位置上插入元素，不过这对于我们查询表来说就没有必要了，所以这里就算是给读者们留一个作业吧。
+
+使用细粒度锁最初的想法，是为了让链表每个节点都拥有一个互斥量。当链表很长时，那么就会有很多的互斥量!这样的好处是对于链表中每一个独立的部分，都能实现真实的并发：其真正感兴趣的是对持有的节点群进行上锁，并且在移动到下一个节点的时，对当前节点进行释放。下面的清单中将展示这样的一个链表实现。
+
+清单6.13 线程安全链表——支持迭代器
+```c++
+template<typename T>
+class threadsafe_list
+{
+  struct node  // 1
+  {
+    std::mutex m;
+    std::shared_ptr<T> data;
+    std::unique_ptr<node> next;
+    node():  // 2
+      next()
+    {}
+
+    node(T const& value):  // 3
+      data(std::make_shared<T>(value))
+    {}
+  };
+
+  node head;
+
+public:
+  threadsafe_list()
+  {}
+
+  ~threadsafe_list()
+  {
+    remove_if([](node const&){return true;});
+  }
+
+  threadsafe_list(threadsafe_list const& other)=delete;
+  threadsafe_list& operator=(threadsafe_list const& other)=delete;
+
+  void push_front(T const& value)
+  {
+    std::unique_ptr<node> new_node(new node(value));  // 4
+    std::lock_guard<std::mutex> lk(head.m);
+    new_node->next=std::move(head.next);  // 5
+    head.next=std::move(new_node);  // 6
+  }
+
+  template<typename Function>
+  void for_each(Function f)  // 7
+  {
+    node* current=&head;
+    std::unique_lock<std::mutex> lk(head.m);  // 8
+    while(node* const next=current->next.get())  // 9
+    {
+      std::unique_lock<std::mutex> next_lk(next->m);  // 10
+      lk.unlock();  // 11
+      f(*next->data);  // 12
+      current=next;
+      lk=std::move(next_lk);  // 13
+    }
+  }
+
+  template<typename Predicate>
+  std::shared_ptr<T> find_first_if(Predicate p)  // 14
+  {
+    node* current=&head;
+    std::unique_lock<std::mutex> lk(head.m);
+    while(node* const next=current->next.get())
+    {
+      std::unique_lock<std::mutex> next_lk(next->m);
+      lk.unlock();
+      if(p(*next->data))  // 15
+      {
+         return next->data;  // 16
+      }
+      current=next;
+      lk=std::move(next_lk);
+    }
+    return std::shared_ptr<T>();
+  }
+
+  template<typename Predicate>
+  void remove_if(Predicate p)  // 17
+  {
+    node* current=&head;
+    std::unique_lock<std::mutex> lk(head.m);
+    while(node* const next=current->next.get())
+    {
+      std::unique_lock<std::mutex> next_lk(next->m);
+      if(p(*next->data))  // 18
+      {
+        std::unique_ptr<node> old_next=std::move(current->next);
+        current->next=std::move(next->next);
+        next_lk.unlock();
+      }  // 20
+      else
+      {
+        lk.unlock();  // 21
+        current=next;
+        lk=std::move(next_lk);
+      }
+    }
+  }
+};
+```
+
+清单6.13中的threadsafe_list<>是一个单链表，可从node的结构①中看出。一个默认构造的node，作为链表的head，其next指针②指向的是NULL。新节点都是被push_front()函数添加进去的；构造第一个新节点④，其将会在堆上分配内存③来对数据进行存储，同时将next指针置为NULL。然后，你需要获取head节点的互斥锁，为了让设置next的值⑤，也就是插入节点到列表的头部，让头节点的head.next指向这个新节点⑥。目前，还没有什么问题：你只需要锁住一个互斥量，就能将一个新的数据添加进入链表，所以这里不存在死锁的问题。同样，(缓慢的)内存分配操作在锁的范围外，所以锁能保护需要更新的一对指针。那么，现在来看一下迭代功能。
+
+首先，来看一下for_each()⑦。这个操作需要对队列中的每个元素执行Function(函数指针)；在大多数标准算法库中，都会通过传值方式来执行这个函数，这里要不就传入一个通用的函数，要不就传入一个有函数操作的类型对象。在这种情况下，这个函数必须接受类型为T的值作为参数。在链表中，会有一个“手递手”的上锁过程。在这个过程开始时，你需要锁住head及节点⑧的互斥量。然后，安全的获取指向下一个节点的指针(使用get()获取，这是因为你对这个指针没有所有权)。当指针不为NULL⑨，就需要对指向的节点进行上锁⑩，为了继续对数据进行处理。当你已经锁住了那个节点，就可以对上一个节点进行释放了⑪，并且调用指定函数⑫。当函数执行完成时，你就可以更新当前指针所指向的节点(刚刚处理过的节点)，并且将所有权从next_lk移动移动到lk⑬。因为for_each传递的每个数据都是能被Function接受的，所以当需要的时，需要拷贝到另一个容器的时，或其他情况时，你都可以考虑使用这种方式更新每个元素。如果函数的行为没什么问题，这种方式是完全安全的，因为在获取节点互斥锁时，已经获取锁的节点正在被函数所处理。
+
+find_first_if()⑭和for_each()很相似；最大的区别在于find_first_if支持函数(谓词)在匹配的时候返回true，在不匹配的时候返回false⑮。当条件匹配，只需要返回找到的数据⑯，而非继续查找。你可以使用for_each()来做这件事，不过在找到之后，继续做查找就是没有意义的了。
+
+remove_if()⑰就有些不同了，因为这个函数会改变链表；所以，你就不能使用for_each()来实现这个功能。当函数(谓词)返回true⑱，对应元素将会移除，并且更新current->next⑲。当这些都做完，你就可以释放next指向节点的锁。当`std::unique_ptr<node>`的移动超出链表范围⑳，这个节点将被删除。这种情况下，你就不需要更新当前节点了，因为你只需要修改next所指向的下一个节点就可以。当函数(谓词)返回false，那么移动的操作就和之前一样了(21)。
+
+那么，所有的互斥量中会有死锁或条件竞争吗？答案无疑是“否”，这里要看提供的函数(谓词)是否有良好的行为。迭代通常都是使用一种方式，都是从head节点开始，并且在释放当前节点锁之前，将下一个节点的互斥量锁住，所以这里就不可能会有不同线程有不同的上锁顺序。唯一可能出现条件竞争的地方就是在remove_if()⑳中删除已有节点的时候。因为，这个操作在解锁互斥量后进行(其导致的未定义行为，可对已上锁的互斥量进行破坏)。不过，在考虑一阵后，可以确定这的确是安全的，因为你还持有前一个节点(当前节点)的互斥锁，所以不会有新的线程尝试去获取你正在删除的那个节点的互斥锁。
+
+这里并发概率有多大呢？细粒度锁要比单锁的并发概率大很多，那我们已经获得了吗？是的，你已经获取了：同一时间内，不同线程可以在不同节点上工作，无论是其使用for_each()对每一个节点进行处理，使用find_first_if()对数据进行查找，还是使用remove_if()删除一些元素。不过，因为互斥量必须按顺序上锁，那么线程就不能交叉进行工作。当一个线程耗费大量的时间对一个特殊节点进行处理，那么其他线程就必须等待这个处理完成。在完成后，其他线程才能到达这个节点。
+
 ##6.4 小结
+
+本章开篇，我们讨论了设计并发数据结构的意义，以及给出了一些指导意见。然后，通过设计一些通用的数据结构(栈，队列，哈希表和单链表)，探究了在指导意见在实现这些数据结构的应用，并使用锁来保护数据和避免数据竞争。那么现在，你应该回看一下本章实现的那些数据结构，再回顾一下如何增加并发访问的几率，和哪里会存在潜在条件竞争。
+
+在第7章中，我们将看一下如何避免锁完全锁定，使用底层原子操作来提供必要访问顺序约束的同时，遵循本章的指导意见。
