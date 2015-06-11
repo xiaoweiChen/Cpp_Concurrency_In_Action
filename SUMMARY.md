@@ -4,7 +4,7 @@
 * [第4章 同步并发操作](content/chapter4/chapter4-chinese.md)
 * [第5章 C++内存模型和原子类型操作](content/chapter5/chapter5-chinese.md)
 * [第6章 基于锁的并发数据结构设计](content/chapter6/chapter6-chinese.md)
-* [第7章 无锁并发数据结构设计]()
+* [第7章 无锁并发数据结构设计](content/chapter7/chapter7-chinese.md)
 * [第8章 并发代码设计]()
 * [第9章 高级线程管理]()
 * [第10章 多线程程序的测试和调试]()
