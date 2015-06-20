@@ -157,6 +157,46 @@ public:
 
 虽然这段代码很优雅，但是这里还有两个有关节点泄露的问题。首先，这段代码在空链表的时候不工作：当head指针式一个空指针时，当要访问next指针时，其将引起未定义行为。这很容易通过对nullptr的检查进行修复(在while循环中)，要不对空栈抛出一个异常，要不返回一个bool值来表明成功与否。
 
+第二个问题就是异常安全问题。当在第3章中第一次介绍栈结构时，了解了在返回值的时候会出现异常安全问题：当有异常被抛出时，复制的值将丢失。在这种情况下，传入引用是一种可以接受的解决方案，因为这样你就能保证，当有异常抛出时，栈上的值不会丢失。不幸的是，现在你不能这样做；你只能在确定只有单一线程对值进行返回的时候，才进行拷贝，以确保拷贝操作的安全性，这就意味着在拷贝结束后这个节点就被删除了。因此，通过引用的方式获取返回值的方式就没有任何优势了：直接返回值这里也是可以的。想要安全的返回值，你必须使用第3章中的其他方法：返回指向数据值的(智能)指针。
+
+当返回的是一个智能指针，你就能返回nullptr来表明没有值可返回，但是要求在堆上对智能指针进行内存分配。当将分配过程做为pop()的一部分时(也没有更好的选择了)，堆分配时可能会抛出一个异常。与此相反的是，你可以在push()操作中对内存进行分配——不管怎么样，你都得对node进行内存分配。返回一个`std::shared_ptr<>`不会抛出任何异常，所以在pop()中进行分配就是安全的。将上面的观点放在一起，就能看到如下的代码。
+
+清单7.3 带有节点泄露的无锁栈
+```c++
+template<typename T>
+class lock_free_stack
+{
+private:
+  struct node
+  {
+    std::shared_ptr<T> data;  // 1 指针获取数据
+    node* next;
+
+    node(T const& data_):
+      data(std::make_shared<T>(data_))  // 2 让std::shared_ptr指向新分配出来的T
+    {}
+  };
+
+  std::atomic<node*> head;
+public:
+  void push(T const& data)
+  {
+    node* const new_node=new node(data);
+    new_node->next=head.load();
+    while(!head.compare_exchange_weak(new_node->next,new_node));
+  }
+  std::shared_ptr<T> pop()
+  {
+    node* old_head=head.load();
+    while(old_head && // 3 在解引用前检查old_head是否为空指针
+      !head.compare_exchange_weak(old_head,old_head->next));
+    return old_head ? old_head->data : std::shared_ptr<T>();  // 4
+  }
+};
+```
+
+智能指针指向当前数据①，所以这里必须在堆上为数据分配内存(在node结构体中)②。而后，在compare_exchage_weak()循环中③，需要在old_head指针前，检查其是否为空。最终，当存在相关节点，那么将会返回相关节点的值；当不存在时，将返回一个空指针④。注意，这个结构是无锁的，但并不是无等待的，因为在push()和pop()函数中都有while循环，那么当compare_exchange_weak()总是失败的前提下，循环将会无限制的循环下去。
+
 ###7.2.2 停止内存泄露：使用无锁数据结构管理内存
 
 ###7.2.3 检测使用危险指针(不可回收)的节点
