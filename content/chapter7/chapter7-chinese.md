@@ -233,6 +233,83 @@ public:
 };
 ```
 
+这里threads_in_pop①原子变量用来记录有多少线程试图弹出栈中的元素。当pop()②函数调用的时候，计数器加一；当调用try_reclaim()时，计数器减一，当这个函数被节点调用时，说明这个节点已经被删除④。因为暂时不需要将节点本身删除，所以你可以通过swap()函数来删除节点上的数据③(而非只是拷贝指针)，所以当你不再需要这些数据的时候，这些数据会自动删除，而不是持续存在着(因为这里还有对未删除节点的引用)。下面清单中将看一下try_reclaim()是如何实现的。
+
+清单7.5 采用引用计数的回收机制
+```c++
+template<typename T>
+class lock_free_stack
+{
+private:
+  std::atomic<node*> to_be_deleted;
+
+  static void delete_nodes(node* nodes)
+  {
+    while(nodes)
+    {
+      node* next=nodes->next;
+      delete nodes;
+      nodes=next;
+    }
+  }
+  void try_reclaim(node* old_head)
+  {
+    if(threads_in_pop==1)  // 1
+    {
+      node* nodes_to_delete=to_be_deleted.exchange(nullptr);  // 2 声明“可删除”列表
+      if(!--threads_in_pop)  // 3 是否只有一个线程调用pop()？
+      {
+        delete_nodes(nodes_to_delete);  // 4
+      }
+      else if(nodes_to_delete)  // 5
+      {
+         chain_pending_nodes(nodes_to_delete);  // 6
+      }
+      delete old_head;  // 7
+    }
+    else
+    {
+      chain_pending_node(old_head);  // 8
+      --threads_in_pop;
+    }
+  }
+  void chain_pending_nodes(node* nodes)
+  {
+    node* last=nodes;
+    while(node* const next=last->next)  // 9 让next指针指向链表的末尾
+    {
+      last=next;
+    }
+    chain_pending_nodes(nodes,last);
+  }
+
+  void chain_pending_nodes(node* first,node* last)
+  {
+    last->next=to_be_deleted;  // 10
+    while(!to_be_deleted.compare_exchange_weak(  // 11 用循环来保证last->next的正确性
+      last->next,first));
+    }
+    void chain_pending_node(node* n)
+    {
+      chain_pending_nodes(n,n);  // 12
+    }
+};
+```
+
+当回收节点时①，threads_in_pop的数值是1，也就是只有当前线程正在访问pop()，所以就可以安全的对节点进行删除了⑦,这个时候将等待的节点删除应该也是安全的。当数值不是1的时候，删除任何节点都是不安全的，所以需要继续向等待列表中添加节点⑧。
+
+假设在某一时刻，threads_in_pop的值为1。那么就可以尝试回收等待列表了；如果不回收，那么这节点就会持续等待，直到这个栈被销毁。要做到回收，首先要通过一个原子exchange操作声明②声明删除列表，并且将计数器减一③。当减一后计数值为0，这就意味着没有其他线程访问等待节点列表。可能会出现新的等待节点，不过你现在不必为其所烦恼了，因为它们将从被安全的回收。而后，你可以使用delete_nodes对链表进行迭代，并将其删除④。
+
+当计数值在减一后不为0，那么回收节点就是不安全的，所以如果存在⑤，就绪要将其挂在等待删除列表的后面⑥。这种情况会发生在多个线程同时访问数据结构的时候。一些线程在第一次测试threads_in_pop①和对“回收”列表的声明②操作间调用pop()，着可能新填入一个已经被一个或多个线程访问的节点到链表中。在图7.1中，线程C添加节点Y到to_be_deleted列表中，即使线程B仍将其引用作为old_head，之后会尝试访问其next指针。在线程A删除节点的时候，会造成线程B端发生未定义的行为。
+
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter7/7-1.png)
+
+为了将等待删除的节点添加入等待删除列表中，你需要复用节点的next指针将等待删除节点链接在一起。在这种情况下，将已存在的链表链接到链表后面，可以通过遍历的方式找到链表的末尾⑨，将最后一个节点的next指针替换为当前to_be_deleted指针⑩，并且将链表中的第一个节点作为新的to_be_deleted指针进行存储⑪。这里你需要在循环中使用compare_exchange_weak来确保通过其他线程添加进来的节点不会发生内存泄露。这还有个好处，就是在链表发生改变时，更新next指针很方便。添加单个节点是一种特殊的情况，因为这需要将这个节点作为第一个节点，同时也是最后一个节点进行添加⑫。
+
+在低负荷的情况下，这种方式没有问题，因为在没有线程访问pop()时，这里有一个合适的静态指针。不过，这只是一个瞬时的状态，也就是为什么在回收前，需要检查threads_in_pop计数为0③的原因；同样也是删除节点⑦前进行对计数器检查的原因。删除一个节点是一项耗时的工作，并且你想要其他线程能对列表做的修改越小越好。从第一发现threads_in_pop是1的时候到尝试删除节点的时候，用时很长，这样就会有很多线程有机会调用pop()，这就会让threads_in_pop不为0，这样就会阻止节点的删除操作。
+
+在高负荷的情况，就不会存在静态；因为，其他线程在初始化之后，都能进入pop()。在这样的情况下，to_ne_deleted列表将会无界的增加，并且这里会再次泄露。当这里不存在任何静态的情况，就得位回收节点寻找替代机制。关键是要确定，当没有线程访问一个特殊的线程，那么这个节点就能被回收。现在，最简单的替换机制就是使用“危险指针”(*hazard pointer*)。
+
 ###7.2.3 检测使用危险指针(不可回收)的节点
 
 **对危险指针(较好)的回收策略**
