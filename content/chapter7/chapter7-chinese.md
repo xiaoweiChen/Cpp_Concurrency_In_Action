@@ -381,6 +381,151 @@ std::shared_ptr<T> pop()
 
 首先，循环内部会对风险指针进行设置，在当比较/交换操作失败会重载old_head，再次进行设置①。这里使用compare_exchange_strong()，是因为需要在循环内部做一些实际的工作：当compare_exchange_weak()伪失败后，风险指针将被重置，这是没有必要的。这个过程就能保证风险指针在解引用(old_head)之前，能被正确的设置。当你声明了一个风险指针，那么你就可以将其清除了②。如果想要获取一个节点，你需要检查其他线程上的风险指针，看一下是否有其他指针该节点进行了引用③。如果有，那么你就不能删除那个节点，只能将其放在链表中，在之后再进行回收④；要不，你就能直接将这个节点删除了⑤。最后，如果需要对任意节点进行检查，那么你可以调用reclaim_later()。如果链表上没有任何风险指针引用节点，那么就可以安全的删除这些节点了⑥。当有任意节点持有风险指针，就能让下一个调用pop()函数的线程离开。
 
+当然，这些函数——get_hazard_pointer_for_current_thread(), reclaim_later(), outstanding_hazard_pointers_for(), 和delete_nodes_with_no_hazards()——的细节我们还没有看到，那我们就来看看它们是如何工作的。
+
+为线程分配风险指针指针实例的具体方案，是使用get_hazard_pointer_for_current_thread()与程序逻辑的关系并不大(不过会影响效率，接下会看到具体的情况)。那么现在你可以使用一个简单的结构体：固定长度的“线程ID-指针”数组。get_hazard_pointer_for_curent_thread()就可以通过这个数据来找到第一个释放槽，并将当前线程的ID放入到这个槽中。当线程退出时，这个槽再次置空，可以通过默认构造函数`std::thread::id()`将线程ID放入槽中。这个实现就如下所示：
+
+清单7.7 get_hazard_pointer_for_current_thread()函数的简单实现
+```c++
+unsigned const max_hazard_pointers=100;
+struct hazard_pointer
+{
+  std::atomic<std::thread::id> id;
+  std::atomic<void*> pointer;
+};
+hazard_pointer hazard_pointers[max_hazard_pointers];
+
+class hp_owner
+{
+  hazard_pointer* hp;
+
+public:
+  hp_owner(hp_owner const&)=delete;
+  hp_owner operator=(hp_owner const&)=delete;
+  hp_owner():
+    hp(nullptr)
+  {
+    for(unsigned i=0;i<max_hazard_pointers;++i)
+    {
+      std::thread::id old_id;
+      if(hazard_pointers[i].id.compare_exchange_strong(  // 6 尝试声明风险指针的所有权
+         old_id,std::this_thread::get_id()))
+      {
+        hp=&hazard_pointers[i];
+        break;  // 7
+      }
+    }
+    if(!hp)  // 1
+    {
+      throw std::runtime_error("No hazard pointers available");
+    }
+  }
+
+  std::atomic<void*>& get_pointer()
+  {
+    return hp->pointer;
+  }
+
+  ~hp_owner()  // 2
+  {
+    hp->pointer.store(nullptr);  // 8
+    hp->id.store(std::thread::id());  // 9
+  }
+};
+
+std::atomic<void*>& get_hazard_pointer_for_current_thread()  // 3
+{
+  thread_local static hp_owner hazard;  // 4 每个线程都有自己的风险指针
+  return hazard.get_pointer();  // 5
+}
+```
+
+对get_hazard_pointer_for_current_thread()的实现看起来很简单③：其有一个hp_owner④类型的thread_local(本线程所有)变量，就是为存储当前线程的风险指针而存在的。这个变量返回对象所持有的指针⑤。下面的工作就是：当第一次有线程调用这个函数时，一个新的hp_owner实例就被创建了。这个实例的构造函数⑥，将会通过查询“所有者/指针”表，寻找没有所有者的入口。其用compare_exchange_strong()来检查一个入口是否有所有权，并且将一个线程放入这个入口②。当compare_exchange_strong()失败，其他线程的所有者将进入这个入口，所以继续下去就行。当交换成功，你就成功的让当前线程进入了这个入口，所以这里对其进行存储，然后停止搜索⑦。当遍历了列表也没有找到空入口①，这就说明有很多线程都在使用风险指针，所以这里将抛出一个异常。
+
+一旦hp_owner实例被一个给定的线程所创建，那么之后的访问将会很快，因为指针在缓存中，所以表不需要再次遍历。
+
+当每个线程退出时，hp_owner的实例将会被销毁。析构函数会在通过`std::thread::id()`设置拥有者ID前，将指针重置为nullptr,这样就允许其他线程对这个入口进行再次使用⑧⑨。
+
+在实现get_hazard_pointer_for_current_thread()后，outstanding_hazard_pointer_for()的实现就简单了：只需要对风险指针表进行搜索，就可以找到入口。
+
+```c++
+bool outstanding_hazard_pointers_for(void* p)
+{
+  for(unsigned i=0;i<max_hazard_pointers;++i)
+  {
+    if(hazard_pointers[i].pointer.load()==p)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+```
+
+这里的实现都不需要对入口的所有者进行验证：没有所有者的入口将会使一个空指针，所以比较代码将总返回false，通过这种方式将代码极大程度的简化。
+
+reclaim_later()和delete_nodes_with_no_hazards()可以对简单的链表进行操作；reclaim_later()只是将节点添加到列表中，delete_nodes_with_no_hazards()就是搜索整个列表，并将无风险指针的入口进行删除。那么下一个清单中将展示它们的具体实现。
+
+清单7.8 回收函数的简单实现
+```c++
+template<typename T>
+void do_delete(void* p)
+{
+  delete static_cast<T*>(p);
+}
+
+struct data_to_reclaim
+{
+  void* data;
+  std::function<void(void*)> deleter;
+  data_to_reclaim* next;
+
+  template<typename T>
+  data_to_reclaim(T* p):  // 1
+    data(p),
+    deleter(&do_delete<T>),
+    next(0)
+  {}
+
+  ~data_to_reclaim()
+  {
+    deleter(data);  // 2
+  }
+};
+
+std::atomic<data_to_reclaim*> nodes_to_reclaim;
+
+void add_to_reclaim_list(data_to_reclaim* node)  // 3
+{
+  node->next=nodes_to_reclaim.load();
+  while(!nodes_to_reclaim.compare_exchange_weak(node->next,node));
+}
+
+template<typename T>
+void reclaim_later(T* data)  // 4
+{
+  add_to_reclaim_list(new data_to_reclaim(data));  // 5
+}
+
+void delete_nodes_with_no_hazards()
+{
+  data_to_reclaim* current=nodes_to_reclaim.exchange(nullptr);  // 6
+  while(current)
+  {
+    data_to_reclaim* const next=current->next;
+    if(!outstanding_hazard_pointers_for(current->data))  // 7
+    {
+      delete current;  // 8
+    }
+    else
+    {
+      add_to_reclaim_list(current);  // 9
+    }
+    current=next;
+  }
+}
+```
+
 **对风险指针(较好)的回收策略**
 
 ###7.2.4 检测使用引用计数的节点
