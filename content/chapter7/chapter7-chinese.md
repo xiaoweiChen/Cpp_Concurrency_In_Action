@@ -526,7 +526,25 @@ void delete_nodes_with_no_hazards()
 }
 ```
 
+首先，reclaim_later()是一个函数模板，而不是普通函数④。因为风险指针是一个通用解决方案，所以这里就不能将栈节点的类型写死。这里使用`std::atomic<void*>`对风险指针进行存储。这里需要对任意类型的指针进行处理，不过不能使用`void*`形式，因为当要删除数据项时，delete操作需要对实际类型指针进行。data_to_reclaim的构造函数处理的就很优雅：reclaim_later()只是为指针创建一个data_to_reclaim的实例，并且将这个实例添加到回收列表中⑤。add_to_reclaim_list()③也就是简答的使用compare_exchange_weak()循环来访问链表头(就如你之前看到的那样)。
+
+当将节点添加入列表时，data_to_reclaim的析构函数不会被调用；析构函数会在没有风险指针指向这个节点的时候调用。这也就是delete_nodes_with_no_hazards()的责任。
+
+delete_nodes_with_no_hazards()将声明的列表节点回收，使用的是一个简单的exchange()函数⑥。这个步骤简单且关键，其为了保证只有一个线程尝试去回收这些节点。这样，其他线程就能自由将节点添加到链表中，或尝试在不影响回收特殊节点的线程的情况下，回收节点。
+
+只要有节点才存在在链表中，就需要一次检查每个节点，查看节点是否被风险指针所指向⑦。如果没有风险指针，那么就可以安全的将入口删除(并且清除存储的数据)⑧。否则，就只能将这个节点添加到链表的后面，之后再进行回收⑨。
+
+虽然这个实现很简单，也的确安全的回收了被删除的节点，不过这个过程增加了很多的开销。遍历风险指针数组需要检查max_hazard_pointers原子变量，并且每次pop()调用时，都需要检查一遍。原子操作是很耗时——在台式CPU上，100次原子操作要比100次非原子操作慢——所以，这里让pop()成为了性能瓶颈。这里，不仅需要遍历节点风险指针链表，而且还要遍历等待链表上的每一个节点。显然，这种办法很糟糕。可能是有max_hazard_pointers在链表中，那么就需要检查max_hazard_pointers多个已存储的风险指针。天呐！还有更好一点的方法吗？
+
 **对风险指针(较好)的回收策略**
+
+当然，这里还有更好的办法。这里只展示一个风险指针的简单实现，来帮助解释技术问题。首先，要顾虑的是内存性能。比起对回收链表上的每个节点进行检查时都要调用pop()，现在你不需要尝试回收任何节点，除非有超过max_hazard_pointer数量的节点存在于链表之上。这样就能保证至少有一个节点能够回收。如果只是等待链表中的节点数量达到max_hazard_pointers+1，那比之前的方案也没好到哪里去。当获取了max_hazard_pointers数量的节点时，可以调用pop()对节点进行回收，所以这样也不是很好。不过，当有2max_hazard_pointers个节点在列表中时，就能保证至少有max_hazard_pointers可以被回收，在再次尝试回收任意节点前，至少会对pop()有max_hazard_pointers次调用。这就很不错了。比起检查max_hazard_pointers个节点就调用max_hazard_pointers次pop()(而且还不一定能回收节点)，当检查2max_hazard_pointers个节点时，每max_hazard_pointers次对pop()的调用，就会有max_hazard_pointers个节点能被回收。这就意味着，有效的对两个节点检查调用pop()，其中就有一个节点能被回收。
+
+这个方法有个缺点(有增加内存使用的情况)：那么现在就得对回收列表上的节点进行计数，这就意味着要使用原子变量，并且这里还有很多线程争相对回收列表进行访问。如果还有多余的内存，可以增加内存的使用来实现一个更好的回收策略：每个线程中的都拥有其自己的回收链表，作为线程的本地变量。这样就不需要原子变量进行计数了，或统计列表的访问情况了。这样的话，就需要分配max_hazard_pointers x max_hazard_pointers个节点。当在所有节点被回收完毕前，有线程退出了，那么其链表可以像之前一样保存在全局中，并且添加到下一个线程的回收链表中，让下一个线程对这些节点进行回收。
+
+风险指针另一个缺点就是，其与IBM申请的专利所冲突[2]。要让你写的软件在一个国家中使用，那么就必须拥有合法的知识产权，所以你需要安排一个合适许可证。这对所有无锁的内存回收技术都适用；这是一个活跃的研究领域，所以很多大公司都会有自己的专利。你可能会问，为什么我用了这么大的篇幅来介绍一个大多数人都没办法的技术呢？这公平性的问题。首先，使用这种技术可能不需要买一个许可证。比如，当你使用GPL下的免费软件许可来进行软件开发，那么你的软件将会囊括到IBM不主张声明中。其次，也是很重要的，在设计无锁代码的时候，还需要从使用的技术角度进行思考，比如，高消耗的原子操作。
+
+所以，是否有非专利的内存回收技术，能被大多数人所使用呢？很幸运，的确有。引用计数就是这样一种机制。
 
 ###7.2.4 检测使用引用计数的节点
 
@@ -551,6 +569,10 @@ void delete_nodes_with_no_hazards()
 ##7.4 小结
 
 ###
-1 “Safe Memory Reclamation for Dynamic Lock-Free Objects Using Atomic Reads and Writes,” Maged M.
-Michael, *in PODC ’02: Proceedings of the Twenty-first Annual Symposium on Principles of Distributed Computing*
-(2002), ISBN 1-58113-485-1.
+【1】 “Safe Memory Reclamation for Dynamic Lock-Free Objects Using Atomic Reads and Writes,” Maged M.Michael, *in PODC ’02: Proceedings of the Twenty-first Annual Symposium on Principles of Distributed Computing* (2002), ISBN 1-58113-485-1.
+
+【2】 Maged M. Michael, U.S. Patent and Trademark Office application number 20040107227, “Method for efficient implementation of dynamic lock-free data structures with safe memory reclamation.”
+
+【3】 GNU General Public License http://www.gnu.org/licenses/gpl.html.
+
+【4】 IBM Statement of Non-Assertion of Named Patents Against OSS, http://www.ibm.com/ibm/licensing/patents/pledgedpatents.pdf.
