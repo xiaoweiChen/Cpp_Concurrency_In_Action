@@ -548,6 +548,170 @@ delete_nodes_with_no_hazards()将声明的列表节点回收，使用的是一�
 
 ###7.2.4 检测使用引用计数的节点
 
+回到7.2.2节的问题，“想要删除节点还能被其他读者线程访问，应该怎么办?"。当能安全并精确的识别，节点是否还被引用着，以及当没有线程访问这些节点的时间，以便将对应节点进行删除。风险指针通过将使用中的节点存放到链表中，解决问题。而引用计数通过对每个节点上访问的线程数量进行存储，解决问题。
+
+这看起来简单粗暴……不，优雅；不过实际上管理起来却是很困难的。首先，你会想到的就是由`std::shared_ptr<>`来完成这个任务；毕竟，其是有内置引用计数的指针。不幸的是，虽然`std::shared_ptr<>`上的一些操作是原子的，不过其也不能保证是无锁的。虽然智能指针上的原子操作和对其他原子类型的操作并没有什么不同，但是`std::shared_ptr<>`旨在用于有多个上下文的情况下，并且在无锁结构中使用原子操作，无异于对该类增加了很多性能开销。如果你的平台支持`std::atomic_is_lock_free(&some_shared_ptr)`实现返回true，那么所有内存回收问题就都迎刃而解了。使用std::shared_ptr<node>构成的链表实现，如下所示：
+
+清单7.9 无锁栈——使用无锁`std::shared_ptr<>`的实现
+```c++
+template<typename T>
+class lock_free_stack
+{
+private:
+  struct node
+  {
+    std::shared_ptr<T> data;
+    std::shared_ptr<node> next;
+    node(T const& data_):
+      data(std::make_shared<T>(data_))
+    {}
+  };
+
+  std::shared_ptr<node> head;
+public:
+  void push(T const& data)
+  {
+    std::shared_ptr<node> const new_node=std::make_shared<node>(data);
+    new_node->next=head.load();
+    while(!std::atomic_compare_exchange_weak(&head,
+        &new_node->next,new_node));
+  }
+  std::shared_ptr<T> pop()
+  {
+    std::shared_ptr<node> old_head=std::atomic_load(&head);
+    while(old_head && !std::atomic_compare_exchange_weak(&head,
+        &old_head,old_head->next));
+    return old_head ? old_head->data : std::shared_ptr<T>();
+  }
+};
+```
+
+在一些情况下，使用`std::shared_ptr<>`实现的结构并非是无锁的，这里就需要手动的去管理引用计数。
+
+一种方式是对每个节点使用两个引用计数：一个内部计数，一个外部计数。两个值的总和就是对这个节点的引用数。外部计数记录有多少指针指向节点，即在指针每次进行读取的时候，外部计数加一。当线程结束对节点的访问时，内部计数减一。指针在读取时，外部计数加一；在读取结束时，内部计数减一。
+
+当不需要“外部计数/指针”对时(这样的话，该节点的位置就不能被多线程所访问了)，在外部计数减一和在被弃用的时候，内部计数将会增加。当内部计数等于0，那么就没有指针对该节点进行引用，也就是可以将该节点安全删除了。这里使用原子操作来更新共享数据也是很重要的。那么现在，就让我们来看一下使用这种技术实现的无锁栈，只有确定节点能安全删除的情况下，才回去回收节点。
+
+下面程序清单中就展示了内部数据结构，以及对push()简单优雅的实现。
+
+清单7.10 使用分离引用计数的方式推送一个节点到无锁栈中
+```c++
+template<typename T>
+class lock_free_stack
+{
+private:
+  struct node;
+
+  struct counted_node_ptr  // 1
+  {
+    int external_count;
+    node* ptr;
+  };
+
+  struct node
+  {
+    std::shared_ptr<T> data;
+    std::atomic<int> internal_count;  // 2
+    counted_node_ptr next;  // 3
+
+    node(T const& data_):
+      data(std::make_shared<T>(data_)),
+      internal_count(0)
+    {}
+  };
+
+  std::atomic<counted_node_ptr> head;  // 4
+
+public:
+  ~lock_free_stack()
+  {
+    while(pop());
+  }
+
+  void push(T const& data)  // 5
+  {
+    counted_node_ptr new_node;
+    new_node.ptr=new node(data);
+    new_node.external_count=1;
+    new_node.ptr->next=head.load();
+    while(!head.compare_exchange_weak(new_node.ptr->next,new_node));
+  }
+};
+```
+
+外部计数被包含在counted_node_ptr的指针中①。且这个结构体会被node中的next指针③和内部计数②用到。因为counted_node_ptr是一个简单的结构体。你可以使用特化`std::atomic<>`模板来对链表的头指针进行声明④。
+
+且counted_node_ptr足够小，能够让`std::atomic<counted_node_ptr>`无锁。在一些平台上支持“双字比较和交换”(*double-word-compare-and-swap*)操作。当你的平台不支持这样的操作，那你最好使用`std::shared_ptr<>` 变量(如清单7.9那样)，当类型的体积过大，超出了平台支持指令，那么原子`std::atomic<>`将使用锁来保证其操作的原子性(从而会让你的“无锁”算法基于锁来完成)。另外，如果你想要限制计数器的大小，并且已经知道在你的平台上一个指针占多大的空间(比如，地址空间只剩下48位，而一个指针就要占64位)，可以将计数存在一个指针空间内，为了适应平台，可以存在一个机器字当中。这样的技巧需要对特定系统有足够的了解，当然这已经超出本书讨论的范围。
+
+push()相对简单⑤。你可以构造一个counted_node_ptr实例，去引用新分配出来的(带有相关数据的)node，并且将node中的next指针设置为当前head。之后可以使用compare_exchange_weak()对head的值进行设置，就像之前代码清单中所示那样。因为internal_count刚被设置，所以其值为0，并且external_count是1。因为这是一个新节点，那么这个节点只有一个外部引用(head指针)。
+
+通常，pop()都有一个从繁到简的过程，实现代码如下。
+
+清单7.11 使用分离引用计数从一个无锁栈中弹出一个节点
+```c++
+template<typename T>
+class lock_free_stack
+{
+private:
+  void increase_head_count(counted_node_ptr& old_counter)
+  {
+    counted_node_ptr new_counter;
+
+    do
+    {
+      new_counter=old_counter;
+      ++new_counter.external_count;
+    }
+    while(!head.compare_exchange_strong(old_counter,new_counter));  // 1
+
+    old_counter.external_count=new_counter.external_count;
+  }
+public:
+  std::shared_ptr<T> pop()
+  {
+    counted_node_ptr old_head=head.load();
+    for(;;)
+    {
+      increase_head_count(old_head);
+      node* const ptr=old_head.ptr;  // 2
+      if(!ptr)
+      {
+        return std::shared_ptr<T>();
+      }
+      if(head.compare_exchange_strong(old_head,ptr->next))  // 3
+      {
+        std::shared_ptr<T> res;
+        res.swap(ptr->data);  // 4
+
+        int const count_increase=old_head.external_count-2;  // 5
+
+        if(ptr->internal_count.fetch_add(count_increase)==  // 6
+           -count_increase)
+        {
+          delete ptr;
+        }
+
+        return res;  // 7
+      }
+      else if(ptr->internal_count.fetch_sub(1)==1)
+      {
+        delete ptr;  // 8
+      }
+    }
+  }
+};
+```
+
+这次，当加载head的值之后，就必须将外部引用加一，这就是为了表明你正在引用这个节点，并且保证在解引用的时候是安全的。当在引用计数增加前解引用指针，那么会有线程能够访问这个节点，从而当前引用指针就成为了一个悬空指针。这就是将引用计数分离的主要原因：通过增加外部引用计数，就能保证指针在访问期间是合法的。当在compare_exchange_strong()的循环中①完成增加，通过比较和设置整个结构体来保证，指针不会在同一时间内被其他线程修改。
+
+当计数增加，就能安全的解引用ptr，并读取head指针的值，也就能访问指向的节点了②。如果指针时空指针，那么将会访问到链表的最后。当指针不为空时，就能尝试对head调用compare_exchange_strong()来删除这个节点③。
+
+当compare_exchange_strong()成功，那么你就拥有了该节点的所有权，并且可以和data进行交换④，然后返回。这就能保证数据不会持续保存，因为其他线程也会访问栈，会有其他指针指向这个节点。而后，可以使用原子操作fetch_add⑥，将外部计数加到内部计数中去。如果现在引用计数是0，那么之前的值(fetch_add返回的值)，在相加之前是一个负数，这种情况下就可以将节点删除。这里需要注意的是，相加的值要比外部引用计数少2⑤;当节点已经从链表中删除，就要减少一次计数，并且这个线程就无法再次访问指定节点了，所以还要减少一次。无论节点是否被删除，你都能完成对数据的操作，所以你就可以将获取的数据进行返回⑦。
+
+当比较/交换③失败，就说明其他线程在你之前就把对应节点删除了，或者其他线程添加了一个新的节点到栈中。无论是哪种原因，需要通过比较/交换的调用，对具有新值的head重新进行操作。不过，你首先需要减少节点(要删除的节点)上的引用计数。那么这个线程将再也没有办法访问这个节点了。如果你的线程是最后一个持有引用(因为其他线程已经将这个节点从栈上删除了)的线程，那么内部引用计数将会为1，所以减一的操作将会让计数器为0。这样，你就能在循环⑧之前将对应节点删除了。
+
+目前，已经使用默认`std::memory_order_seq_cst`内存序来规定原子操作的执行顺序。在大多数系统中，这种操作方式都很耗费时间，并且同步操作的开销要高于内存序，在其他一些系统中，其时耗相当。现在，你可以对数据结构的逻辑进行修改，那么你就可以考虑，对数据结构中的部分放宽内存序的要求；这里就没有必要对用户栈增加没有必要的开销了。所以，在对栈的设计结束后，紧接着就是对无锁队列的设计。现在让我们来检查一下栈的操作，并且蒙心自问，这里能对一些操作使用更加宽松的内存序么？如果使用了，能确保同级安全吗？
+
 ###7.2.5 应用于无锁栈上的内存模型
 
 ###7.2.6 写一个无锁的线程安全队列
