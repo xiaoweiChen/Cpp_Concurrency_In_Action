@@ -710,9 +710,156 @@ public:
 
 当比较/交换③失败，就说明其他线程在你之前就把对应节点删除了，或者其他线程添加了一个新的节点到栈中。无论是哪种原因，需要通过比较/交换的调用，对具有新值的head重新进行操作。不过，你首先需要减少节点(要删除的节点)上的引用计数。那么这个线程将再也没有办法访问这个节点了。如果你的线程是最后一个持有引用(因为其他线程已经将这个节点从栈上删除了)的线程，那么内部引用计数将会为1，所以减一的操作将会让计数器为0。这样，你就能在循环⑧之前将对应节点删除了。
 
-目前，已经使用默认`std::memory_order_seq_cst`内存序来规定原子操作的执行顺序。在大多数系统中，这种操作方式都很耗费时间，并且同步操作的开销要高于内存序，在其他一些系统中，其时耗相当。现在，你可以对数据结构的逻辑进行修改，那么你就可以考虑，对数据结构中的部分放宽内存序的要求；这里就没有必要对用户栈增加没有必要的开销了。所以，在对栈的设计结束后，紧接着就是对无锁队列的设计。现在让我们来检查一下栈的操作，并且蒙心自问，这里能对一些操作使用更加宽松的内存序么？如果使用了，能确保同级安全吗？
+目前，已经使用默认`std::memory_order_seq_cst`内存序来规定原子操作的执行顺序。在大多数系统中，这种操作方式都很耗费时间，并且同步操作的开销要高于内存序，在其他一些系统中，其时耗相当。现在，你可以对数据结构的逻辑进行修改，那么你就可以考虑，对数据结构中的部分放宽内存序的要求；这里就没有必要对用户栈增加没有必要的开销了。所以，在对栈的设计结束后，紧接着就是对无锁队列的设计。现在让我们来检查一下栈的操作，并且扪心自问，这里能对一些操作使用更加宽松的内存序么？如果使用了，能确保同级安全吗？
 
 ###7.2.5 应用于无锁栈上的内存模型
+
+在你修改内存序之前，需要检查一下操作间的依赖关系。而后，你可以再去确定适合这种需求关系的最小内存序。为了保证这种方式能够工作，需要在从线程的多个视角来进行观察。其中最简单的一个视角就是，向栈中推入一个数据项；而后，其他线程从栈中弹出这个数据。我们可以从这里开始。
+
+即使在简单的例子中，都需要三个重要的数据参与。1、counted_node_ptr转移的数据：head。2、head引用的node。3、节点所指向的数据项。
+
+做push()的线程，会首先构造数据项和节点，然后再设置head。做pop()的线程，首先加载head的值，然后做在循环中对head做比较/交换操作，并增加引用计数，再读取对应的node节点，获取next的指向的值。现在你就可以看到一组需求关系了；next的值是一个普通的非原子对象，所以为了保证对其读取是安全的，这里必须确定存储(推送线程)和加载(弹出线程)的先行关系。因为唯一的原子操作就是push()函数中的compare_exchange_weak()，这里需要一个释放操作来获取两个线程间的先行关系，这里compare_exchange_weak()必须是`std::memory_order_release`或更严格的内存序。当compare_exchange_weak()调用失败，什么都不会改变，并且可以持续循环下去，所以这里只需要使用`std::memory_order_relaxed`就足够了。
+
+```c++
+void push(T const& data)
+{
+  counted_node_ptr new_node;
+  new_node.ptr=new node(data);
+  new_node.external_count=1;
+  new_node.ptr->next=head.load(std::memory_order_relaxed)
+  while(!head.compare_exchange_weak(new_node.ptr->next,new_node,
+    std::memory_order_release,std::memory_order_relaxed));
+}
+```
+
+那pop()的实现呢？为了确定先行关系，必须在放访问next的值之前使用`std::memory_order_acquire`或更严格内存序的操作。因为，在increase_head_count()中使用compare_exchange_strong()就获取next指针指向的旧值，所以想要其获取成功就需要确定内存序。如同调用push()那样，当交换失败，循环会继续，所以可以在失败的时候使用松散的内存序：
+
+```c++
+void increase_head_count(counted_node_ptr& old_counter)
+{
+  counted_node_ptr new_counter;
+
+  do
+  {
+    new_counter=old_counter;
+    ++new_counter.external_count;
+  }
+  while(!head.compare_exchange_strong(old_counter,new_counter,
+        std::memory_order_acquire,std::memory_order_relaxed));
+
+  old_counter.external_count=new_counter.external_count;
+}
+```
+
+当compare_exchange_strong()调用成功，那么ptr中的值就已经被存到old_counter当中。因为存储操作是push()中的一个释放操作，并且这里的compare_exchange_strong()操作时一个获取操作，现在存储同步与加载，并且能够获取先行关系了。因此，在push()中存储ptr的值，要先行于在pop()中访问ptr->next。那么现在的操作就安全了。
+
+需要注意的是，内存序对head.load()的初始化并不妨碍分析，所以现在就可以使用`std::memory_order_relaxed`了。
+
+接下来，compare_exchange_strong()将old_head.ptr->next设置为head。是否需要做什么来保证这个操作线程中，数据的完整性呢？当交换成功，你就能访问ptr->data，所以这里需要保证ptr->data在push()线程中已经进行了存储(在加载之前)。你已经保证：在increase_head_count()中的获取操作，能保证与push()线程中的存储和比较/交换同步。这里的先行关系是：在push()线程中存储数据，先行于存储head指针；调用increase_head_count()先行于对ptr->data的加载。即使，pop()中的比较/交换操作使用`std::memory_order_relaxed`，这些操作还是能正常运行。唯一不同的地方就是，调用swap()让ptr->data有所变化，并且没有其他线程可以对同一节点进行操作(这就是比较/交换操作的作用)。
+
+当compare_exchange_strong()失败，那么新值就不会去更新old_head，并让循环继续。这里，已确定在increase_head_count()中使用`std::memory_order_acquire`内存序的可行性，所以这里使用`std::memory_order_relaxed`也是可以的。
+
+那么其他线程呢？是否需要设置一些更严格的内存序来保证其他线程的安全呢？回答是“不用”。因为head只会被比较/交换操作所改变。对于“读-改-写”操作来说，push()中的比较/交换操作是构成其释放序列的一部分。因此，即使是有很多线程在同一时间对head进行修改，push()中的compare_exchange_weak()与increase_head_count()(读取已存储的值)中的compare_exchange_strong()也是同步的。
+
+这就几近完成了：那么剩余操作就可以用来处理fetch_add()操作(用来改变引用计数的操作)。从节点中返回数据的线程可以继续执行，因为这里已知其他线程不可能对该节点的数据继续进行修改。不过，当线程获取其他线程对节点修改后的值，就代表它的操作失败了；这里使用swap()来提取对数据项的引用。那么，为了避免数据竞争，这里需要保证swap()先行于delete操作。这里一种简单的解决办法，就是在“成功返回”分支中对fetch_add()使用`std::memory_order_release`内存序，在“再次循环”分支中对fetch_add()使用`std::memory_order_qcquire`内存序。不过，这有点矫枉过正了：只有一个线程做delete操作(就是将引用计数设置为0的线程)，所以只有这个线程需要获取操作。幸运的是，因为fetch_add()是一个“读-改-写”操作，其实释放序列的一部分，所以可以可以使用一个额外的load()做获取。当“再次循环”分支将引用计数减为0，fetch_add()可以重载引用计数，这里使用`std::memory_order_acquire`为了保持需求的同步关系；并且，fetch_add()本身可以使用`std::memory_order_relaxed`。使用新pop()的栈实现如下。
+
+清单7.12 基于引用计数和松散原子操作的无锁栈
+```c++
+template<typename T>
+class lock_free_stack
+{
+private:
+  struct node;
+  struct counted_node_ptr
+  {
+    int external_count;
+    node* ptr;
+  };
+
+  struct node
+  {
+    std::shared_ptr<T> data;
+    std::atomic<int> internal_count;
+    counted_node_ptr next;
+
+    node(T const& data_):
+      data(std::make_shared<T>(data_)),
+      internal_count(0)
+    {}
+  };
+
+  std::atomic<counted_node_ptr> head;
+
+  void increase_head_count(counted_node_ptr& old_counter)
+  {
+    counted_node_ptr new_counter;
+   
+    do
+    {
+      new_counter=old_counter;
+      ++new_counter.external_count;
+    }
+    while(!head.compare_exchange_strong(old_counter,new_counter,
+                                        std::memory_order_acquire,
+                                        std::memory_order_relaxed));
+    old_counter.external_count=new_counter.external_count;
+  }
+public:
+  ~lock_free_stack()
+  {
+    while(pop());
+  }
+
+  void push(T const& data)
+  {
+    counted_node_ptr new_node;
+    new_node.ptr=new node(data);
+    new_node.external_count=1;
+    new_node.ptr->next=head.load(std::memory_order_relaxed)
+    while(!head.compare_exchange_weak(new_node.ptr->next,new_node,
+                                      std::memory_order_release,
+                                      std::memory_order_relaxed));
+  }
+  std::shared_ptr<T> pop()
+  {
+    counted_node_ptr old_head=
+       head.load(std::memory_order_relaxed);
+    for(;;)
+    {
+      increase_head_count(old_head);
+      node* const ptr=old_head.ptr;
+      if(!ptr)
+      {
+        return std::shared_ptr<T>();
+      }
+      if(head.compare_exchange_strong(old_head,ptr->next,
+                                      std::memory_order_relaxed))
+      {
+        std::shared_ptr<T> res;
+        res.swap(ptr->data);
+
+        int const count_increase=old_head.external_count-2;
+
+        if(ptr->internal_count.fetch_add(count_increase,
+              std::memory_order_release)==-count_increase)
+        {
+          delete ptr;
+        }
+
+        return res;
+      }
+      else if(ptr->internal_count.fetch_add(-1,
+                   std::memory_order_relaxed)==1)
+      {
+        ptr->internal_count.load(std::memory_order_acquire);
+        delete ptr;
+      }
+    }
+  }
+};
+```
+
+这就是一种锻炼，不过这个锻炼也就要告一段落了，并且已经获得比之前好很多的栈实现。在深思熟虑后，通过使用更多的松散操作，在不影响并发性的同时，提高性能。现在实现中的pop()有37行，而功能等同于清单6.1中的那7行的基于锁的栈实现，和清单7.2中无内存管理的无锁栈实现。对于接下来要写的无锁队列，你将看到一个类似的模式：无锁结构的复杂性，主要在于内存的管理。
 
 ###7.2.6 写一个无锁的线程安全队列
 
