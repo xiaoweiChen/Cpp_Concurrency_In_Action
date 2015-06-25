@@ -863,7 +863,187 @@ public:
 
 ###7.2.6 写一个无锁的线程安全队列
 
-**push()中多线程的处理**
+队列的提供的挑战与栈的有些不同，因为push()和pop()在队列中，操作的不是同一个地方。因此，同步的需求就是不一样的。需要保证对一端的修改是正确的，且是另一端可见的。不过，在清单6.6中队列有一个try_pop()成员函数，其作用和清单7.2中简单的无锁栈的pop()功能差不多，那么就可以合理的假设无锁代码都很相似。这是为什么呢？
+
+如果将清单6.6中的代码作为基础，那么这里就需要两个node指针：一个head，一个tail。可以让多线程对它们进行访问，所以这两个节点最好是原子的，这样就不用考虑互斥了。让我们对清单6.6中的代码做一些修改，并且看一下应该从哪里开始设计。先来看一下下面的代码吧。
+
+清单7.13 单生产者/单消费者模型下的无锁队列
+```c++
+template<typename T>
+class lock_free_queue
+{
+private:
+  struct node
+  {
+    std::shared_ptr<T> data;
+    node* next;
+    
+    node():
+       next(nullptr)
+    {}
+  };
+
+  std::atomic<node*> head;
+  std::atomic<node*> tail;
+
+  node* pop_head()
+  {
+    node* const old_head=head.load();
+    if(old_head==tail.load())  // 1
+    {
+      return nullptr;
+    }
+    head.store(old_head->next);
+    return old_head;
+  }
+public:
+  lock_free_queue():
+      head(new node),tail(head.load())
+  {}
+
+  lock_free_queue(const lock_free_queue& other)=delete;
+  lock_free_queue& operator=(const lock_free_queue& other)=delete;
+
+  ~lock_free_queue()
+  {
+    while(node* const old_head=head.load())
+    {
+      head.store(old_head->next);
+      delete old_head;
+    }
+  }
+  std::shared_ptr<T> pop()
+  {
+    node* old_head=pop_head();
+    if(!old_head)
+    {
+      return std::shared_ptr<T>();
+    }
+
+    std::shared_ptr<T> const res(old_head->data);  // 2
+    delete old_head;
+    return res;
+  }
+
+  void push(T new_value)
+  {
+    std::shared_ptr<T> new_data(std::make_shared<T>(new_value));
+    node* p=new node;  // 3
+    node* const old_tail=tail.load();  // 4
+    old_tail->data.swap(new_data);  // 5
+    old_tail->next=p;  // 6
+    tail.store(p);  // 7
+  }
+};
+```
+
+一眼望去，这个实现并没什么不好，当只有一个线程调用push()一次，且只有一个线程调用pop()。这种情况下，队列完美工作。那么，push()和pop()之间的先行关系就很重要了，这个关系直接关系到获取到的data。对tail的存储⑦同步于对tail的加载①；存储之前节点的data指针⑤先行于存储tail；并且，加载tail先行于加载data指针②，所以对data的存储要先行于加载，一切都没问题。因此，这是一个完美的“单生产者，单消费者”(*single-producer, single-consumer*，SPSC)队列。
+
+问题在于当多线程并发调用push()或pop()。先看一下push()。如果有两个线程并发调用push()，那么他们会新分配两个节点作为虚拟节点③，也会读取到相同的tail值④，因此也会同时修改同一个节点，同时设置data和next指针⑤⑥。明显的数据竞争！
+
+在pop_head()函数中也有类似的问题。当有两个线程并发的调用这个函数时，这两个线程就会读取到同一个head中同样的值，并且之后同时通过next指针去复写旧值。两个线程现在都能索引到同一个节点——真是一场灾难！这里，你不仅要确保只有一个pop()线程可以访问给定项，还要保证其他线程在读取head指针时，可以安全的访问节点中的next成员。这就和无锁栈中pop()的问题一样了，所以有很多解决方案可以在这里使用。
+
+pop()的问题解决了，那么push()呢？这里的问题在于为了获取push()和pop()间的先行关系，就需要为虚拟节点设置数据项前，更新tail指针。这就意味着，在并发访问push()时，因为每个线程所读取到的是同一个tail指针，所以线程会为同一个数据项进行竞争。
+
+**多线程下的push()**
+
+一个选择是在两个真实节点中添加一个虚拟节点。这种方法，需要当前tail节点更新next指针，这样让其看起来像一个原子变量。当一个线程成功将next指针指向一个新节点，这就说明其成功的添加了一个指针；否则，其就不得不再次读取tail，并重新对指针进行添加。这里就需要对pop()进行简单的修改，为了消除持有空指针的节点，并且再次进行循环。这个方法的缺点：每次pop()函数的调用，通常都要删除两个节点，且这里添加一个节点，就要分配双份内存。
+
+第二个选择是让data指针原子化，并通过比较/交换操作对齐进行设置。如果比较/交换成功，就说明你能获取tail指针，并能够安全的对其next指针进行设置，也就是更新tail。因为其他线程对数据进行了存储，所以会导致比较/交换的失败，这时需要重新读取tail，重新进行循环。当原子操作对于`std::shared_ptr<>`是无锁的，那么就可以轻松一下了。如果不是，你就需要一个替代方案了。一种可能是让pop()函数返回一个`std::unique_ptr<>`(毕竟，这个指针指针只能引用指定对象)，并且将数据作为一个普通指针存储在队列中。这就需要队列支持存储`std::atomic<T*>`类型，而后对于compare_exchange_strong()的调用就很有必要了。如果，使用的是类似于清单7.11中的引用计数模式，来解决多线程对pop()和push()的访问，让我们看一下这种方式的实现。
+
+清单7.14 对push()的第一次修订(不正确的)
+```c++
+void push(T new_value)
+{
+  std::unique_ptr<T> new_data(new T(new_value));
+  counted_node_ptr new_next;
+  new_next.ptr=new node;
+  new_next.external_count=1;
+  for(;;)
+  {
+    node* const old_tail=tail.load();  // 1
+    T* old_data=nullptr;
+    if(old_tail->data.compare_exchange_strong(
+      old_data,new_data.get()))  // 2
+    {
+      old_tail->next=new_next;
+      tail.store(new_next.ptr);  // 3
+      new_data.release();
+      break;
+    }
+  }
+}
+```
+
+使用引用计数方案可以避免竞争，不过竞争不只在push()中。可以再看一下7.14中的修订版push()，与栈中模式相同：加载一个原子指针①，并且对该指针解引用②。同时，另一个线程可以对指针进行更新③，最终回收该节点(在pop()中)。当节点回收后，再对指针进行解引用，就对导致未定义行为。啊哈！那么这里有个诱人的方案，就是给tail也添加计数器，就像给head做的那样，不过队列中的节点的next指针中都已经拥有了一个外部计数。在同一个节点上上哈这两个外部计数，这就是对之前引用计数方案的修改，就是为了避免过早的删除节点。通过对node结构中外部计数器数量的统计，解决这个问题。当外部计数器销毁时，统计值减一(以及，将对应的外部计数添加到内部)。当内部计数是0，以及没有外部计数器时，对应节点就可以被安全删除了。这个技术，是我通过查阅Joe Seigh的“原子指针+”项目[5]的时候看到的。下面push()的实现就使用的就是这种方案。
+
+清单7.15 使用带有引用计数tail，实现的无锁队列中的push()
+```c++
+template<typename T>
+class lock_free_queue
+{
+private:
+  struct node;
+  struct counted_node_ptr
+  {
+    int external_count;
+    node* ptr;
+  };
+
+  std::atomic<counted_node_ptr> head;
+  std::atomic<counted_node_ptr> tail;  // 1
+
+  struct node_counter
+  {
+    unsigned internal_count:30;
+    unsigned external_counters:2;  // 2
+  };
+
+  struct node
+  {
+    std::atomic<T*> data;
+    std::atomic<node_counter> count;  // 3
+    counted_node_ptr next;
+
+    node()
+    {
+      node_counter new_count;
+      new_count.internal_count=0;
+      new_count.external_counters=2;  // 4
+      count.store(new_count);
+
+      next.ptr=nullptr;
+      next.external_count=0;
+     }
+  };
+public:
+  void push(T new_value)
+  {
+    std::unique_ptr<T> new_data(new T(new_value));
+    counted_node_ptr new_next;
+    new_next.ptr=new node;
+    new_next.external_count=1;
+    counted_node_ptr old_tail=tail.load();
+
+    for(;;)
+    {
+      increase_external_count(tail,old_tail);  // 5
+
+      T* old_data=nullptr;
+      if(old_tail.ptr->data.compare_exchange_strong(  // 6
+           old_data,new_data.get()))
+      {
+        old_tail.ptr->next=new_next;
+        old_tail=tail.exchange(new_next);
+        free_external_counter(old_tail);  // 7
+        new_data.release();
+        break;
+      }
+      old_tail.ptr->release_ref();
+    }
+  }
+};
+``` 
 
 **让无锁队列帮助更多的线程**
 
@@ -887,3 +1067,5 @@ public:
 【3】 GNU General Public License http://www.gnu.org/licenses/gpl.html.
 
 【4】 IBM Statement of Non-Assertion of Named Patents Against OSS, http://www.ibm.com/ibm/licensing/patents/pledgedpatents.pdf.
+
+【5】 Atomic Ptr Plus Project, http://atomic-ptr-plus.sourceforge.net/.
