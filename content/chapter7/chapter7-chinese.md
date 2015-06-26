@@ -1043,9 +1043,267 @@ public:
     }
   }
 };
-``` 
+```
 
-**让无锁队列帮助更多的线程**
+在清单7.15中，tail和head一样都是atomic<counted_node_ptr>类型①，并且在node结构体中用count成员变量替换了之前的internal_count③。这个count成员变量包括了internal_count和外部external_counters成员②。注意，这里你需要2bit的external_counters，因为最多就有两个计数器。因为这里使用了位域，所以就将internal_count指定为30bit的值，这样就能保证计数器的总体大小是32bit。这样内部技术值就有充足的空间，来保证这个结构体能放在一个机器字里面(包括32位和64位平台)。这里重要的是，将结构体作为一个单独的实体来更新，为的就是避免条件竞争。让结构体的大小保持在一个机器字内，对其的操作就如同原子操作一样，还可以无锁的在多个平台上使用。
+
+node初始化时internal_count设置为0，external_counter设置为2④，因为当新节点加入队列中时，都会被tail和上一个节点的next指针所指向。push()与清单7.14中的实现很相似，除了为了对tail中的值进行解引用，需要调用节点data成员变量的compare_exchange_strong()成员函数⑥保证值的正确性；在这之前还要调用increase_external_count()增加计数器的计数⑤，而后在对尾部的旧值调用free_external_counter()⑦。
+
+push()处理完毕，让我们看一下pop()。下面的实现，是将清单7.11中的引用计数pop()与7.13中队列弹出pop()混合的版本。
+
+清单7.16 使用尾部引用计数，将节点从无锁队列中弹出
+```c++
+template<typename T>
+class lock_free_queue
+{
+private:
+  struct node
+  {
+    void release_ref();
+  };
+public:
+  std::unique_ptr<T> pop()
+  {
+    counted_node_ptr old_head=head.load(std::memory_order_relaxed);  // 1
+    for(;;)
+    {
+      increase_external_count(head,old_head);  // 2
+      node* const ptr=old_head.ptr;
+      if(ptr==tail.load().ptr)
+      {
+        ptr->release_ref();  // 3
+        return std::unique_ptr<T>();
+      }
+      if(head.compare_exchange_strong(old_head,ptr->next))  // 4
+      {
+        T* const res=ptr->data.exchange(nullptr);
+        free_external_counter(old_head);  // 5
+        return std::unique_ptr<T>(res);
+      }
+      ptr->release_ref();  // 6
+    }
+  }
+};
+```
+
+在进入循环和将加载值的外部计数增加②之前，需要加载old_head值作为启动①。当head节点与tail节点相同的时候，你就能对引用进行释放③，且因为这时队列中已经没有数据了，所以返回的是空指针。如果队列中还有数据，可以尝试使用compare_exchange_strong()来做声明④。和7.11中的栈一样，这里是将外部计数和指针做为一个整体进行比较的；当外部计数或指针有所变化时，需要在将引用释放后，再次进行循环⑥。当交换成功，已经声明的数据就归你所有，那么在为已弹出节点释放外部计数后⑤，就能把对应的指针返回给调用函数了。当两个外部引用计数都被释放，且内部计数降为0时，节点就会被删除。对应的引用计数函数将会在7.17,7.18和7.19中展示。
+
+清单7.17 在无锁队列中释放一个节点引用
+```c++
+template<typename T>
+class lock_free_queue
+{
+private:
+  struct node
+  {
+    void release_ref()
+    {
+      node_counter old_counter=
+        count.load(std::memory_order_relaxed);
+      node_counter new_counter;
+      do
+      {
+        new_counter=old_counter;
+        --new_counter.internal_count;  // 1
+      }
+      while(!count.compare_exchange_strong(  // 2
+            old_counter,new_counter,
+            std::memory_order_acquire,std::memory_order_relaxed));
+      if(!new_counter.internal_count &&
+         !new_counter.external_counters)
+      {
+        delete this;  // 3
+      }
+    }
+  };
+};
+```
+
+node::release_ref()的实现，只是对7.11中lock_free_stack::pop()进行小幅度的修改得到。不过，7.11中的代码仅是处理单个外部计数的情况，所以只需要使用fetch_sub就能让count结构体自动更新，即便你只想修改internal_count①。因此，这里需要一个“比较/交换”循环②。降低internal_count时，当内外部计数都为0时，就代表这是最后一次引用，之后就可以将这个节点删除③。
+
+清单7.18 从无锁队列中获取一个节点的引用
+```c++
+template<typename T>
+class lock_free_queue
+{
+private:
+  static void increase_external_count(
+    std::atomic<counted_node_ptr>& counter,
+    counted_node_ptr& old_counter)
+  {
+    counted_node_ptr new_counter;
+    do
+    {
+      new_counter=old_counter;
+      ++new_counter.external_count;
+    }
+    while(!counter.compare_exchange_strong(
+      old_counter,new_counter,
+      std::memory_order_acquire,std::memory_order_relaxed));
+
+    old_counter.external_count=new_counter.external_count;
+  }
+};
+```
+
+清单7.18展示的是另一方面。这次，并不是对引用的释放，这里会得到一个新引用，并且增加外部计数的值。increase_external_count()和7.12中的increase_head_count()很相似，不同的是increase_external_count()这里作为静态成员函数，通过将外部计数器作为第一个参数传入函数，对其进行更新，而非只操作一个固定的计数器。
+
+清单7.19 在无锁队列中为节点释放外部计数器
+```c++
+template<typename T>
+class lock_free_queue
+{
+private:
+  static void free_external_counter(counted_node_ptr &old_node_ptr)
+  {
+    node* const ptr=old_node_ptr.ptr;
+    int const count_increase=old_node_ptr.external_count-2;
+    
+    node_counter old_counter=
+      ptr->count.load(std::memory_order_relaxed);
+    node_counter new_counter;
+    do
+    {
+      new_counter=old_counter;
+      --new_counter.external_counters;  // 1
+      new_counter.internal_count+=count_increase;  // 2
+    }
+    while(!ptr->count.compare_exchange_strong(  // 3
+           old_counter,new_counter,
+           std::memory_order_acquire,std::memory_order_relaxed));
+
+    if(!new_counter.internal_count &&
+       !new_counter.external_counters)
+    {
+      delete ptr;  // 4
+    }
+  }
+};
+```
+
+与increase_external_count()对应的是free_external_counter()。这里的代码和7.11中的lock_free_stack::pop()类似，不过做了一些修改用来处理external_counters计数。其使用单个compare_exchange_strong()对计数结构体中的两个计数器进行更新③，就像之前release_ref()降低internal_count一样。和7.11中一样，internal_count会进行更新②，并且xternal_counters将会减一①。当内外计数值都为0，那么就没有更多的节点可以被引用，所以节点就可以安全的删除④。这个操作需要当做独立的操作来完成(因此需要“比较/交换”循环)，来避免条件竞争。如果将两个计数器分开来更新，在两个线程的情况下，可能都会认为自己最后一个引用者，从而将节点删除，最后导致未定义行为。
+
+虽然现在的队列工作正常，且无竞争，但是还是有一个性能问题。当一个线程对old_tail.ptr->data成功的完成compare_exchange_strong()(7.15中的⑥)，那么他就可以执行push()操作；并且，能确定没有其他线程在同时执行push()操作。这里，让其他线程看到有新值的加入，要比只看到空指针的好，因此当compare_exchange_strong()调用失败的时候，线程就会继续循环。这就是忙等待，这种方式会消耗CPU的运算周期，且什么事情都没做。因此，这就是一个锁。push()的首次调用，是要在其他线程完成后，将阻塞去除后才能完成，所以这里的实现只是“半无锁”(*no longer lock-free*)结构。不仅如此，还有当线程被阻塞的时候，操作系统会给不同的线程以不同优先级，用于获取互斥锁。在这种情况下，不可能出现不同优先级的情况，所以阻塞线程将会浪费CPU的运算周期，直到第一个线程完成其操作。这里的处理的技巧出自与“无锁技巧包”：等待线程可以帮助push()线程完成操作。
+
+**无锁队列中的线程间互助**
+
+为了恢复代码无锁的属性，就需要找到一个办法让等待线程，在push()线程没什么进展时，做一些事情。一种方法就是帮举步维艰的线程完成工作。
+
+在这种情况下，可以知道线程应该去做什么：尾节点的next指针需要指向一个新的虚拟节点，并且tail指针之后也要自我更新。因为虚拟节点都是一样的，所以是谁创建的都不重要。当将next指针放入一个原子节点中时，就可以使用compare_exchange_strong()来设置next指针。当next指针已经被设置，可以使用compare_exchange_weak()循环对tail进行设置，这就能保证next指针始终引用的是同一个原始节点。如果不是引用的同一个原始节点，那么其他部分就会更新了，同时可以停止尝试，再次循环。这个需求只需要对pop()进行微小的改动，就是为了加载next指针；这个实现将在下面展示。
+
+清单7.20 修改pop()用来帮助push()完成工作
+```c++
+template<typename T>
+class lock_free_queue
+{
+private:
+  struct node
+  {
+    std::atomic<T*> data;
+    std::atomic<node_counter> count;
+    std::atomic<counted_node_ptr> next;  // 1
+  };
+public:
+  std::unique_ptr<T> pop()
+  {
+    counted_node_ptr old_head=head.load(std::memory_order_relaxed);
+    for(;;)
+    {
+      increase_external_count(head,old_head);
+      node* const ptr=old_head.ptr;
+      if(ptr==tail.load().ptr)
+      {
+        return std::unique_ptr<T>();
+      }
+      counted_node_ptr next=ptr->next.load();  // 2
+      if(head.compare_exchange_strong(old_head,next))
+      {
+        T* const res=ptr->data.exchange(nullptr);
+        free_external_counter(old_head);
+        return std::unique_ptr<T>(res);
+      } 
+      ptr->release_ref();
+    }
+  }
+};
+```
+
+如我之前提到的，这里改变很简答：next指针线程就是原子的①，所以load②也是原子的。在这个例子中，可以使用默认memory_order_seq_cst内存序，所以这里可以忽略对load()的显式调用，并且依赖对加载对象隐式转换成counted_node_ptr，不过这里的显式调用就可以用来提醒：哪里需要显式添加内存序。
+
+以下代码对push()有更多的展示。
+
+清单7.21 无锁队列中简单的帮助性push()的实现
+```c++
+template<typename T>
+class lock_free_queue
+{
+private:
+  void set_new_tail(counted_node_ptr &old_tail,  // 1
+                    counted_node_ptr const &new_tail)
+  {
+    node* const current_tail_ptr=old_tail.ptr;
+    while(!tail.compare_exchange_weak(old_tail,new_tail) &&  // 2
+          old_tail.ptr==current_tail_ptr);
+    if(old_tail.ptr==current_tail_ptr)  // 3
+      free_external_counter(old_tail);  // 4
+    else
+      current_tail_ptr->release_ref();  // 5
+  }
+public:
+  void push(T new_value)
+  {
+    std::unique_ptr<T> new_data(new T(new_value));
+    counted_node_ptr new_next;
+    new_next.ptr=new node;
+    new_next.external_count=1;
+    counted_node_ptr old_tail=tail.load();
+
+    for(;;)
+    {
+      increase_external_count(tail,old_tail);
+
+      T* old_data=nullptr;
+      if(old_tail.ptr->data.compare_exchange_strong(  // 6
+         old_data,new_data.get()))
+      {
+        counted_node_ptr old_next={0};
+        if(!old_tail.ptr->next.compare_exchange_strong(  // 7
+           old_next,new_next))
+        {
+          delete new_next.ptr;  // 8
+          new_next=old_next;  // 9
+        }
+        set_new_tail(old_tail, new_next);
+        new_data.release();
+        break;
+      }
+      else  // 10
+      {
+        counted_node_ptr old_next={0};
+        if(old_tail.ptr->next.compare_exchange_strong(  // 11
+           old_next,new_next))
+        {
+          old_next=new_next;  // 12
+          new_next.ptr=new node;  // 13
+        }
+        set_new_tail(old_tail, old_next);  // 14
+      }
+    }
+  }
+};
+```
+
+这与清单7.15中的原始push()很相似，不过还是有些关键性的不同点的。当对data进行设置⑥，那么就需要对另一线程帮忙的情况进行处理，在else分支就是具体的帮助⑩。
+
+对节点中的data指针进行设置⑥时，新版push()对next指针的更新使用的是compare_exchange_strong()⑦。这里使用compare_exchange_strong()来避免循环。当交换失败，就能知道另有线程对next指针进行设置，所以就不需要一开始分配的那个新节点，可以在这里删除⑧。这里，你还需要获取next指向的值——就是其他线程对tail指针设置的值。
+
+对tail指针的更新，实际在set_new_tail()中被提取①。这里使用一个compare_exchange_weak()循环②来更新tail，因为如果其他线程尝试push()一个节点时，external_count部分将会改变。不过，当其他线程成功的修改了tail指针时，你就不能对其值进行替换；否则，队列中的循环将会结束，这是一个相当糟糕的主意。因此，当“比较/交换”操作失败的时候，就需要保证ptr加载值要与tail指向的值相同。当新旧ptr相同时，循环退出③，这就代表对tail的设置已经完成，所以需要释放旧外部计数器④。当ptr值不一样时，那么另一线程可能已经将计数器释放了，所以这里只需要对该线程持有的单次引用进行释放即可⑤。
+
+当线程调用push()时，未能在循环阶段对data指针进行设置，那么这个线程可以帮助成功的线程完成更新。首先，会尝试更新next指针，让其指向该线程分配出来的新节点⑪。当更新指针成功，就可以将这个新节点作为新的tail节点⑫，并且这里需要分配另一个新节点，用来管理队列中新推送的数据项⑬。在再进入循环之前，可以通过调用set_new_tail来设置tail节点⑭。
+
+读者可能已经意识到，比起大量的new和delete操作，这样的代码更加短小精悍，因为新节点实在push()中被分配，而在pop()中被销毁。因此，内存分配器的效率也需要考虑到；一个糟糕的分配器可能会让无锁容器的扩展特性消失的一干二净。选择和实现高效的分配器，已经超出了本书的范围，不过确实需要牢记的是：测试以及衡量分配器效率最好的办法，就是对使用前和使用后进行比较。为优化内存分配，包括每个线程有自己的分配器，以及使用回收列表对节点进行回收，而非将这些节点返回给分配器。
+
+例子已经足够多了；那么，让我们从这些例子中提取出一些指导建议吧。
 
 ##7.3 对于设计无锁数据结构的指导建议
 
