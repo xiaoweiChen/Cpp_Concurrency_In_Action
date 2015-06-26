@@ -62,7 +62,9 @@ Boost线程库[3]提供的API，基于C++11标准线程库建议，以及可移�
 
 作者在线论坛和之前讨论的文档记录，在本书印刷时就可以从公共网对其进行访问。
 
-###
+
+----------
+
 
 【1】GNU Compiler Collection C++0x/C++11 status page, http://gcc.gnu.org/projects/cxx0x.html.
 
