@@ -1,8 +1,8 @@
 C++ Concurrency In Action 
 =========================
 *Practical Multithreading*
---------------------------
-> 作者：Anthony Williams
+-------------------------
+- 作者：Anthony Williams
 
 作为对《C++ Concurrency in Action》英文版的中文翻译。
 

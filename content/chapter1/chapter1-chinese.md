@@ -222,7 +222,7 @@ int main()
 
 在尝试了1.4节的示例之后，是时候看看更多实质性的内容了。在第2章中，我们将看一看用于管理线程的类和函数。
 
-***
+----------
 
 [1] “The Free Lunch Is Over: A Fundamental Turn Toward Concurrency in Software,” Herb Sutter, Dr. Dobb’s
 
