@@ -45,6 +45,139 @@
 
 ###8.1.2 递归划分
 
+快速排序有两个最基本的步骤：将数据划分到中枢元素之前或之后，然后对中枢元素之前和之后的两半数组再次进行快速排序。这里不能通过对数据的简单划分达到并行，因为，只有在一次排序结束后，才能知道哪些项在中枢元素之前和之后。当要对这种算法进行并行化，很自然的会想到使用递归。每一级的递归都会多次调用quick_sort函数，因为需要知道哪些元素在中枢元素之前和自后。递归调用是完全独立的，因为其访问的是不同的数据集，并且每次迭代都能并发执行。图8.2展示了这样的递归划分。
+
+![](https://raw.githubusercontent.com/xiaoweiChen/Cpp_Concurrency_In_Action/master/images/chapter8/8-2.png)
+
+图8.2 递归划分数据
+
+在第4章中，已经见过这种实现。比起对大于和小于的数据块递归调用函数，使用`std::async()`可以对每一级的小于数据块进行同步。使用`std::async()`时，C++线程库就能决定何时让一个新线程执行任务，以及让其同步的执行任务。
+
+很重要的是：当对一个很大的数据集进行排序时，当每层递归都产生一个新线程，最后就会产生大量的线程。你会看到其对性能的影响，如果有太多的线程存在，那么你的应用将会运行的很慢。如果数据集过于庞大，会将线程用完。那么在递归的基础上进行任务的划分，就是一个不错的注意；你只需要将一定数量的数据打包后，交给线程即可。`std::async()`可以出里这种简单的情况，不过其不是唯一的选择。
+
+另一种选择是使用`std::thread::hardware_concurrency()`函数来确定线程的数量，就像在清单2.8中的并行版accumulate()一样。然后，比起每次递归调用启用一个新线程，你可以将已排序的数据推到线程安全的栈上，就像第6、7章中提及的。当线程无所事事，不是因为已经完成对自己数据块的梳理，就是因为在等待一组一排序数据产生，线程可以从栈上获取这组数据，并且对其排序。
+
+下面的代码就是使用以上方式进行的实现
+
+清单8.1 使用栈的并行快速排序算法——等待数据块排序
+```c++
+template<typename T>
+struct sorter  // 1
+{
+  struct chunk_to_sort
+  {
+    std::list<T> data;
+    std::promise<std::list<T> > promise;
+  };
+
+  thread_safe_stack<chunk_to_sort> chunks;  // 2
+  std::vector<std::thread> threads;  // 3
+  unsigned const max_thread_count;
+  std::atomic<bool> end_of_data;
+
+  sorter():
+    max_thread_count(std::thread::hardware_concurrency()-1),
+    end_of_data(false)
+  {}
+
+  ~sorter()  // 4
+  {
+    end_of_data=true;  // 5
+
+    for(unsigned i=0;i<threads.size();++i)
+    {
+      threads[i].join();  // 6
+    }
+  }
+
+  void try_sort_chunk()
+  {
+    boost::shared_ptr<chunk_to_sort > chunk=chunks.pop();  // 7
+    if(chunk)
+    {
+      sort_chunk(chunk);  // 8
+    }
+  }
+
+  std::list<T> do_sort(std::list<T>& chunk_data)  // 9
+  {
+    if(chunk_data.empty())
+    {
+      return chunk_data;
+    }
+
+    std::list<T> result;
+    result.splice(result.begin(),chunk_data,chunk_data.begin());
+    T const& partition_val=*result.begin();
+
+    typename std::list<T>::iterator divide_point=  // 10
+       std::partition(chunk_data.begin(),chunk_data.end(),
+        [&](T const& val){return val<partition_val;});
+
+    chunk_to_sort new_lower_chunk;
+    new_lower_chunk.data.splice(new_lower_chunk.data.end(),
+       chunk_data,chunk_data.begin(),
+       divide_point);
+
+    std::future<std::list<T> > new_lower=
+      new_lower_chunk.promise.get_future();
+    chunks.push(std::move(new_lower_chunk));  // 11
+    if(threads.size()<max_thread_count)  // 12
+    {
+      threads.push_back(std::thread(&sorter<T>::sort_thread,this));
+    }
+
+    std::list<T> new_higher(do_sort(chunk_data));
+
+    result.splice(result.end(),new_higher);
+    while(new_lower.wait_for(std::chrono::seconds(0)) !=
+       std::future_status::ready)  // 13
+    {
+      try_sort_chunk();  // 14
+    }
+
+    result.splice(result.begin(),new_lower.get());
+    return result;
+  }
+
+  void sort_chunk(boost::shared_ptr<chunk_to_sort> const& chunk)
+  {
+    chunk->promise.set_value(do_sort(chunk->data));  // 15
+  }
+
+  void sort_thread()
+  {
+    while(!end_of_data)  // 16
+    {
+      try_sort_chunk();  // 17
+      std::this_thread::yield();  // 18
+    }
+  }
+};
+
+template<typename T>
+std::list<T> parallel_quick_sort(std::list<T> input)  // 19
+{
+  if(input.empty())
+  {
+    return input;
+  }
+  sorter<T> s;
+
+  return s.do_sort(input);  // 20
+}
+```
+
+这里，parallel_quick_sort函数⑲代表了sorter类①的功能，其支持在栈上简单的存储无序数据块②，并且对线程进行设置③。do_sort成员函数⑨主要做的就是对数据进行划分⑩。相较于对每一个数据块产生一个新的线程，这次会将这些数据块推到栈上⑪；并在在有备用处理器⑫的时候，再产生新的线程。因为小于部分的数据块可能由其他线程进行处理，那么你就得等待这个线程完成⑬。为了让所有事情顺利进行(只有一个线程和其他所有线程都忙碌时)，当线程处于等待状态时⑭，就让本线程尝试处理栈上的数据。try_sort_chunk只是从栈上弹出一个数据块⑦，并且对其进行排序⑧，将结果存在promise中，让线程对已经存在于栈上的数据块进行提取⑮。
+
+当end_of_data没有被设置时⑯，新生成的线程还在尝试从栈上获取需要排序的数据块⑰。在循环检查中，也要给其他线程机会⑱可以从栈上取下数据块进行更多的操作。这里的实现依赖sorter类④对线程的清理。当所有数据都已经排序完成，do_sort将会返回(即使还有工作线程在运行)，所以主线程将会从parallel_quick_sort⑳中返回，在这之后会销毁sorter对象。析构函数会设置end_of_data标志⑤，以及等待所有线程完成工作⑥。这里对标志的设置将终止线程函数内部的循环⑯。
+
+这个方案中，就不用为spawn_task产生的无数线程所困扰，并且也不用再依赖C++线程库来为你选择执行线程的数量(就像`std::async()`那样)。该方案制约线程数量的值就是`std::thread::hardware_concurrency()`的值，这样就能避免任务过于频繁的切换了。不过这里还有一个问题：线程管理，以及线程间的通讯。要解决这两个问题就要增加代码的复杂程度。虽然线程对数据项是分开处理的，不过所有对栈的访问都能添加新的数据块到栈中，还有删除数据块以作处理。这里重度的竞争会降低性能，即使使用无锁(无阻塞)栈，原因将会在后面提到。
+
+这个方案使用到了一个特别版的线程池——所有线程的任务都来源于一个等待链表，然后线程会去完成任务，完成任务后会再来链表提取任务。这个线程池很有问题(包括对工作链表的竞争)，这个问题的解决方案将在第9章提到。关于多处理器的问题，将会在本章后面的章节中有更为详细的讨论(详见8.2.1)。
+
+几种划分方法：1，处理前划分；2，递归划分(都需要事先知道数据的长度固定)，还有上面的那种划分方式。事情并非总是这样好解决；当数据是动态生成，或是通过外部输入，那么这里的办法就不适用了。在这种情况下，基于任务类型对工作进行划分的方式，就要好于基于数据的划分方式。
+
 ###8.1.3 通过任务类型划分工作
 
 ##8.2 影响并发代码性能的因素
