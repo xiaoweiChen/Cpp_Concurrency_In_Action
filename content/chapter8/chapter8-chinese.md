@@ -389,6 +389,63 @@ my_data some_array[256];
 
 ###8.4.1 并行算法中的异常安全
 
+异常安全是衡量C++代码一个很重要的指标，并发代码也不例外。实际上，相较于串行算法，并行算法常会要求你格外要求你注意异常问题。当一个操作在串行算法中抛出一个异常，算法只需要考虑对其本身进行处理，以避免资源泄露和损坏不变量；这里可以允许异常传递给调用者，由调用者对异常进行处理。通过对比，在并行算法中很多操作要运行在独立的线程上。在这种情况下，异常就不再允许被传播，因为这将会使调用堆栈出现问题。如果一个函数在创建一个新线程后带着异常推出，那么这个应用将会终止。
+
+作为一个具体的例子，让我们回顾一下清单2.8中的parallel_accumulate函数：
+
+清单8.2 `std::accumulate`的原始并行版本(源于清单2.8)
+```c++
+template<typename Iterator,typename T>
+struct accumulate_block
+{
+  void operator()(Iterator first,Iterator last,T& result)
+  {
+    result=std::accumulate(first,last,result);  // 1
+  }
+};
+
+template<typename Iterator,typename T>
+T parallel_accumulate(Iterator first,Iterator last,T init)
+{
+  unsigned long const length=std::distance(first,last);  // 2
+
+  if(!length)
+    return init;
+
+  unsigned long const min_per_thread=25;
+  unsigned long const max_threads=
+    (length+min_per_thread-1)/min_per_thread;
+
+  unsigned long const hardware_threads=
+    std::thread::hardware_concurrency();
+  
+  unsigned long const num_threads=
+    std::min(hardware_threads!=0?hardware_threads:2,max_threads);
+  
+  unsigned long const block_size=length/num_threads;
+  
+  std::vector<T> results(num_threads);  // 3
+  std::vector<std::thread> threads(num_threads-1);  // 4
+
+  Iterator block_start=first;  // 5
+  for(unsigned long i=0;i<(num_threads-1);++i)
+  {
+    Iterator block_end=block_start;  // 6
+    std::advance(block_end,block_size);
+    threads[i]=std::thread(  // 7
+      accumulate_block<Iterator,T>(),
+      block_start,block_end,std::ref(results[i]));
+    block_start=block_end;  // 8
+  }
+  accumulate_block()(block_start,last,results[num_threads-1]);  // 9
+
+  std::for_each(threads.begin(),threads.end(),
+    std::mem_fn(&std::thread::join));
+
+  return std::accumulate(results.begin(),results.end(),init);  // 10
+}
+```
+
 ###8.4.2 可扩展性和Amdahl定律
 
 ###8.4.3 使用多线程隐藏延迟
