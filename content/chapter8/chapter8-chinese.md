@@ -700,6 +700,80 @@ Amdahl定律明确了，对代码最大化并发可以保证所有处理器都�
 
 ###8.4.4 使用并发提高响应能力
 
+很多流行的图形化用户接口框架都是*事件驱动型*(*event driven*)；对图形化接口进行操作是通过按下按键或移动鼠标进行，这将产生一系列需要应用处理的事件或信息。系统也可能产生信息或事件。为了确定所有事件和星系都能被正确的处理，应用通常会有一个事件循环，就像下面的代码：
+
+```c++
+while(true)
+{
+  event_data event=get_event();
+  if(event.type==quit)
+    break;
+  process(event);
+}
+```
+
+显然，API中的细节可能不同，不过结构通常是一样的：等待一个事件，对其做必要的处理，之后等待下一个事件。如果是一个单线程应用，那么就会让长期任务很难书写，如同在8.1.3节中所描述。为了确保用户输入被及时的处理，无论应时在做些什么，get_event()和process()必须以合理的频率调用。这就意味着任务要被周期性的悬挂，并且返回到事件循环中，或get_event()/process()必须在一个合适地方进行调用。每个选项的复杂程度取决于任务的实现方式。
+
+通过使用并发分离关注，你可以将一个很长的任务交给一个全新的线程，并且留下一个专用的GUI线程来处理这些事件。线程可以通过简单的机制进行通讯，而不是将事件处理代码和任务代码混在一起。下面的例子就是展示了这样的分离。
+
+清单8.6 将GUI线程和任务线程进行分离
+```c++
+std::thread task_thread;
+std::atomic<bool> task_cancelled(false);
+
+void gui_thread()
+{
+  while(true)
+  {
+    event_data event=get_event();
+    if(event.type==quit)
+      break;
+    process(event);
+  }
+}
+
+void task()
+{
+  while(!task_complete() && !task_cancelled)
+  {
+    do_next_operation();
+  }
+  if(task_cancelled)
+  {
+    perform_cleanup();
+  }
+  else
+  {
+    post_gui_event(task_complete);
+  }
+}
+
+void process(event_data const& event)
+{
+  switch(event.type)
+  {
+  case start_task:
+    task_cancelled=false;
+    task_thread=std::thread(task);
+    break;
+  case stop_task:
+    task_cancelled=true;
+    task_thread.join();
+    break;
+  case task_complete:
+    task_thread.join();
+    display_results();
+    break;
+  default:
+    //...
+  }
+}
+```
+
+通过这种方式对关注进行分离，用户线程将总能及时的对事件进行响应，及时完成任务需要花费很长事件。在使用应用的时候，响应事件通常也是影响用户体验的重要一点；无论是一个特定操作被不恰当的执行(无论是什么操作)，应用都会被完全锁住。通过使用专门的事件处理线程，GUI就能处理GUI指定的信息了(比如对于调整窗口的大小或颜色)，而完全不需要中断处理器，进行耗时的处理了；同时，还能在影响长期任务的执行那里，传递相关的信息。
+
+现在，你可以将本章中在设计并发代码时要考虑的所有问题进行一下回顾。作为一个整体，它们都很具有代表性，不过当你熟练的使用“多线程编程”时，考虑其中的很多问题将变成你习惯。如果你是初学者，我希望这些例子能让你清楚，这些问题是如何在一些具体的例子中影响多线程代码的。
+
 ##8.5 在实践中设计并发代码
 
 ###8.5.1 并行实现：`std::for_each`
