@@ -446,6 +446,224 @@ T parallel_accumulate(Iterator first,Iterator last,T init)
 }
 ```
 
+那么现在让我们来看一下异常要在哪里抛出：基本上就是在调用函数的地方抛出异常，或在用户定义类型上执行某个操作可能抛出异常。
+
+首先，你需要调用distance②，其会对用户定义的迭代器类型进行操作。因为，这时你还没有做任何事情，所以对于调用线程来说，所有事情都很好。接下来，就需要分配results③和threads④。再后，调用线程依旧没有做任何事情，或产生新的线程，所以到这里也是没有问题的。当然，如果在构造threads抛出异常，那么对已经分配的results将会被清理，析构函数会帮你打理好一切的。
+
+跳过block_start⑤的初始化(因为也是安全的)，这时来到了产生新线程的循环⑥⑦⑧。当在⑦处创建了第一个线程，如果再抛出异常，那就会出问题的；对于新的`std::thread`对象将会销毁，程序将调用`std::terminate`来中断程序的运行。使用`std::terminate`的地方，可不是什么好地方。
+
+对accumulate_block⑨的调用就可能抛出异常，就会产生和上面类似的结果；线程对象将会被销毁，并且调用`std::terminate`。另一方面，最终调用`std::accumulate`⑩可能会抛出异常，不过处理起来没什么难度，因为所有的线程在这里已经汇聚回主线程了。
+
+上面只是对于主线程来说的，不过还有更多地方会抛出异常：对于调用accumulate_block的新线程来说就会抛出异常①。这里灭有任何catch块，所以这个异常不会被处理，并且当发生的时候会调用`std::terminater()`来终止应用的运行。
+
+也许这里的异常问题并不明显，不过这段代码是非异常安全的。
+
+**添加异常安全**
+
+好吧，我们已经确定所有抛出异常的地方了，并且知道异常所带来的恶性后果。能为其做些什么呢？那就让我们来解决一下在新线程上的异常问题。
+
+在第4章时已经使用过工具来做这件事。如果你仔细的了解过想要用新线程来完成什么样的工作，其表现为要返回一个计算的结果的同时，允许代码产生异常。这可以将`std::packaged_task`和`std::future`相结合，来解决这个问题。如果使用`std::packaged_task`重新构造代码，代码可能会是如下模样。
+
+清单8.3 使用`std::packaged_task`的并行`std::accumulate`
+```c++
+template<typename Iterator,typename T>
+struct accumulate_block
+{
+  T operator()(Iterator first,Iterator last)  // 1
+  {
+    return std::accumulate(first,last,T());  // 2
+  }
+};
+
+template<typename Iterator,typename T>
+T parallel_accumulate(Iterator first,Iterator last,T init)
+{
+  unsigned long const length=std::distance(first,last);
+
+  if(!length)
+    return init;
+
+  unsigned long const min_per_thread=25;
+  unsigned long const max_threads=
+    (length+min_per_thread-1)/min_per_thread;
+
+  unsigned long const hardware_threads=
+    std::thread::hardware_concurrency();
+
+  unsigned long const num_threads=
+    std::min(hardware_threads!=0?hardware_threads:2,max_threads);
+
+  unsigned long const block_size=length/num_threads;
+
+  std::vector<std::future<T> > futures(num_threads-1);  // 3
+  std::vector<std::thread> threads(num_threads-1);
+
+  Iterator block_start=first;
+  for(unsigned long i=0;i<(num_threads-1);++i)
+  {
+    Iterator block_end=block_start;
+    std::advance(block_end,block_size);
+    std::packaged_task<T(Iterator,Iterator)> task(  // 4
+      accumulate_block<Iterator,T>());
+    futures[i]=task.get_future();  // 5
+    threads[i]=std::thread(std::move(task),block_start,block_end);  // 6
+    block_start=block_end;
+  }
+  T last_result=accumulate_block()(block_start,last);  // 7
+  
+  std::for_each(threads.begin(),threads.end(),
+    std::mem_fn(&std::thread::join));
+
+  T result=init;  // 8
+  for(unsigned long i=0;i<(num_threads-1);++i)
+  {
+    result+=futures[i].get();  // 9
+  }
+  result += last_result;  // 10
+  return result;
+}
+```
+
+第一个修改就是调用accumulate_block的操作现在就是直接将结果返回，而非使用引用将结果存储在某个地方①。使用`std::packaged_task`和`std::future`是线程安全的，所以你可以使用它们来对结果进行转移。当调用`std::accumulate`②时，需要你显示传入T的默认构造函数，而非复用result的值，不过这只是一个小改动。
+
+下一个改动就是，不用向量来存储结果，而使用futures向量为每个新生线程存储`std::future<T>`③。在新线程生成循环中，首先要为accumulate_block创建一个任务④。`std::packaged_task<T(Iterator,Iterator)>`声明，需要两个你要操作的Iterators，和一个想要获取的T。然后从任务中获取“期望”⑤，然后，将需要处理的数据块的开始和结束信息传入⑥，再让新线程去执行这个任务。当任务执行时，“期望”将会获取对应的结果，以及任何抛出的异常。
+
+当你使用“期望”，那么就不能获得到一组结果数组，所以需要将最终数据块的结果赋给一个变量进行保存⑦，而非对一个数组进行填槽。同样，因为你需要从“期望”中获取结果，那么实用简单的for循环，就要比实用`std::accumulate`好的多；循环从提供的初始值开始⑧，并且将每个“期望”上的值进行累加⑨。如果先关任务抛出一个异常，那么异常就会被“期望”捕捉到，并且当对其实用get()的时候，这个异常会再次抛出。最后，在返回结果给调用者之前，将最后一个数据块上的结果添加入结果中⑩。
+
+这样，一个问题就已经解决：在工作线程上抛出的异常，可以在主线程上抛出。如果不止一个工作线程抛出异常，那么只有一个能在主线程中排除，不过这不会有产生太大的问题。如果这个问题很重要，你可以使用类似`std::nested_exception`来对所有抛出的异常进行捕捉。
+
+那么剩下的问题就是，当生成第一个新线程和当所有线程都汇入主线程时，抛出异常；这样会让线程产生泄露。最简单的方法就是捕获所有抛出的线程，汇入的线程依旧是joinable()的，并且会再次抛出异常：
+
+```c++
+try
+{
+  for(unsigned long i=0;i<(num_threads-1);++i)
+  {
+    // ... as before
+  }
+  T last_result=accumulate_block()(block_start,last);
+
+  std::for_each(threads.begin(),threads.end(),
+  std::mem_fn(&std::thread::join));
+}
+catch(...)
+{
+  for(unsigned long i=0;i<(num_thread-1);++i)
+  {
+  if(threads[i].joinable())
+    thread[i].join();
+  }
+  throw;
+}
+```
+
+现在好了，无论线程如何离开这段代码，所有线程都可以被汇入。不过，*try-catch*很不美观，并且这里有重复代码。可以将“正常”控制流上的线程，和在*catch*块上执行的线程进行汇入。重复代码是没有必要的，因为这就意味着更多的地方需要改变。不过，现在让我们来提取一个对象的析构函数；毕竟，析构函数是C++中处理资源的惯用方式。看一下你的类：
+
+```c++
+class join_threads
+{
+  std::vector<std::thread>& threads;
+public:
+  explicit join_threads(std::vector<std::thread>& threads_):
+    threads(threads_)
+  {}
+  ~join_threads()
+  {
+    for(unsigned long i=0;i<threads.size();++i)
+    {
+      if(threads[i].joinable())
+        threads[i].join();
+    }
+  }
+};
+```
+
+这个类和在清单2.3中看到的thread_guard类很相似，除了使用向量的方式来扩展线程量。用这个类简化后的代码如下所示：
+
+清单8.4 异常安全版`std::accumulate`
+```c++
+template<typename Iterator,typename T>
+T parallel_accumulate(Iterator first,Iterator last,T init)
+{
+  unsigned long const length=std::distance(first,last);
+
+  if(!length)
+    return init;
+
+  unsigned long const min_per_thread=25;
+  unsigned long const max_threads=
+    (length+min_per_thread-1)/min_per_thread;
+
+  unsigned long const hardware_threads=
+    std::thread::hardware_concurrency();
+
+  unsigned long const num_threads=
+    std::min(hardware_threads!=0?hardware_threads:2,max_threads);
+
+  unsigned long const block_size=length/num_threads;
+
+  std::vector<std::future<T> > futures(num_threads-1);
+  std::vector<std::thread> threads(num_threads-1);
+  join_threads joiner(threads);  // 1
+
+  Iterator block_start=first;
+  for(unsigned long i=0;i<(num_threads-1);++i)
+  {
+    Iterator block_end=block_start;
+    std::advance(block_end,block_size);
+    std::packaged_task<T(Iterator,Iterator)> task(
+      accumulate_block<Iterator,T>());
+    futures[i]=task.get_future();
+    threads[i]=std::thread(std::move(task),block_start,block_end);
+    block_start=block_end;
+  }
+  T last_result=accumulate_block()(block_start,last);
+  T result=init;
+  for(unsigned long i=0;i<(num_threads-1);++i)
+  {
+    result+=futures[i].get();  // 2
+  }
+  result += last_result;
+  return result;
+}
+```
+
+当你创建了线程容器，那么你就对新类型创建了一个实例①，可让退出线程进行汇入。然后可以再显示的在汇入循环中将线程删除，在原理上来说是安全的：因为线程，无论怎么样退出，都需要汇入主线程。注意这里对futures[i].get()②的调用，将会阻塞线程直到结果准备就绪，所以这里不需要显式的将线程进行汇入。这和清单8.2中的原始代码不同；在原始代码中，你需要将线程汇入，以确保results向量被正确填充。你不仅需要异常安全的代码，还需要较短的函数实现，因为这里已经将汇入部分的代码放到新(可复用)类型中去了。
+
+**std::async()的异常安全**
+
+现在，你已经了解了，当需要显式管理线程的时候，需要代码是异常安全的。那现在让我们来看一下使用`std::async()`是怎么样完成异常安全的。在本例中，标准库对线程进行了较好的管理，并且当“期望”处以就绪状态的时候，就能生成一个新的线程。对于异常安全，还需要注意一件事，如果在没有等待的情况下对“期望”实例进行销毁，析构函数会等待对应线程执行完毕后才执行。这就能桥面的必过线程泄露的问题，因为线程还在执行，且持有数据的引用。下面的代码将展示使用`std::async()`完成异常安全的实现。
+
+清单8.5 异常安全并行版`std::accumulate`——使用`std::async()`
+```c++
+template<typename Iterator,typename T>
+T parallel_accumulate(Iterator first,Iterator last,T init)
+{
+  unsigned long const length=std::distance(first,last);  // 1
+  unsigned long const max_chunk_size=25;
+  if(length<=max_chunk_size)
+  {
+    return std::accumulate(first,last,init);  // 2
+  }
+  else
+  {
+    Iterator mid_point=first;
+    std::advance(mid_point,length/2);  // 3
+    std::future<T> first_half_result=
+      std::async(parallel_accumulate<Iterator,T>,  // 4
+        first,mid_point,init);
+    T second_half_result=parallel_accumulate(mid_point,last,T());  // 5
+    return first_half_result.get()+second_half_result;  // 6
+  }
+}
+```
+
+这个版本对数据进行递归划分，而非在预计算后对数据进行分块；因此，这个版本要比之前的版本简单很多，并且这个版本也是异常安全的。和之前一样，一开始要确定序列的长度①，如果其长度小于数据块包含数据的最大数量，那么可以直接调用`std::accumulate`②。如果元素的数量超出了数据块包含数据的最大数量，那么就需要找到数量中点③，将这个数据块分成两部分，然后再生成一个同步任务对另一半数据进行处理④。第二半的数据是通过直接的递归调用来处理的⑤，之后将两个块的结果加和到一起⑥。标准库能保证`std::async`的调用能够充分的利用硬件线程，并且不会产生线程的超额认购。一些“同步”调用，是在调用get()⑥后，同步执行的。
+
+这里优雅的地方，不仅在于利用硬件并发的优势，并且还能保证异常安全。如果有异常在递归调用⑤中抛出，通过调用`std::async`④所产生的“期望”，将会在异常传播时被销毁。这就需要依次等待同步任务的完成，因此也能避免悬空线程的出现。另外，当同步任务抛出异常，且被“期望”所捕获，在对get()⑥调用的时候，“期望”中存储的异常，会再次抛出。
+
+除此之外，在设计并发代码的时候还要考虑哪些其他因素？让我们来看一下*扩展性* (*scalability*)。随着系统中核数的增加，应用性能是怎样提升的？
+
 ###8.4.2 可扩展性和Amdahl定律
 
 ###8.4.3 使用多线程隐藏延迟
