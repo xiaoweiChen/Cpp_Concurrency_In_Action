@@ -776,7 +776,103 @@ void process(event_data const& event)
 
 ##8.5 在实践中设计并发代码
 
+当为一个特殊的任务设计并发代码时，需要根据任务本身来考虑之前所提到的问题。为了展示以上的注意事项是如何应用的，我们将看一下在C++标准库中三个标准函数的并行实现。当你遇到问题时，这里的例子可以作为很好的参照。我们也将实现一些函数，在有较大的并发任务进行辅助。
+
+我会主要演示这些实现使用的技术，不过可能这些技术并不是最先进的；更多优秀的实现可以更好的利用硬件并发，不过这些实现可能需要到与并行算法相关的学术文献，或者是多线程的专家库中(比如：Inter的TBB[4])才能看到。
+
+并行版的`std::for_each`可以看作为，能最直观体现并行概念。接下来，就让我们从并行版的`std::for_each`开始吧。
+
 ###8.5.1 并行实现：`std::for_each`
+
+`std::for_each`的原理很简单；其对某个范围中的元素，依次调用用户提供的函数。并行和串行调用的最大区别就是函数的调用顺序。`std::for_each`是对范围中的第一个元素调用用户函数，接着是第二个，以此类推，而在并行实现中对于每个元素的处理顺序就不能保证了，并且它们可能(我们希望如此)被并发的处理。
+
+为了实现这个函数的并行版本，需要对每个线程上需要处理的元素进行划分。你实现知道元素量，所以你可以处理前对数据进行划分(详见8.1.1节)。我们假设只有并行任务运行，所以你可以使用`std::thread::hardware_concurrency()`来决定线程的数量。同样，你也知道这些元素都能被独立的处理，所以可以使用连续的数据块来避免伪共享(详见8.2.3节)。
+
+这里的算法有点类似于并行版的`std::accumulate`(详见8.4.1节)，不过比起计算每一个元素的加和，这里对每个元素仅仅使用了一个指定功能的函数。因为没有结果需要返回，你可以假设这可能会对代码有所简化，不过当你想要将异常传递给调用者，你就需要使用`std::packaged_task`和`std::future`机制对线程中的异常进行转移。这里展示一个样本实现。
+
+清单8.7 并行版`std::for_each`
+```c++
+template<typename Iterator,typename Func>
+void parallel_for_each(Iterator first,Iterator last,Func f)
+{
+  unsigned long const length=std::distance(first,last);
+  
+  if(!length)
+    return;
+
+  unsigned long const min_per_thread=25;
+  unsigned long const max_threads=
+    (length+min_per_thread-1)/min_per_thread;
+
+  unsigned long const hardware_threads=
+    std::thread::hardware_concurrency();
+
+  unsigned long const num_threads=
+    std::min(hardware_threads!=0?hardware_threads:2,max_threads);
+
+  unsigned long const block_size=length/num_threads;
+
+  std::vector<std::future<void> > futures(num_threads-1);  // 1
+  std::vector<std::thread> threads(num_threads-1);
+  join_threads joiner(threads);
+
+  Iterator block_start=first;
+  for(unsigned long i=0;i<(num_threads-1);++i)
+  {
+    Iterator block_end=block_start;
+    std::advance(block_end,block_size);
+    std::packaged_task<void(void)> task(  // 2
+      [=]()
+      {
+        std::for_each(block_start,block_end,f);
+      });
+    futures[i]=task.get_future();
+    threads[i]=std::thread(std::move(task));  // 3
+    block_start=block_end;
+  }
+  std::for_each(block_start,last,f);
+  for(unsigned long i=0;i<(num_threads-1);++i)
+  {
+    futures[i].get();  // 4
+  }
+}
+```
+
+代码结构与清单8.4的差不多。最重要的不同在于futures向量对`std::future<void>`类型①变量进行存储，因为工作线程不会返回值，并且简单的lambda函数会对block_start到block_end上的任务②执行f函数。这是为了避免传入线程的构造函数③。当工作线程不需要返回一个值时，调用futures[i].get()④只是提供了一种检索工作线程异常的方法；如果你不想把异常传递出去，你就可以省略这一步。
+
+实现并行`std::accumulate`的时候，使用`std::async`会简化代码；同样，对于parallel_for_each也可以使用`std::async`。实现如下所示。
+
+清单8.8 使用`std::async`实现`std::for_each`
+```c++
+template<typename Iterator,typename Func>
+void parallel_for_each(Iterator first,Iterator last,Func f)
+{
+  unsigned long const length=std::distance(first,last);
+
+  if(!length)
+    return;
+
+  unsigned long const min_per_thread=25;
+
+  if(length<(2*min_per_thread))
+  {
+    std::for_each(first,last,f);  // 1
+  }
+  else
+  {
+    Iterator const mid_point=first+length/2;
+    std::future<void> first_half=  // 2
+      std::async(&parallel_for_each<Iterator,Func>,
+                 first,mid_point,f);
+    parallel_for_each(mid_point,last,f);  // 3
+    first_half.get();  // 4
+  }
+}
+```
+
+和基于`std::async`的parallel_accumulate(清单8.5)一样，是在运行时对数据进行迭代划分的，而非是在执行前划分好，这是因为你不知道你的库需要使用多少个线程。像之前一样，当你将每一级的数据分成两部分，异步执行另外一部分②，剩下的部分就不能再进行划分了，所以直接运行这一部分③；这样的情况下就可以直接对`std::for_each`①进行使用了。这里再吃使用`std::async`和`std::future`的get()成员函数④来提供对异常的传播。
+
+让我们回到算法，这个函数需要对每一个元素执行同样的操作(这样的操作有很多种，初学者可能会想到`std::count`和`std::replace`)，一个稍微复杂一些的例子就是使用`std::find`。
 
 ###8.5.2 并行实现：`std::find`
 
@@ -792,3 +888,5 @@ void process(event_data const& event)
 【2】 http://www.openmp.org/
 
 【3】 http://setiathome.ssl.berkeley.edu/
+
+【4】 http://threadingbuildingblocks.org/
