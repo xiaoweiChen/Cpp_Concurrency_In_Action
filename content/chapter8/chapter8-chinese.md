@@ -884,6 +884,149 @@ void parallel_for_each(Iterator first,Iterator last,Func f)
 
 一种办法是，中断其他线程的一个办法就是使用一个原子变量作为一个标识，在处理过每一个元素后就对这个标识进行检查。如果标识被设置，那么就有线程找到了匹配元素，所以算法就可以停止并返回了。用这种方式来中断线程，就可以将那些没有处理的数据保持原样，并且在更多的情况下，相较于串行方式，性能能提升很多。缺点就是，加载原子变量是一个很慢的操作，所以这会阻碍每个线程的运行。
 
+如何返回值和传播异常呢？现在你有两个选择。你可以使用一个“期望”数组，使用`std::packaged_task`来转移值和异常，在后在主线程上对返回值和异常进行处理；或者可以使用`std::promise`从工作线程上直接对最终结果进行设置。这完全依赖于你想怎么样处理工作线程上的异常。如果你想停止第一个异常(即使还没有对所有元素进行处理)，就可以使用`std::promise`对异常和最终值进行设置。另外，如果想要让其他工作线程继续查找，你可以使用`std::packaged_task`来存储所有的异常，当其中一个线程没有找到匹配元素时，将异常再次抛出。
+
+这种情况下，我会选择`std::promise`，因为其行为和`std::find`更为接近。这里需要注意一下搜索的元素是不是在提供的搜索范围内。因此，你在所有线程结束前，获取“期望”上的结果。如果被期望阻塞住，如果所要查找的值不在范围内，那么就会持续的等待下去。实现代码如下。
+
+清单8.9 并行find算法实现
+```c++
+template<typename Iterator,typename MatchType>
+Iterator parallel_find(Iterator first,Iterator last,MatchType match)
+{
+  struct find_element  // 1
+  {
+    void operator()(Iterator begin,Iterator end,
+                    MatchType match,
+                    std::promise<Iterator>* result,
+                    std::atomic<bool>* done_flag)
+    {
+      try
+      {
+        for(;(begin!=end) && !done_flag->load();++begin)  // 2
+        {
+          if(*begin==match)
+          {
+            result->set_value(begin);  // 3
+            done_flag->store(true);  // 4
+            return;
+          }
+        }
+      }
+      catch(...)  // 5
+      {
+        try
+        {
+          result->set_exception(std::current_exception());  // 6
+          done_flag->store(true);
+        }
+        catch(...)  // 7
+        {}
+      }
+    }
+  };
+
+  unsigned long const length=std::distance(first,last);
+
+  if(!length)
+    return last;
+
+  unsigned long const min_per_thread=25;
+  unsigned long const max_threads=
+    (length+min_per_thread-1)/min_per_thread;
+
+  unsigned long const hardware_threads=
+    std::thread::hardware_concurrency();
+
+  unsigned long const num_threads=
+    std::min(hardware_threads!=0?hardware_threads:2,max_threads);
+
+  unsigned long const block_size=length/num_threads;
+
+  std::promise<Iterator> result;  // 8
+  std::atomic<bool> done_flag(false);  // 9
+  std::vector<std::thread> threads(num_threads-1);
+  {  // 10
+    join_threads joiner(threads);
+    
+    Iterator block_start=first;
+    for(unsigned long i=0;i<(num_threads-1);++i)
+    {
+      Iterator block_end=block_start;
+      std::advance(block_end,block_size);
+      threads[i]=std::thread(find_element(),  // 11
+                             block_start,block_end,match,
+                             &result,&done_flag);
+      block_start=block_end;
+    }
+    find_element()(block_start,last,match,&result,&done_flag);  // 12
+  }
+  if(!done_flag.load())  //13
+  {
+    return last;
+  }
+  return result.get_future().get();  // 14
+}
+```
+
+清单8.9中的函数主体与之前的例子相似。这次，是由find_element类①的函数调用操作实现，来完成查找工作的。这里的循环通过在给定数据块中的元素，来检查每一步上的标识②。如果匹配的元素被找到，那么那么就将最终的结果设置到promise③当中，并且在返回前对done_flag④进行设置。
+
+如果有一个异常被抛出，那么它就会被通用处理代码⑤捕获，并且在promise⑥尝中试存储前，对done_flag进行设置。如果对应promise已经被设置，那么设置在promise上的值可能会抛出一个异常，所以在这里⑦发生的任何异常，都可以捕获并丢弃。
+
+这就意味着，当有线程调用find_element查询一个值，或者抛出一个异常，当其他线程看到done_flag被设置，那么其他线程将会终止。如果多线程同时找到匹配值或抛出异常，那么它们将会对promise产生竞争。不过，这是良性的条件竞争；因为，成功的竞争者会作为“第一个”返回线程，因此这个结果可以结束。
+
+回到parallel_find函数本身，其拥有用来停止搜索的promise⑧和标识⑨；随着对范围内的元素的查找⑪，promise和标识会传递到新线程中去。主线程也使用find_element来对剩下的元素进行查找⑫。像之前提到的，需要在全部线程结束前，对结果进行检查，因为结果可能是任意位置上的匹配元素。这里将“启动-汇入”代码放在一个块中⑩，所以所有线程都会在找到匹配元素时⑬进行汇入。如果找到匹配元素，那么就可以调用`std::future<Iterator>`(来自promise⑭)的成员函数get()来获取返回值或异常。
+
+不过，这个实现假设你会使用硬件上所有可用的的并发线程，或使用其他机制对线程上的任务进行提前划分。就像之前一样，可以使用`std::async`，以及递归数据划分的方式来简化你的实现(同时使用C++标准库中提供的自动缩放工具)。使用`std::async`的parallel_find实现如下所示。
+
+清单8.10 使用`std::async`实现的并行find算法
+```c++
+template<typename Iterator,typename MatchType>  // 1
+Iterator parallel_find_impl(Iterator first,Iterator last,MatchType match,
+                            std::atomic<bool>& done)
+{
+  try
+  {
+    unsigned long const length=std::distance(first,last);
+    unsigned long const min_per_thread=25;  // 2
+    if(length<(2*min_per_thread))  // 3
+    {
+      for(;(first!=last) && !done.load();++first)  // 4
+      {
+        if(*first==match)
+        {
+          done=true;  // 5
+          return first;
+        }
+      }
+      return last;  // 6
+    }
+    else
+    { 
+      Iterator const mid_point=first+(length/2);  // 7
+      std::future<Iterator> async_result=
+        std::async(&parallel_find_impl<Iterator,MatchType>,  // 8
+                   mid_point,last,match,std::ref(done));
+      Iterator const direct_result=
+        parallel_find_impl(first,mid_point,match,done);  // 9
+      return (direct_result==mid_point)?
+        async_result.get():direct_result;  // 10
+    }
+  }
+  catch(...)
+  {
+    done=true;  // 11
+    throw;
+  }
+}
+
+template<typename Iterator,typename MatchType>
+Iterator parallel_find(Iterator first,Iterator last,MatchType match)
+{
+  std::atomic<bool> done(false);
+  return parallel_find_impl(first,last,match,done);  // 12
+}
+```
+
 ###8.5.3 并行实现：`std::partial_sum`
 
 ##8.6 小结
