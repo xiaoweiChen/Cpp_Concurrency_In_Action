@@ -1212,6 +1212,148 @@ public:
 };
 ```
 
+在这个实现中，你用一定数量的座位构造了一个barrier①，这个数量将会存储count变量中。起初，栅栏中的spaces与count数量相当。当有线程都在等待时，spaces的数量就会减少③。当spaces的数量减到0时，spaces的值将会重置为count④，并且generation变量会增加，以向线程发出信号，让这些等待线程能够继续运行⑤。如果spaces没有到达0，那么线程会继续等待。这个实现使用了一个简单的自旋锁⑥，对generation的检查会在wait()开始的时候进行②。因为generation只会在所有线程都到达栅栏的时候更新⑤，在等待的时候使用yield()⑦就不会让CPU处于忙等待的状态。
+
+这个实现比较简单的真实意义：使用自旋等待的情况下，如果让线程等待很长事件就不会很理想，并且如果超过count数量的线程对wait()进行调用，那么这个实现就没有办法工作了。如果想要很好的处理这样的情况，你必须使用一个更加健壮(更加复杂)的实现。我依旧坚持对原子变量操作顺序的一致性，因为这会让事情更加简单，不过有时还是需要放松这样的约束。这样的全局同步对于大规模并行架构来说是消耗巨大的，因为相关处理器会穿梭于存储栅栏状态的缓存行中(可见8.2.2中对乒乓缓存的讨论)，所以你需要格外的小心，来确保使用的是最佳同步方法。
+
+不论怎么样，这些都需要你考虑到；需要有固定数量的线程执行同步循环。好吧，大多数情况下线程数量都是固定的。你可能还记得，代码起始部分的几个数据项，只需要几步就能得到其最终值。这就意味着，无论是让所有线程循环处理范围内的所有元素，还是让栅栏来同步线程，都会递减count的值。我会选择后者，因为其能避免线程做不必要的工作，仅仅是等待最终步骤完成。
+
+这意味着你要将count改为一个原子变量，这样在多线程对其进行更新的时候，就不需要添加额外的同步：
+
+```c++
+std::atomic<unsigned> count;
+```
+
+初始化保持不变，不过当spaces的值被重置后，你需要显式的对count进行load()操作：
+
+```c++
+spaces=count.load();
+```
+
+这就是要对wait()函数的改动；现在需要一个新的成员函数来递减count。这个函数命名为done_waiting()，因为当一个线程完成其工作，并在等待的时候，才能对其进行调用它：
+
+```c++
+void done_waiting()
+{
+  --count;  // 1
+  if(!--spaces)  // 2
+  {
+    spaces=count.load();  // 3
+    ++generation;
+  }
+}
+```
+
+实现中，首先要减少count①，所以下一次spaces将会被重置为一个较小的数。然后，需要递减spaces的值②。如果不做这些操作，有些线程将会持续等待，因为spaces被旧的count初始化，大于期望值。一组当中最后一个线程需要对计数器进行重置，并且递增generation的值③，就像在wait()里面做的那样。最重要的区别：最后一个线程不需要等待。当最后一个线程结束，那么整个等待也就随之结束！
+
+那么现在就准备开始写部分和的第二个实现吧。在每一步中，每一个线程都在栅栏出调用wait()，来保证线程所处步骤一致，并且当所有线程都结束，那么最后一个线程会调用done_waiting()来减少count的值。如果使用两个缓存对原始数据进行保存，栅栏也可以提供你所需要的同步。在每一步中，线程都会从原始数据或是缓存中读取数据，并且将新值写入对应位置。如果有线程先从原始数据处获取数据，那下一步就从缓存上获取数据(或相反)。这就能保证在读与写都是由独立线程完成，并不存在条件竞争。当线程结束等待循环，就能保证正确的值最终被写入到原始数据当中。下面的代码就是这样的实现。
+
+清单8.13 通过两两更新对的方式实现partial_sum
+```c++
+struct barrier
+{
+  std::atomic<unsigned> count;
+  std::atomic<unsigned> spaces;
+  std::atomic<unsigned> generation;
+
+  barrier(unsigned count_):
+    count(count_),spaces(count_),generation(0)
+  {}
+
+  void wait()
+  {
+    unsigned const gen=generation.load();
+    if(!--spaces)
+    {
+      spaces=count.load();
+      ++generation;
+    }
+    else
+    {
+      while(generation.load()==gen)
+      {
+        std::this_thread::yield();
+      }
+    }
+  }
+
+  void done_waiting()
+  {
+    --count;
+    if(!--spaces)
+    {
+      spaces=count.load();
+      ++generation;
+    }
+  }
+};
+
+template<typename Iterator>
+void parallel_partial_sum(Iterator first,Iterator last)
+{
+  typedef typename Iterator::value_type value_type;
+
+  struct process_element  // 1
+  {
+    void operator()(Iterator first,Iterator last,
+                    std::vector<value_type>& buffer,
+                    unsigned i,barrier& b)
+    {
+      value_type& ith_element=*(first+i);
+      bool update_source=false;
+
+      for(unsigned step=0,stride=1;stride<=i;++step,stride*=2)
+      {
+        value_type const& source=(step%2)?  // 2
+          buffer[i]:ith_element;
+
+        value_type& dest=(step%2)?
+          ith_element:buffer[i];
+
+        value_type const& addend=(step%2)?  // 3
+          buffer[i-stride]:*(first+i-stride);
+
+        dest=source+addend;  // 4
+        update_source=!(step%2);
+        b.wait();  // 5
+      }
+      if(update_source)  // 6
+      {
+        ith_element=buffer[i];
+      }
+      b.done_waiting();  // 7
+    }
+  };
+
+  unsigned long const length=std::distance(first,last);
+  
+  if(length<=1)
+    return;
+
+  std::vector<value_type> buffer(length);
+  barrier b(length);
+
+  std::vector<std::thread> threads(length-1);  // 8
+  join_threads joiner(threads);
+
+  Iterator block_start=first;
+  for(unsigned long i=0;i<(length-1);++i)
+  {
+    threads[i]=std::thread(process_element(),first,last,  // 9
+                           std::ref(buffer),i,std::ref(b));
+  }
+  process_element()(first,last,buffer,length-1,b);  // 10
+}
+```
+
+代码的整体结构应该不用说什么了。这里process_element类有函数调用操作可以用来做具体的工作①，就是尅运行一组线程⑨，并将线程存储到vector中⑧，同样还需要在主线程中对其进行调用⑩。这里与之前最大的区别就是，线程的数量是根据列表中的数据量来定的，而非再根据`std::thread::hardware_concurrency`。如我之前所说，除非你使用的是一个大规模并行的机器，因为这上面的线程都十分廉价，虽然这样的方式并不是很好，不过其为我们展示了其整体结构。当这个结构在有较少线程的时候，每一个线程就只能处理源数据中的部分数据了，当没有足够的线程支持该结构的时候，效率要比传递算法低。
+
+不管怎样，主要的工作都是调用process_element的函数操作符来完成的。在每一步中，你都会从原始数据或缓存中获取第i个元素②，并且将获取到的元素加到指定stride的元素中去③，如果从原始数据开始读取的元素，加和后的数需要存储在缓存中④。然后，在开始下一步前，会在栅栏处等待⑤。当stride超出了给定数据的范围，当最终结果已经存在缓存中时，就需要更新原始数据中的数据，同样这也意味着本次加和结束。最后，在调用栅栏中的done_waiting()函数⑦。
+
+注意这个解决方案并不是异常安全的。如果某个线程在process_element执行时抛出一个异常，其就会终止整个应用。这里可以使用一个`std::promise`来存储异常，就像在清单8.9中parallel_find的实现，或仅使用一个被互斥量保护的`std::exception_ptr`即可。
+
+总结下这三个例子。希望其能保住我们了解在8.1，、8.2、8.3和8.4节提到的设计考量，并且证明了这些技术在真实的代码中，需要承担些什么责任。
+
 ##8.6 小结
 
 
