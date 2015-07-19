@@ -1,4 +1,4 @@
-#第章 高级线程管理
+#第9章 高级线程管理
 
 **本章主要内容**
 
@@ -23,7 +23,80 @@
 
 ###9.1.1 最简单的线程池
 
-###9.1.2 等待任务提交到线程池中
+作为最简单的线程池，其拥有固定数量的工作线程(通常工作线程的数量是与`std::thread::hardware_concurrency()`相同的)。当有工作需要完成，可以调用函数将任务挂在任务队列中。每个工作线程都会从任务队列上获取任务，然后执行这个任务，执行完成后再回来获取新的任务。在最简单的情况下，线程就不需要等待其他线程完成对应任务了。如果需要等待，那么就需要对同步进行管理。
+
+下面清单中的代码就展示了一个最简单的线程池实现。
+
+清单9.1 简单的线程池
+```c++
+class thread_pool
+{
+  std::atomic_bool done;
+  thread_safe_queue<std::function<void()> > work_queue;  // 1
+  std::vector<std::thread> threads;  // 2
+  join_threads joiner;  // 3
+
+  void worker_thread()
+  {
+    while(!done)  // 4
+    {
+      std::function<void()> task;
+      if(work_queue.try_pop(task))  // 5
+      {
+        task();  // 6
+      }
+      else
+      {
+        std::this_thread::yield();  // 7
+      }
+    }
+  }
+
+public:
+  thread_pool():
+    done(false),joiner(threads)
+  {
+    unsigned const thread_count=std::thread::hardware_concurrency();  // 8
+
+    try
+    {
+      for(unsigned i=0;i<thread_count;++i)
+      {
+        threads.push_back( 
+          std::thread(&thread_pool::worker_thread,this));  // 9
+      }
+    }
+    catch(...)
+    {
+      done=true;  // 10
+      throw;
+    }
+  }
+
+  ~thread_pool()
+  {
+    done=true;  // 11
+  }
+
+  template<typename FunctionType>
+  void submit(FunctionType f)
+  {
+    work_queue.push(std::function<void()>(f));  // 12
+  }
+};
+```
+
+这个实现中有一组工作线程②，并且使用了一个线程安全队列(从第6章)①来管理任务队列。这种情况下，用户不用等待任务，并且这些函数不需要返回任何值，所以这里可以使用`std::function<void()>`来封装任务。submit()函数会对函数或可调用对象包装成一个`std::function<void()>`实例，并将其推入队列中⑫。
+
+线程始于构造函数：使用`std::thread::hardware_concurrency()`来获取硬件支持多少个并发线程⑧，折现线程会在worker_thread()成员函数中执行⑨。
+
+当有异常抛出，线程启动就会失败，所以需要保证任何已启动的线程都会停止，并且能在这种情况下清理的十分干净。当有异常抛出时，通过使用*try-catch*来设置done标识⑩，还有join_threads类的实例(来自于第8章)③用来汇聚所有线程。这里当然也需要析构函数：仅设置done标识⑪，并且join_threads可以确保所有线程在线程池销毁前，全部执行完成。注意成员声明的顺序很重要：done标识和worker_queue必须在threads数组之前声明，而这个数据必须在joiner前声明。这就能确保成员能以正确的顺序销毁；比如，所有线程都停止运行时，队列就可以安全的销毁了。
+
+worker_thread函数本身就很简单：就是执行一个循环直到done标识被设置④，从任务队列上获取任务⑤，以及同时执行这些任务⑥。如果任务队列上没有任务，函数会调用`std::this_thread::yield()`进行休息⑦，并且给予其他线程向任务队列上推送任务的机会。
+
+对于一些简单的情况，这样线程池就足以满足要求，特别是任务完全独立没有任何返回值，或需要执行一些阻塞操作的。不过在很多情况下，这样简单的线程池是完全不够用的，还有其他情况使用这样简单的线程池可能会出现问题，比如：死锁。同样，在简单例子中，使用`std::async`能提供更好的功能，如第8章中的那些例子一样。在本章中，我们将了解一下更加复杂的线程池实现，通过添加性能满足用户需求，或减少问题的发生几率。首先，从已经提交的任务开始说起。
+
+###9.1.2 等待提交到线程池中的任务
 
 ###9.1.3 需要等待的任务
 
