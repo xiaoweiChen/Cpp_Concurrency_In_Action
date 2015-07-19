@@ -98,6 +98,92 @@ worker_thread函数本身就很简单：就是执行一个循环直到done标识
 
 ###9.1.2 等待提交到线程池中的任务
 
+在第8章中的例子中，在线程间的任务划分完成后，代码会显式生成新线程，而主线程通常就是等待新生成的线程结束，确保在返回调用之前，所有任务都完成了。使用线程池，就需要等待任务提交到线程池中，而非直接提交给单个线程。这与基于`std::async`的方法(第8章等待future的例子)类似，使用清单9.1中的简单线程池，这里必须使用第4章中提到的技术：条件变量和future。这就会增加代码的复杂度；不过，这要比直接对任务进行等待的方式好的多。
+
+通过增加线程池的复杂度，你可以直接等待任务完成。可以使用submit()函数返回一个对任务描述的句柄，并用来等待任务的完成。任务句柄会用条件变量或future进行包装，这样使用线程池来简化代码。
+
+一种特殊的情况就是，执行任务的线程需要返回一个结果到主线程上进行处理。你已经在本书中看到多这样的例子，比如parallel_accumulate()函数(第2章)。在这种情况下，需要使用future来对最终的结果进行转移。清单9.2就展示了对简单线程池的一些修改，这样就能等待任务完成，以及在在工作线程完成后，返回一个结果到等待线程中去不过`std::packaged_task<>`实例是不可拷贝的，仅是可移动的，所以这里不能再使用`std::function<>`来实现任务队列，因为`std::function<>`需要存储可复制构造的函数对象。或者，包装一个自定义函数，用来处理只可移动的类型。这就是一个带有函数操作符的类型擦除类。只需要处理那些没有函数和无返回的函数，所以这是一个简单的虚函数调用。
+
+清单9.2 可等待任务的线程池
+```c++
+class function_wrapper
+{
+  struct impl_base {
+    virtual void call()=0;
+    virtual ~impl_base() {}
+  };
+
+  std::unique_ptr<impl_base> impl;
+  template<typename F>
+  struct impl_type: impl_base
+  {
+    F f;
+    impl_type(F&& f_): f(std::move(f_)) {}
+    void call() { f(); }
+  };
+public:
+  template<typename F>
+  function_wrapper(F&& f):
+    impl(new impl_type<F>(std::move(f)))
+  {}
+
+  void operator()() { impl->call(); }
+
+  function_wrapper() = default;
+
+  function_wrapper(function_wrapper&& other):
+    impl(std::move(other.impl))
+  {}
+ 
+  function_wrapper& operator=(function_wrapper&& other)
+  {
+    impl=std::move(other.impl);
+    return *this;
+  }
+
+  function_wrapper(const function_wrapper&)=delete;
+  function_wrapper(function_wrapper&)=delete;
+  function_wrapper& operator=(const function_wrapper&)=delete;
+};
+
+class thread_pool
+{
+  thread_safe_queue<function_wrapper> work_queue;  // 使用function_wrapper，而非使用std::function
+
+  void worker_thread()
+  {
+    while(!done)
+    {
+      function_wrapper task;
+      if(work_queue.try_pop(task))
+      {
+        task();
+      }
+      else
+      {
+        std::this_thread::yield();
+      }
+    }
+  }
+public:
+  template<typename FunctionType>
+  std::future<typename std::result_of<FunctionType()>::type>  // 1
+    submit(FunctionType f)
+  {
+    typedef typename std::result_of<FunctionType()>::type
+      result_type;  // 2
+    
+    std::packaged_task<result_type()> task(std::move(f));  // 3
+    std::future<result_type> res(task.get_future());  // 4
+    work_queue.push(std::move(task));  // 5
+    return res;  // 6
+  }
+  // 休息一下
+};
+```
+
+首先，修改的是submit()函数①返回一个`std::future<>`保存任务的返回值，并且允许调用者等待任务完全结束。这就需要你知道提供函数f的返回类型，这就是使用`std::result_of<>`的原因：`std::result_of<FunctionType()>::type`是FunctionType类型的引用实例(如f)，并且没有参数。同样，在函数中可以对result_type typedef②使用`std::result_of<>`。
+
 ###9.1.3 需要等待的任务
 
 ###9.1.4 避免任务队列的竞争
