@@ -233,7 +233,99 @@ T parallel_accumulate(Iterator first,Iterator last,T init)
 
 在简单的例子中这个线程池工作的还算不错，因为这里的任务都是相互独立的。不过，当任务队列中的任务有依赖关系时，这个线程池就不能胜任工作了。
 
-###9.1.3 需要等待的任务
+###9.1.3 等待依赖任务
+
+以之前的快速排序算法为例，原理很简单：数据与中轴数据项比较，在中轴项两侧分为大于和小于的两个序列，然后再对这两组序列进行排序。这两组序列会递归排序，最后会整合成一个全排序序列。要将这个算法写成并发模式，需要保证递归调用能够使用硬件的并发能力。
+
+回到第4章，我们第一次接触这个例子，我们使用`std::async`来执行每一层的调用，让标准库来选择，是在新线程上执行这个任务，还是当对应get()调用时，同步执行。工作起来很不错，因为诶一个任务都在其自己的线程上执行，或当需要的时候进行调用。
+
+当我们回顾第8章时，使用了一个使用固定数量线程(根据硬件可用并发线程数)的结构体。在这样的情况下，使用了栈来挂起要排序的数据块。当每个线程在为一个数据块排序前，会向数据栈上添加一组要排序的数据，然后在对当前数据块排序结束后，直接对另一块进行排序。这里，等待其他线程完成排序，可能会造成死锁，因为这会消耗有限的线程。有一种情况很可能会出现，那就是所有线程都在等某一个数据块被排序，不过没有线程在做排序。我们通过拉取栈上数据块的线程，并对数据块进行排序，来解决这个问题；因为，这个已处理的特殊数据块，就是其他线程都在等待排序数据块。
+
+如果只是用简单的线程池进行替换，例如第4章替换`std::async`的那个线程池。现在只有限制数量的线程，因为线程池中没有空闲的线程，线程会等待没有被安排的任务。因此，需要一个和第8章中类似的解决方案：当等待某个数据块完成时，去处理未完成的数据块。如果是使用线程池来管理任务列表和相关线程——要使用线程池的主要原因——你就不用再去访问任务列表了。可以对线程池做一些改动，让其来自动完成这些事情。
+
+最简单的方法就是在thread_pool中添加一个新函数，来执行任务队列上的任务，并对线程池进行管理。高级线程的实现可能会在等待函数中添加逻辑，或等待其他函数来处理这个任务，优先的任务会让其他的任务进行等待。下面清单中的实现，就展示了一个新的run_pending_task()函数，对于快速排序的修改将会在清单9.5中展示。
+
+清单9.4 run_pending_task()函数实现
+```c++
+void thread_pool::run_pending_task()
+{
+  function_wrapper task;
+  if(work_queue.try_pop(task))
+  {
+    task();
+  }
+  else
+  {
+    std::this_thread::yield();
+  }
+}
+```
+
+run_pending_task()的实现去掉了在worker_thread()函数中的主循环。这个函数就是在任务队列中有任务的时候，执行任务；要是没有的话，就会让操作系统对线程重新进行分配。下面对快速排序算法的实现要比清单8.1中版本简单许多，这是因为所有线程管理逻辑都被移入线程池中了。
+
+清单9.5 基于线程池的快速排序实现
+```c++
+template<typename T>
+struct sorter  // 1
+{
+  thread_pool pool;  // 2
+
+  std::list<T> do_sort(std::list<T>& chunk_data)
+  {
+    if(chunk_data.empty())
+    {
+      return chunk_data;
+    }
+
+    std::list<T> result;
+    result.splice(result.begin(),chunk_data,chunk_data.begin());
+    T const& partition_val=*result.begin();
+    
+    typename std::list<T>::iterator divide_point=
+      std::partition(chunk_data.begin(),chunk_data.end(),
+                     [&](T const& val){return val<partition_val;});
+
+    std::list<T> new_lower_chunk;
+    new_lower_chunk.splice(new_lower_chunk.end(),
+                           chunk_data,chunk_data.begin(),
+                           divide_point);
+
+    std::future<std::list<T> > new_lower=  // 3
+      pool.submit(std::bind(&sorter::do_sort,this,
+                            std::move(new_lower_chunk)));
+
+    std::list<T> new_higher(do_sort(chunk_data));
+
+    result.splice(result.end(),new_higher);
+    while(!new_lower.wait_for(std::chrono::seconds(0)) ==
+      std::future_status::timeout)
+    {
+      pool.run_pending_task();  // 4
+    }
+
+    result.splice(result.begin(),new_lower.get());
+    return result;
+  }
+};
+
+template<typename T>
+std::list<T> parallel_quick_sort(std::list<T> input)
+{
+  if(input.empty())
+  {
+    return input;
+  }
+  sorter<T> s;
+
+  return s.do_sort(input);
+}
+```
+
+和清单8.1相比，这里将实际工作放在sorter类模板的do_sort()成员函数中执行①，即使在这个例子中仅对thread_pool实例进行包装②。
+
+你的线程和任务管理，就会减少向线程池中提交一个任务③，并且在线程等待的时候，执行任务队列上未完成的任务④。这里的实现要比清单8.1简单许多，这里需要显式的管理线程和栈上要排序的数据块。当有任务提交到线程池中，可以使用`std::bind()`绑定this指针到do_sort()上，绑定是为了让数据块进行排序。在这种情况下，需要对new_lower_chunk使用`std::move()`来将其传入函数，数据移动要比拷贝的方式开销少。
+
+虽然，现在使用等待其他任务的方式，解决了死锁问题，这个线程池距离理想的线程池很远。首先，每次对submit()的调用和对run_pending_task()的调用，访问的都是同一个队列。在第8章中，我们了解过，当多线程去修改一组数据，就会对性能有所影响，所以需要来解决这个问题。
 
 ###9.1.4 避免任务队列的竞争
 
