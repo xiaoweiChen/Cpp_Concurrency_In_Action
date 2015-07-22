@@ -184,6 +184,55 @@ public:
 
 首先，修改的是submit()函数①返回一个`std::future<>`保存任务的返回值，并且允许调用者等待任务完全结束。这就需要你知道提供函数f的返回类型，这就是使用`std::result_of<>`的原因：`std::result_of<FunctionType()>::type`是FunctionType类型的引用实例(如f)，并且没有参数。同样，在函数中可以对result_type typedef②使用`std::result_of<>`。
 
+然后，将f包装入`std::packaged_task<result_type()>`③，因为f是一个无参数的函数或是可调用对象，能够返回result_type类型的实例。在向任务队列推送任务⑤和返回future⑥前，就可以从`std::packaged_task<>`中获取future了④。注意，要将任务推送到任务队列中时，只能使用`std::move()`，因为`std::packaged_task<>`是不拷贝的。为了对任务进行处理，队列里面存的就是function_wrapper对象，而非`std::function<void()>`对象。
+
+现在线程池允许你等待任务，并且返回任务后的结果。下面的清单就展示了，如何让parallel_accumuate函数使用线程池。
+
+清单9.3 parallel_accumulate使用一个可等待任务的线程池
+```c++
+template<typename Iterator,typename T>
+T parallel_accumulate(Iterator first,Iterator last,T init)
+{
+  unsigned long const length=std::distance(first,last);
+  
+  if(!length)
+    return init;
+
+  unsigned long const block_size=25;
+  unsigned long const num_blocks=(length+block_size-1)/block_size;  // 1
+
+  std::vector<std::future<T> > futures(num_blocks-1);
+  thread_pool pool;
+
+  Iterator block_start=first;
+  for(unsigned long i=0;i<(num_blocks-1);++i)
+  {
+    Iterator block_end=block_start;
+    std::advance(block_end,block_size);
+    futures[i]=pool.submit(accumulate_block<Iterator,T>());  // 2
+    block_start=block_end;
+  }
+  T last_result=accumulate_block<Iterator,T>()(block_start,last);
+  T result=init;
+  for(unsigned long i=0;i<(num_blocks-1);++i)
+  {
+    result+=futures[i].get();
+  }
+  result += last_result;
+  return result;
+}
+```
+
+与清单8.4相比，有几个点需要注意一下。首先，工作量是依据使用的块数(num_blocks①)，而不是线程的数量。为了利用线程池的最大化可扩展性，需要将工作块划分为最小工作块，这是为了让工作并发起来。当线程池中线程不多时，每个线程将会处理多个工作块，不过随着硬件可用线程数量的增长，会有越来越多的工作块并发执行。
+
+当你选择“因为能并发执行，最小工作块值的一试”时，就需要谨慎了。向线程池提交一个任务是有一定的开销的，让工作线程执行这个任务，并且将返回值保存在`std::future<>`中，对于太小的任务，这样的开销是不划算的。如果你的任务块太小，使用线程池的速度可能都不及单线程的速度。
+
+假设，任务块的大小是合理的，那么就不用为这些事而担心：打包任务、获取future或存储之后要汇入的`std::thread`对象；在使用线程池的时候，这些都需要注意。之后，你说要做的就是调用submit()来提交你的任务②。
+
+线程池也需要注意异常安全。任何异常都会通过submit()返回给future，并在获取future的结果时，抛出异常。如果函数因为异常退出，线程池的析构函数丢掉那些没有完成的任务，等待线程池中的工作线程完成工作。
+
+在简单的例子中这个线程池工作的还算不错，因为这里的任务都是相互独立的。不过，当任务队列中的任务有依赖关系时，这个线程池就不能胜任工作了。
+
 ###9.1.3 需要等待的任务
 
 ###9.1.4 避免任务队列的竞争
