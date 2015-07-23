@@ -327,9 +327,84 @@ std::list<T> parallel_quick_sort(std::list<T> input)
 
 虽然，现在使用等待其他任务的方式，解决了死锁问题，这个线程池距离理想的线程池很远。首先，每次对submit()的调用和对run_pending_task()的调用，访问的都是同一个队列。在第8章中，我们了解过，当多线程去修改一组数据，就会对性能有所影响，所以需要来解决这个问题。
 
-###9.1.4 避免任务队列的竞争
+###9.1.4 避免队列中的任务竞争
 
-###9.1.5 获取任务
+线程每次调用线程池实例的submit()函数，都会推送一个任务到工作队列中。就像工作线程为了执行任务，从任务队列中获取任务。这就意味着随着处理器的增加，就会在任务队列上有很多的竞争。这会让性能下降；使用无锁队列会让任务没有明显的等待，但是乒乓缓存会消耗大量的时间。
+
+一种为了避免乒乓缓存的方式，是为每个线程建立独立的任务队列。这样，每个线程就会将新任务放在自己的任务队列上，并且当线程上的任务队列没有任务时，回去全局的任务列表中取任务。下面列表中的实现，使用了一个thread_local变量，来保证每个线程都拥有自己的任务列表(如全局列表那样)。
+
+清单9.6 线程池——线程具有本地任务队列
+```c++
+class thread_pool
+{
+  thread_safe_queue<function_wrapper> pool_work_queue;
+
+  typedef std::queue<function_wrapper> local_queue_type;  // 1
+  static thread_local std::unique_ptr<local_queue_type>
+    local_work_queue;  // 2
+  
+  void worker_thread()
+  {
+    local_work_queue.reset(new local_queue_type);  // 3
+    while(!done)
+    {
+      run_pending_task();
+    }
+  }
+
+public:
+  template<typename FunctionType>
+  std::future<typename std::result_of<FunctionType()>::type>
+    submit(FunctionType f)
+  {
+    typedef typename std::result_of<FunctionType()>::type result_type;
+
+    std::packaged_task<result_type()> task(f);
+    std::future<result_type> res(task.get_future());
+    if(local_work_queue)  // 4
+    {
+      local_work_queue->push(std::move(task));
+    }
+    else
+    {
+      pool_work_queue.push(std::move(task));  // 5
+    }
+    return res;
+  }
+
+  void run_pending_task()
+  {
+    function_wrapper task;
+    if(local_work_queue && !local_work_queue->empty())  // 6
+    {
+      task=std::move(local_work_queue->front());
+      local_work_queue->pop();
+      task();
+    }
+    else if(pool_work_queue.try_pop(task))  // 7
+    {
+      task();
+    }
+    else
+    {
+      std::this_thread::yield();
+    }
+  }
+// rest as before
+};
+```
+
+我们使用了`std::unique_ptr<>`指向线程本地的工作队列②，因为不希望非线程池中的线程也拥有一个任务队列；这个指针在worker_thread()中进行初始化③。`std:unique_ptr<>`的析构函数会保证在线程退出的时候，工作队列被销毁。
+
+submit()会检查当前线程是否具有一个工作队列④。如果有，那就是线程池中的线程，并且可以将任务放入线程的本地队列中；否者，就像之前一样将这个任务放在线程池中的全局队列中⑤。
+
+run_pending_task()⑥中的检查和之前类似，只是要对是否有本地任务队列进行检查。如果有，就会让其从队列中的第一个任务开始处理；注意这里的本地任务队列可以是一个普通的`std::queue<>`①，因为这个队列只能被一个线程所访问。如果本地线程上没有任务，那么就会从全局工作列表上获取任务⑦。
+
+这样就能有效避免竞争，不过当任务分配不均时，造成的结果就是某个线程本地队列中有很多任务的同时，其他线程无所事事。例如，举一个快速排序的例子，只有一开始的数据块能在线程池上被处理，因为剩余部分会放在工作线程的本地队列上进行处理。这样使用违背使用线程池的初衷。
+
+幸好，这个问题是有解的：在本地工作队列和全局工作队列上没有任务的时候，从别的线程队列中窃取任务。
+
+###9.1.5 窃取任务
 
 ##9.2 中断线程
 
