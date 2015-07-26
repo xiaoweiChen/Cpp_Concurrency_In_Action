@@ -662,6 +662,33 @@ interrupt()函数相对简单：当需要一个线程去做中断时，需要一
 
 ###9.2.2 检查线程是否中断
 
+现在就可以设置中断标识了，不过不检查线程是否被中断，这么做的意义就不会那么大了。使用interruption_point()函数最简单的情况；你可以一个安全的地方调用这个函数，如果标识已经设置，那么就可以抛出一个thread_interrupted异常：
+
+```c++
+void interruption_point()
+{
+  if(this_thread_interrupt_flag.is_set())
+  {
+    throw thread_interrupted();
+  }
+}
+```
+
+在代码中可以在适当的地方使用这个函数：
+
+```c++
+void foo()
+{
+  while(!done)
+  {
+    interruption_point();
+    process_next_item();
+  }
+}
+```
+
+虽然这样也能工作，但不理想。最好实在线程等待或阻塞的时候中断线程，因为这时的线程不能运行，也就不能调用interruption_point()函数！在线程等待的时候，什么方式才能去中断线程呢？
+
 ###9.2.3 中断条件变量等待
 
 ###9.2.4 中断`std::condition_variable_any`的等待
