@@ -689,9 +689,192 @@ void foo()
 
 虽然这样也能工作，但不理想。最好实在线程等待或阻塞的时候中断线程，因为这时的线程不能运行，也就不能调用interruption_point()函数！在线程等待的时候，什么方式才能去中断线程呢？
 
-###9.2.3 中断条件变量等待
+###9.2.3 中断等待——条件变量
 
-###9.2.4 中断`std::condition_variable_any`的等待
+OK，所以需要仔细选择中断的位置，并通过显示调用interruption_point()进行中断，不过在线程阻塞等待的时候，这种办法就显得苍白无力了，例如：等待条件变量的通知。这就需要一个新函数——interruptible_wait()——就可以运行各种需要等待的任务，并且你也可以知道如何中断等待。之前提过，可能会等待一个条件变量，所以就从它开始：你要如何做才能中断一个等待的条件变量呢？最简单的方式是，当设置中断标识时，需要要提醒条件变量，并在等待后立即设置中断点。为了让其工作，你需要提醒所有等待对应条件变量的线程，为了确保你所感谢兴趣的线程能够苏醒。伪苏醒是无论如何都要处理的，所以其他线程(非感兴趣线程)将会被当作伪苏醒处理——因为两者之间没什么区别。interrupt_flag结构需要存储一个指针指向一个条件变量，所以可以调用set()函数对其进行提醒。为条件变量实现的interruptible_wait()可能会看起来像下面清单中所示。
+
+清单9.10 为`std::condition_variable`实现的interruptible_wait有问题版
+```c++
+void interruptible_wait(std::condition_variable& cv,
+std::unique_lock<std::mutex>& lk)
+{
+  interruption_point();
+  this_thread_interrupt_flag.set_condition_variable(cv);  // 1
+  cv.wait(lk);  // 2
+  this_thread_interrupt_flag.clear_condition_variable();  // 3
+  interruption_point();
+}
+```
+
+假设有函数能够设置和清除相关条件变量上的中断标志，这样的代码就是短小精悍的。其会检查中断，通过interrupt_flag为当前线程关联条件变量①，等待条件变量②，清理相关条件变量③，并且再次检查中断。如果线程在等待期间被条件变量所中断，中断线程将广播条件变量，并唤醒等待该条件变量的线程，所以这里就可以检查中断了。不幸的是，这里的代码有两个问题。第一个问题比较明显，如果想要线程安全：`std::condition_variable::wait()`可以抛出异常，所以这里会直接退出函数，而没有通过条件变量删除相关的中断标识。这个问题很容易修复，那就是在这个数据结构的析构函数中添加相关删除操作即可。
+
+第二个问题就不大明显了，这段代码存在条件竞争。虽然，线程可以通过调用interruption_point()被中断，不过在调用wait()后，条件变量和相关中断标志就没有什么太大关系了，因为线程不是等待状态，所以不能通过条件变量的方式唤醒。需要确保线程不会在最后一次中断检查和调用wait()间被提醒。不对`std::condition_variable`的内部结构进行研究；不过，可以通过一种方法来解决这个问题：使用lk上的互斥量来对线程进行保护，这就需要将lk传递到set_condition_variable()函数中去。不幸的是，这将产生两个新问题：你需要传递一个互斥量的引用到一个不知道生命周期的线程中去(这个线程做中断操作)为该线程上锁(在调用interrupt()的时候)。这里可能会死锁，并且可能访问到一个已经销毁的互斥量，所以这种方法不可取。当不能完全确定能中断条件变量等待——在没有interruptible_wait()情况下也可以时，可能有些严格，那有没有其他选择呢？一个选择就是放置一个超时等待；使用wait_for()(而非wait())并带有一个简单的超时量(比如，1ms)。在线程被中断前，这算是给了线程一个等待的上限(以时钟刻度为基准)。如果你这样做了，等待线程将会看到更多因为超时而“伪”苏醒的线程，不过超时也不是很轻易的就帮助到我们。这样的一个实现放在下面的清单中，与interrupt_flag相关的实现。
+
+清单9.11 为`std::condition_variable`在interruptible_wait中使用超时
+```c++
+class interrupt_flag
+{
+  std::atomic<bool> flag;
+  std::condition_variable* thread_cond;
+  std::mutex set_clear_mutex;
+
+public:
+  interrupt_flag():
+    thread_cond(0)
+  {}
+
+  void set()
+  {
+    flag.store(true,std::memory_order_relaxed);
+    std::lock_guard<std::mutex> lk(set_clear_mutex);
+    if(thread_cond)
+    {
+      thread_cond->notify_all();
+    }
+  }
+
+  bool is_set() const
+  {
+    return flag.load(std::memory_order_relaxed);
+  }
+
+  void set_condition_variable(std::condition_variable& cv)
+  {
+    std::lock_guard<std::mutex> lk(set_clear_mutex);
+    thread_cond=&cv;
+  }
+
+  void clear_condition_variable()
+  {
+    std::lock_guard<std::mutex> lk(set_clear_mutex);
+    thread_cond=0;
+  }
+
+  struct clear_cv_on_destruct
+  {
+    ~clear_cv_on_destruct()
+    {
+      this_thread_interrupt_flag.clear_condition_variable();
+    }
+  };
+};
+
+void interruptible_wait(std::condition_variable& cv,
+  std::unique_lock<std::mutex>& lk)
+{
+  interruption_point();
+  this_thread_interrupt_flag.set_condition_variable(cv);
+  interrupt_flag::clear_cv_on_destruct guard;
+  interruption_point();
+  cv.wait_for(lk,std::chrono::milliseconds(1));
+  interruption_point();
+}
+```
+
+如果有谓词(相关函数)进行等待，然后1ms的超时将会完全在谓词循环中隐藏：
+
+```c++
+template<typename Predicate>
+void interruptible_wait(std::condition_variable& cv,
+                        std::unique_lock<std::mutex>& lk,
+                        Predicate pred)
+{
+  interruption_point();
+  this_thread_interrupt_flag.set_condition_variable(cv);
+  interrupt_flag::clear_cv_on_destruct guard;
+  while(!this_thread_interrupt_flag.is_set() && !pred())
+  {
+    cv.wait_for(lk,std::chrono::milliseconds(1));
+  }
+  interruption_point();
+}
+```
+
+这会让谓词被检查的次数增加许多，不过对于简单调用wait()这套实现还是很好用的。超时变量很容易实现：通过制定时间，比如：1ms或更短。OK，对于`std::condition_variable`的等下，现在就需要小心对待了；那`std::condition_variable_any`呢？只能提供一样的功能，还是能做的更好？
+
+###9.2.4 使用`std::condition_variable_any`中断等待
+
+`std::condition_variable_any`与`std::condition_variable`的不同在于，`std::condition_variable_any`可以使用任意类型的锁，而不是仅有`std::unique_lock<std::mutex>`。其可以让事情做起来更加简单，并且`std::condition_variable_any`可以比`std::condition_variable`做的更好。因为其能与任意类型的锁一起工作，这样就可以设计自己的锁，去锁/解锁interrupt_flag的内部互斥量set_clear_mutex，并且锁也支持等待调用，就像下面的代码。
+
+清单9.12 为`std::condition_variable_any`设计的interruptible_wait
+```c++
+class interrupt_flag
+{
+  std::atomic<bool> flag;
+  std::condition_variable* thread_cond;
+  std::condition_variable_any* thread_cond_any;
+  std::mutex set_clear_mutex;
+
+public:
+  interrupt_flag(): 
+    thread_cond(0),thread_cond_any(0)
+  {}
+
+  void set()
+  {
+    flag.store(true,std::memory_order_relaxed);
+    std::lock_guard<std::mutex> lk(set_clear_mutex);
+    if(thread_cond)
+    {
+      thread_cond->notify_all();
+    }
+    else if(thread_cond_any)
+    {
+      thread_cond_any->notify_all();
+    }
+  }
+
+  template<typename Lockable>
+  void wait(std::condition_variable_any& cv,Lockable& lk)
+  {
+    struct custom_lock
+    {
+      interrupt_flag* self;
+      Lockable& lk;
+
+      custom_lock(interrupt_flag* self_,
+                  std::condition_variable_any& cond,
+                  Lockable& lk_):
+        self(self_),lk(lk_)
+      {
+        self->set_clear_mutex.lock();  // 1
+        self->thread_cond_any=&cond;  // 2
+      }
+
+      void unlock()  // 3
+      {
+        lk.unlock();
+        self->set_clear_mutex.unlock();
+      }
+
+      void lock()
+      {
+        std::lock(self->set_clear_mutex,lk);  // 4
+      }
+
+      ~custom_lock()
+      {
+        self->thread_cond_any=0;  // 5
+        self->set_clear_mutex.unlock();
+      }
+    };
+    custom_lock cl(this,cv,lk);
+    interruption_point();
+    cv.wait(cl);
+    interruption_point();
+  }
+  // rest as before
+};
+
+template<typename Lockable>
+void interruptible_wait(std::condition_variable_any& cv,
+                        Lockable& lk)
+{
+  this_thread_interrupt_flag.wait(cv,lk);
+}
+```
+
+你自定义的锁类型，在构造的时候，需要所锁住内部set_clear_mutex①，并且对thread_cond_any指针进行设置，并引用`std::condition_variable_any`传入锁的构造函数中②。Lockable引用将会在之后进行存储；其变量必须被锁住。仙子可以安心的检查中断，而不用担心竞争了。如果这时中断标志已经设置，那么标志一定是在锁住set_clear_mutex设置的。当条件变量调用你的锁类型的unlock()函数中的wait()时，就会对Lockable对象和set_clear_mutex进行解锁③。这就允许线程可以尝试中断其他线程获取set_clear_mutex的锁，以及在内部wait()调用之后，检查thread_cond_any指针。这些就是你在替换`std::condition_variable`所拥有的功能(不包括管理)。当wait()结束等待(因为等待，或因为伪苏醒)，线程将会调用lock()函数，这里依旧要求锁住内部set_clear_mutex，并且锁住Lockable对象④。现在，在wait()调用时，custom_lock的析构函数中⑤清理thread_cond_any指针(同样会解锁set_clear_mutex)之前，可以再次对中断进行检查。
 
 ###9.2.5 中断其他阻塞调用
 
