@@ -406,6 +406,192 @@ run_pending_task()⑥中的检查和之前类似，只是要对是否有本地�
 
 ###9.1.5 窃取任务
 
+为了让没有任务的线程从能从其他线程的本地任务队列中获取任务，这里本地任务队里必须是可以访问的，这样才能让run_pending_tasks()窃取任务。这就需要每个线程在线程池队列上进行注册，或由线程池指定一个线程。同样，还需要保证在数据队列中的任务被适当的同步和保护，这样队列的不变量就不会被破坏。
+
+实现一个无锁队列，让其拥有线程在其他线程窃取任务的时候，能够推送和弹出一个任务也是可能的；不过这个队列的实现就超出了本书的讨论范围。为了证明这种方法的可行性，还将使用一个互斥量来保护队列中的数据。我们希望任务窃取是一个不常见的现象，这样就会减少对互斥量的竞争，并且使得简单队列的开销最小。下面，实现了一个简单的基于锁的任务窃取队列。
+
+清单9.7 基于锁的任务窃取队列
+```c++
+class work_stealing_queue
+{
+private:
+  typedef function_wrapper data_type;
+  std::deque<data_type> the_queue;  // 1
+  mutable std::mutex the_mutex;
+
+public:
+  work_stealing_queue()
+  {}
+
+  work_stealing_queue(const work_stealing_queue& other)=delete;
+  work_stealing_queue& operator=(
+    const work_stealing_queue& other)=delete;
+
+  void push(data_type data)  // 2
+  {
+    std::lock_guard<std::mutex> lock(the_mutex);
+    the_queue.push_front(std::move(data));
+  }
+
+  bool empty() const
+  {
+    std::lock_guard<std::mutex> lock(the_mutex);
+    return the_queue.empty();
+  }
+
+  bool try_pop(data_type& res)  // 3
+  {
+    std::lock_guard<std::mutex> lock(the_mutex);
+    if(the_queue.empty())
+    {
+      return false;
+    }
+
+    res=std::move(the_queue.front());
+    the_queue.pop_front();
+    return true;
+  }
+
+  bool try_steal(data_type& res)  // 4
+  {
+    std::lock_guard<std::mutex> lock(the_mutex);
+    if(the_queue.empty())
+    {
+      return false;
+    }
+
+    res=std::move(the_queue.back());
+    the_queue.pop_back();
+    return true;
+  }
+};
+```
+
+这个队列对`std::deque<fuction_wrapper>`进行了简单的包装①，这样就能通过一个互斥锁来对所有访问进行控制了。push()②和try_pop()③对队列的前端进行操作，而try_steal()④对队列的后端进行操作。
+
+这就说明每个线程中的“队列”是一个后进先出的栈；最新推入的任务将会第一个执行。从魂村角度来看，这将对性能有所提升，因为任务相关的数据一直存于缓存中，要比提前将任务相关数据推送到栈上好。同样，这种方式能很好的映射到某个算法上，例如：快速排序。之前的实现中，每次调用do_sort()都会推送一个任务到栈上，并且等待这个任务执行完毕。通过对最新推入任务的处理，就可以保证在将当前所需数据块处理完成前，其他任务是否需要这些数据块，从而就可以减少活动任务的数量和栈的使用次数。try_steal()从队列末尾获取任务，是为了减少与try_pop()之间的竞争；可以使用在第6、7章中的所讨论的技术来让try_pop()和try_steal()并发执行。
+
+OK，现在拥有了一个很不错的任务队列，并且支持窃取；那这个队列将如何在线程池中使用呢？这里展示一个简单的实现。
+
+清单9.8 使用任务窃取的线程池
+```c++
+class thread_pool
+{
+  typedef function_wrapper task_type;
+
+  std::atomic_bool done;
+  thread_safe_queue<task_type> pool_work_queue;
+  std::vector<std::unique_ptr<work_stealing_queue> > queues;  // 1
+  std::vector<std::thread> threads;
+  join_threads joiner;
+
+  static thread_local work_stealing_queue* local_work_queue;  // 2
+  static thread_local unsigned my_index;
+
+  void worker_thread(unsigned my_index_)
+  {
+    my_index=my_index_;
+    local_work_queue=queues[my_index].get();  // 3
+    while(!done)
+    {
+      run_pending_task();
+    }
+  }
+
+  bool pop_task_from_local_queue(task_type& task)
+  {
+    return local_work_queue && local_work_queue->try_pop(task);
+  }
+
+  bool pop_task_from_pool_queue(task_type& task)
+  {
+    return pool_work_queue.try_pop(task);
+  }
+
+  bool pop_task_from_other_thread_queue(task_type& task)  // 4
+  {
+    for(unsigned i=0;i<queues.size();++i)
+    {
+      unsigned const index=(my_index+i+1)%queues.size();  // 5
+      if(queues[index]->try_steal(task))
+      {
+        return true;
+      }
+    }
+    return false;
+  }
+
+public:
+  thread_pool():
+    done(false),joiner(threads)
+  {
+    unsigned const thread_count=std::thread::hardware_concurrency();
+
+    try
+    {
+      for(unsigned i=0;i<thread_count;++i)
+      {
+        queues.push_back(std::unique_ptr<work_stealing_queue>(  // 6
+                         new work_stealing_queue));
+        threads.push_back(
+          std::thread(&thread_pool::worker_thread,this,i));
+      }
+    }
+    catch(...)
+    {
+      done=true;
+      throw;
+    }
+  }
+
+  ~thread_pool()
+  {
+    done=true;
+  }
+
+  template<typename FunctionType>
+  std::future<typename std::result_of<FunctionType()>::type> submit(
+    FunctionType f)
+  { 
+    typedef typename std::result_of<FunctionType()>::type result_type;
+    std::packaged_task<result_type()> task(f);
+    std::future<result_type> res(task.get_future());
+    if(local_work_queue)
+    {
+      local_work_queue->push(std::move(task));
+    }
+    else
+    {
+      pool_work_queue.push(std::move(task));
+    }
+    return res;
+  }
+
+  void run_pending_task()
+  {
+    task_type task;
+    if(pop_task_from_local_queue(task) ||  // 7
+       pop_task_from_pool_queue(task) ||  // 8
+       pop_task_from_other_thread_queue(task))  // 9
+    {
+      task();
+    }
+    else
+    {
+      std::this_thread::yield();
+    }
+  }
+};
+```
+
+这段代码与清单9.6很相似。第一个不同在于，每个线程都有一个work_stealing_queue，而非只是普通的`std::queue<>`②。当每个线程被创建，就为每个线程创建了一个自己的工作队列，而非线程池只为自己构造一个任务队列⑥，每个线程自己的共工作队列将存在线程池的全局工作队列章①。列表中队列的序号，之后会传递给线程函数，然后使用序号来索引对应队列③。这就意味着线程池可以访问任意线程中的队列，为了给没有事情做的线程窃取任务。run_pending_task()将会从线程的任务队列中取出一个任务来执行⑦，或从线程池队列中获取一个任务⑧，亦或从其他线程的队列中获取一个任务⑨。
+
+pop_task_from_other_thread_queue()④会遍历池中所有线程的任务队列，然后尝试从中窃取任务。为了避免美俄线程都尝试从列表中的第一个线程上窃取任务，每一个线程都会从下一个线程开始遍历，通过自身的线程序号来确定开始遍历的线程序号。
+
+使用线程池有很多好处。当然，还有很多很多的方式能为某些特殊用法提升性能，不过这就留给读者作为课后作业吧。特别是还没有探究动态变换大小的线程池，即使线程被一些事情所阻塞的时候(例如：I/O或互斥锁)，程序都能保证CPU最优的使用率。
+
+下面，我们将来看一看线程管理的“高级”用法——中断线程。
+
 ##9.2 中断线程
 
 ###9.2.1 启动和中断其他线程
