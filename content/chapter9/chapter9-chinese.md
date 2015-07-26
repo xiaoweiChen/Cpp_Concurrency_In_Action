@@ -594,7 +594,71 @@ pop_task_from_other_thread_queue()④会遍历池中所有线程的任务队列�
 
 ##9.2 中断线程
 
-###9.2.1 启动和中断其他线程
+在很多情况下，使用信号来终止一个长时间运行的线程是合理的。这种线程的存在，可能是因为工作线程所在的线程池被销毁，或是用户显式的取消了这个任务，亦或其他各种原因。不管是什么原因，原理都一样：需要使用信号来让未结束线程停止运行。这里需要使用一种合适的方式让线程主动的停下来，而非让线程戛然而止。
+
+你可能会给每种情况制定一个独立的机制，这样做的意义不大。不仅是因为用一个统一的机制会更容易在之后的场景中实现，而且这样写出来的中断代码就不用担心在哪里使用了。C++11标准没有提供这样一种机制，不过实现这样的一种机制也不是很困难。
+
+让我们来了解一下应该如何实现这种机制，先来了解一下启动和中断一个线程的接口。
+
+###9.2.1 启动和中断线程
+
+先让我们看一下外部接口。需要从可中断线程上获取些什么？最基本的，需要和`std::thread`相同的接口，还要多加一个interrupt()函数：
+
+```c++
+class interruptible_thread
+{
+public:
+  template<typename FunctionType>
+  interruptible_thread(FunctionType f);
+  void join();
+  void detach();
+  bool joinable() const;
+  void interrupt();
+};
+```
+
+在类内部，你可以使用`std::thread`来管理线程，并且使用一些自动以数据结构来处理中断。现在，从线程的角度能看到些什么呢？最基本的就是“我能用这个类来中断线程”——需要一个断点(*interruption point*)。为了使断点能够正常使用，且不添加多余的数据，就需要使用一个没有参数的函数：interruption_point()。这意味着中断数据结构可以访问一个thread_local变量，并在线程运行时，对变量进行设置，因此当有线程调用interruption_point()函数，就会去检查当前运行线程的数据结构。我们将在后面看到interruption_point()的具体实现。
+
+thread_local标志是不能使用普通的`std::thread`管理线程的主要原因；其需要使用一种方法分配出一个可访问的interruptible_thread实例，就像新启动一个线程一样。在你使用已提供函数来做这件事情前，需要将interruptible_thread实例传递给`std::thread`的构造函数，创建一个能够执行的线程，就像下面的代码清单所实现。
+
+清单9.9 interruptible_thread的基本实现
+```c++
+class interrupt_flag
+{
+public:
+  void set();
+  bool is_set() const;
+};
+thread_local interrupt_flag this_thread_interrupt_flag;  // 1
+
+class interruptible_thread
+{
+  std::thread internal_thread;
+  interrupt_flag* flag;
+public:
+  template<typename FunctionType>
+  interruptible_thread(FunctionType f)
+  {
+    std::promise<interrupt_flag*> p;  // 2
+    internal_thread=std::thread([f,&p]{  // 3
+      p.set_value(&this_thread_interrupt_flag);
+      f();  // 4
+    });
+    flag=p.get_future().get();  // 5
+  }
+  void interrupt()
+  {
+    if(flag)
+    {
+      flag->set();  // 6
+    }
+  }
+};
+```
+
+提供函数f是包装了一个lambda函数③，线程将会持有f副本和本地promise变量p的引用②。在新线程中，lambda函数设置promise变量的值到this_thread_interrupt_flag(在thread_local①中声明)的地址中，为的是让线程能够调用提供函数的副本④。调用线程会等待与其future相关的promise就绪，并且将结果存入到flag成员变量中⑤。注意，即使lambda函数在新线程上执行，并且对本地变量p进行悬空引用，这都没有太大问题，因为在新线程返回之前，interruptible_thread构造函数会等待变量p，直到变量p不被引用。这里实现没有考虑去处理汇入线程，或分离线程。所以需要确保flag变量在线程退出或分离前，已经声明，这样就能避免悬空指针问题。
+
+interrupt()函数相对简单：当需要一个线程去做中断时，需要一个合法指针作为一个中断标志，所以可以仅对标识进行设置⑥。这就是中断线程在做中断的时候，所要做的工作。
 
 ###9.2.2 检查线程是否中断
 
