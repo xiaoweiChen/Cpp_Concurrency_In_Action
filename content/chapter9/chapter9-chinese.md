@@ -878,6 +878,26 @@ void interruptible_wait(std::condition_variable_any& cv,
 
 ###9.2.5 中断其他阻塞调用
 
+这次轮到中断条件变量的等待了，不过其他阻塞情况，比如：互斥锁，等待future等等，该怎么办呢？通常情况下，可以使用`std::condition_variable`的超时选项，因为在实际运行中不可能很快的将条件变量的等待终止(不访问内部互斥量或future的话)。不过，在某些情况下，你知道知道你在等待什么，这样你就可以让循环在interruptible_wait()函数中运行。作为一个例子，这里有一个为`std::future<>`重载的interruptible_wait()实现：
+
+```c++
+template<typename T>
+void interruptible_wait(std::future<T>& uf)
+{
+  while(!this_thread_interrupt_flag.is_set())
+  {
+    if(uf.wait_for(lk,std::chrono::milliseconds(1)==
+       std::future_status::ready)
+      break;
+  }
+  interruption_point();
+}
+```
+
+这个等待会在中断标志被设置好的时候，或future准备就绪的时候停止，不过这个实现中每次等待future的时间只有1ms。这就意味着，在中断请求被确定前，平均等待的时间为0.5ms(这里假设存在一个高精度的时钟)。通常wait_for至少会等待一个时钟周期，所以如果时钟周期为15ms，那么结束等待的时间将会是15ms，而不是1ms。接受与不接受这种情况，都得视情况而定。如果这必要且时钟支持的话，可以持续削减超时时间。这种方式的确定就是，线程将会苏醒很多次来检查标志，并且这将增加线程切换的开销。
+
+OK，我们已经了解如何使用interruption_point()和interruptible_wait()函数检查中断，当中断被检查出来了，要如何处理它呢？
+
 ###9.2.6 处理中断
 
 ###9.2.7 应用退出时中断后台任务
