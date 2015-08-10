@@ -345,6 +345,77 @@ X::X() = default;  // 应用默认初始化规则
 
 ##A.4 常量表达式函数
 
+整型字面值，例如42，就是常量表达式。所以，简单的数学表达式，例如，23x2-4。可以使用其来初始化const整型变量，然后将const整型变量作为新表达的一部分：
+
+```c++
+const int i=23;
+const int two_i=i*2;
+const int four=4;
+const int forty_two=two_i-four;
+```
+
+处理使用常量表达式创建变量也可用在其他常量表达式中，有些事情只能用常量表达式去做：
+
+- 指定数组边界：
+```c++
+int bounds=99;
+int array[bounds];  // 错误，bounds不是一个常量表达式
+const int bounds2=99;
+int array2[bounds2];  // 正确，bounds2是一个常量表达式
+```
+
+- 指定非类型模板参数的值：
+```c++
+template<unsigned size>
+struct test
+{};
+test<bounds> ia;  // 错误，bounds不是一个常量表达式
+test<bounds2> ia2;  // 正确，bounds2是一个常量表达式
+```
+
+- 可以对类中static const整型成员变量进行初始化：
+```c++
+class X
+{
+  static const int the_answer=forty_two;
+};
+```
+
+- 可以对内置类型进行初始化，或可用于静态初始化集合：
+```c++
+struct my_aggregate
+{
+  int a;
+  int b;
+};
+static my_aggregate ma1={forty_two,123};  // 静态初始化
+int dummy=257;
+static my_aggregate ma2={dummy,dummy};  // 动态初始化
+```
+
+- 静态初始化可以避免初始化顺序和条件变量的问题。
+
+这些都不是新添加的——你可以在1998版本的C++标准中找到对应上面实例的条款。不过，在新标准中常量表达式进行了扩展，并添加了新的关键字`constexpr`。
+
+关键字`constexpr`会对功能进行修改。当参数和函数返回类型符合要求，并且实现很简单，那么这样的函数就能够被声明为`constexpr`，这样函数可以当做常数表达式来使用：
+
+```c++
+constexpr int square(int x)
+{
+  return x*x;
+}
+int array[square(5)];
+```
+
+在这个例子中，array有25个元素，因为square函数的声明为`constexpr`。当然，这种方式可以被当做常数表达式来使用，不以为着什么情况下都是能够自动转换为常数表达式的：
+
+```c++
+int dummy=4;
+int array[square(dummy)];  // 错误，dummy不是常数表达式
+```
+
+例子中，dummy不是常数表达式，所以square(dummy)也不是——其就是一个普通函数调用——所以其不能用来指定array的边界。
+
 ###A.4.1 常量表达式和自定义类型
 
 ###A.4.2 常量表达式对象
