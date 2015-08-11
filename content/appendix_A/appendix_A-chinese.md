@@ -418,6 +418,119 @@ int array[square(dummy)];  // 错误，dummy不是常数表达式
 
 ###A.4.1 常量表达式和自定义类型
 
+目前为止的例子都是以内置int型展开的。不过，在新C++标准库中，对于满足字面类型要求的任何类型，都可以用常量表达式来表示。要想划分到字面类型中，需要满足一下几点：
+
+- 一般的拷贝构造函数。
+
+- 一般的析构函数。
+
+- 所有成员变量都是非静态的，且基类需要是一个一般类型。
+
+- 必须具有一个一般的默认构造函数，或一个constexpr构造函数。
+
+后面会来看一下constexpr构造函数。现在，我们先将注意力集中在默认构造函数上，就像下面清单中的CX类一样。
+
+清单A.3（一般)默认构造函数的类
+```c++
+class CX
+{
+private:
+  int a;
+  int b;
+public:
+  CX() = default;  // 1
+  CX(int a_, int b_):  // 2
+    a(a_),b(b_)
+  {}
+  int get_a() const
+  {
+    return a;
+  }
+  int get_b() const
+  {
+    return b;
+  }
+  int foo() const
+  {
+    return a+b;
+  }
+};
+```
+
+注意，这里我们显式的声明了默认构造函数①(见A.3节)，是为了保存用户定义的构造函数②。因此，这种类型符合字面类型的要求，就可以将其用在常量表达式中了。你可以提供一个constexpr函数来创建一个实例，例如：
+
+```c++
+constexpr CX create_cx()
+{
+  return CX();
+}
+```
+
+也可以创建一个简单的constexpr函数来拷贝参数：
+
+```
+constexpr CX clone(CX val)
+{
+  return val;
+}
+```
+
+不过，constexpr函数只有其他constexpr函数可以进行调用。在CX类中声明成员函数和构造函数为constexpr：
+
+```c++
+class CX
+{
+private:
+  int a;
+  int b;
+public:
+  CX() = default;
+  constexpr CX(int a_, int b_):
+    a(a_),b(b_)
+  {}
+  constexpr int get_a() const  // 1
+  {
+    return a;
+  }
+  constexpr int get_b()  // 2
+  {
+    return b;
+  }
+  constexpr int foo()
+  {
+    return a+b;
+  }
+};
+```
+
+注意，现在const对于get_a()①来说就是多余的，因为其暗示在使用constexpr.get_b()就已经是是const了，所以const描述符在这里会被忽略。这样就允许更多复杂的constexpr函数存在：
+
+```c++
+constexpr CX make_cx(int a)
+{
+  return CX(a,1);
+}
+constexpr CX half_double(CX old)
+{
+  return CX(old.get_a()/2,old.get_b()*2);
+}
+constexpr int foo_squared(CX val)
+{
+  return square(val.foo());
+}
+int array[foo_squared(half_double(make_cx(10)))];  // 49个元素
+```
+
+这里的函数都很有趣，如果你想要计算数组的边界或是一个整型常量，你就需要使用这种方式。最大的好处是常量表达式和constexpr函数会设计到用户定义类型的对象，可以使用这些函数，对这些对象进行初始化。因为常量表达式的初始化过程是静态初始化，所以这种方式就能避免条件竞争和初始化顺序的问题：
+
+```c++
+CX si=half_double(CX(42,19));  // 静态初始化
+```
+
+这也包含构造函数。当构造函数被声明为constexpr，并且构造函数参数是常量表达式，那么初始化过程就是常数初始化，可能作为静态初始化的一部分。随着并发的发展，这也C++11标准中的一个重要改变：允许用户定义构造函数可以进行静态初始化，就可以在初始化的时候避免条件竞争，因为静态过程能保证初始化过程在代码运行前进行。
+
+特别是关于`std::mutex`(见3.2.1节)，或`std::atomic<>`(见5.2.6节)，当你可能想要使用一个全局实例来同步其他变量的访问，这样同步访问就能避免条件竞争的发生。在构造函数中，互斥量产生条件竞争是不可能的，因此对于`std::mutex`的默认构造函数就应该被声明为constexpr，就是为了保证互斥量初始化过程是一个静态初始化过程的一部分。
+
 ###A.4.2 常量表达式对象
 
 ###A.4.3 常量表达式函数的要求
