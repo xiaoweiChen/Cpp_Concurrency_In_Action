@@ -769,7 +769,37 @@ struct X
 
 在并发的上下文中，lambda是很有用的，其可以作为谓词放在`std::condition_variable::wait()`(见4.1.1节)和`std::packaged_task<>`(见4.2.1节)中；或是用在线程池中，对小任务进行打包。其也可以线程函数的方式`std::thread`的构造函数(见2.1.1)，以及作为一个并行算法实现，在parallel_for_each()(见8.5.1节)中使用。
 
-##A.6 可变参数模板
+##A.6 变参模板
+
+变参模板，就是可以使用不定数量的参数进行特化的模板。就像你接触到的变参函数一样，printf就接受可变参数。现在，你就可以给你的模板指定不定数量的参数了。变参模板在整个C++线程库中都有使用。例如，`std::thread`的构造函数就是一个变参类模板。从使用者的角度看，仅知道模板可以接受无限个参数就够了，不过当要写这么一个模板，或对其工作原理很感兴趣时，就需要了解一些细节。
+
+和变参函数一样，变参部分可以在参数列表章使用省略号`...`代表，变参模板需要在参数列表中使用省略号：
+
+```c++
+template<typename ... ParameterPack>
+class my_template
+{};
+```
+
+即使主模板不是变参模板，模板进行部分特化的类中，也可以使用可变参数模板。例如，`std::packaged_task<>`(见4.2.1节)的主模板就是一个简单的模板，这个简单的模板只有一个参数：
+
+```c++
+template<typename FunctionType>
+class packaged_task;
+```
+
+不过，并不是所有地方都这样定义；对于部分特化模板来说，其就像是一个“占位符”：
+
+```c++
+template<typename ReturnType,typename ... Args>
+class packaged_task<ReturnType(Args...)>;
+```
+
+这个部分特化的类就包含实际定义的类；第4章，你可以写一个`std::packaged_task<int(std::string,double)>`来声明一个以`std::string`和double作为参数的任务，当执行这个任务后，结果会由`std::future<int>`进行保存。
+
+这个声明展示了两个变参模板的附加特性。第一个比较简单：普通模板参数(例如ReturnType)和可变模板参数(Args)可以同时声明。第二个特性，展示了`Args...`在特化类的模板参数列表中是如何使用的，就为了展示实例化模板中的Args的组成类型。实际上，因为这是部分特化，所以其作为一种模式进行匹配；在列表中出现的类型(被Args捕获)都会进行实例化。参数包(parameter pack)调用可变参数Args，并且使用`Args...`作为包的扩展。
+
+和可变参函数一样，变参部分可能什么都没有，也可能有很多类型项。例如，在`std::packaged_task<my_class()>`中ReturnType参数就是my_class，并且Args参数包是空的，不过在`std::packaged_task<void(int,double,my_class&,std::string*)>`中，ReturnType为void，并且Args列表中的类型就有：int, double, my_class&和std::string*。
 
 ###A.6.1 扩展参数包
 
