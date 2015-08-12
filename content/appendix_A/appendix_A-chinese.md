@@ -533,13 +533,241 @@ CX si=half_double(CX(42,19));  // 静态初始化
 
 ###A.4.2 常量表达式对象
 
+目前，我们已经了解了constexpr在函数上的应用。constexpr也可以用在对象上，主要是用来做判断的；其验证对象是否是使用常量表达式，constexpr构造函数，或组合常量表达式，进行初始化的。且这个对象需要被声明为const：
+
+```c++
+constexpr int i=45;  // ok
+constexpr std::string s(“hello”);  // 错误，std::string不是字面类型
+
+int foo();
+constexpr int j=foo();  // 错误，foo()没有声明为constexpr
+```
+
 ###A.4.3 常量表达式函数的要求
+
+为了将一个函数声明为constexpr，也是有几点要求的；当不满足这些要求，constexpr声明将会报编译错误。
+
+要求如下：
+
+- 所有参数都必须是字面类型。
+
+- 返回类型必须是字面类型。
+
+- 函数体内必须有一个return。
+
+- return的表达式需要满足常量表达式的要求。
+
+- 用来构造返回值/表达式的任何构造函数或转换操作，都需要是constexpr。
+
+看起来很简单；你必须要内联函数到常量表达式中，并且需要返回的还是个常量表达式，还有不能对任何东西进行改动。constexpr函数就是无害的纯洁的函数。
+
+对于constexpr类成员函数，需要追加几点要求：
+
+- constexpr成员函数不能是虚函数。
+
+- 在对应类必须有字面类的成员。
+
+对于constexpr构造函数的规则也有些不同：
+
+- 构造函数体必须是空的。
+
+- 每一个基类必须是可初始化的。
+
+- 每个非静态数据成员都需要初始化。
+
+- 使用于成员初始化列表的任何表达式，必须是常量表达式。
+
+- 构造函数可选择要进行初始化的数据成员，并且基类必须有constexpr构造函数。
+
+- 任何用于构建数据成员的构造函数和转换操作，以及和初始化表达式相关的基类必须为constexpr。
+
+这些条件同样适用于成员函数，除非函数没有返回值，也就没有return语句。另外，构造函数对初始化列表中的所有基类和数据成员进行初始化。一般的拷贝构造函数会隐式的声明为constexpr。
 
 ###A.4.4 常量表达式和模板
 
+当constexpr应用于函数模板，或一个类模板的成员函数，根据参数如果模板的返回类型不是字面类，那么编译器会忽略其常量表达式的声明。当模板参数类型合适，且是一般inline函数，就可以将类型写成constexpr类型的函数模板。下面就是个例子：
+
+```c++
+template<typename T>
+constexpr T sum(T a,T b)
+{
+  return a+b;
+}
+constexpr int i=sum(3,42);  // ok，sum<int>是constexpr
+std::string s=
+  sum(std::string("hello"),
+      std::string(" world"));  // 也行，不过sum<std::string>就不是constexpr了
+```
+
+函数需要满足所有constexpr函数所需的条件。不能用多个constexpr来声明一个函数，因为其是一个模板；这样也会带来一些编译错误。
+
 ##A.5 Lambda函数
 
+Lambda函数在C++11中的加入是令人兴奋的，因为Lambda函数能够大大简化代码复杂度，避免实现调用对象。C++11的lambda函数语法允许在需要使用的时候进行定义。能为等待函数，例如`std::condition_variable`(如同4.1.1节中的例子)，提供很好谓词函数，因为其语义可以用来快速的表示可访问的变量，而非使用类中函数，来对成员变量进行捕获。
+
+最简单的情况下，lambda表达式就一个自给自足的函数，不需要传入函数，仅依赖管局变量和函数。其甚至都可以不用返回一个值。这样的lambda表达式的一系列语义都需要封闭在括号中，还要以方括号作为前缀(lambda的介绍)：
+
+```c++
+[]{  // lambda表达式以[]开始
+  do_stuff();
+  do_more_stuff();
+}();  // 表达式结束，可以直接调用
+```
+
+在这个例子中，lambda表达式通过后面的括号调用，不过这种方式不常用。一方面，如果想要直接调用，你可以在写完对应的语句后，就对函数进行调用。对于函数模板，传递一个参数进去时很常见的事情，甚至都可以将可调用对象作为其参数传入，可调用对象通常也需要一些参数，或返回一个值，亦或两者都有。如果你想给lambda函数传递参数，你可以参考下面的lambda函数，其使用起来就像是一个普通函数。例如，下面代码是将vector中的元素使用`std::cout`进行打印：
+
+```c++
+std::vector<int> data=make_data();
+std::for_each(data.begin(),data.end(),[](int i){std::cout<<i<<"\n";});
+```
+
+返回值也是很简单的。当lambda函数体包括一个return语句，返回值的类型就作为lambda表达式的返回类型。例如，你可以使用一个简单的lambda函数，用来等待`std::condition_variable`(见4.1.1节)中的标志被设置。
+
+清单A.4 lambda简单的推导返回类型
+```c++
+std::condition_variable cond;
+bool data_ready;
+std::mutex m;
+void wait_for_data()
+{
+  std::unique_lock<std::mutex> lk(m);
+  cond.wait(lk,[]{return data_ready;});  // 1
+}
+```
+
+lambda的返回值传递给cond.wait()①，函数就呢个推断出data_ready的类型是bool。当条件变量从等待中苏醒后，在上锁阶段会调用lambda函数，并且当data_ready为true时，仅返回到wait()中。
+
+当你的lambda函数体中有多个return语句，这种情况下，就需要显式的指定返回类型。在只有一个返回语句的时候，你也可以这样做，不过这样可能会让你的lambda函数体看起来更复杂。返回类型可以使用跟在参数列表后面的箭头(->)进行设置。如果你的lambda函数没有任何参数，你还需要包含(空)的参数列表，这样做是为了能显示的对返回类型进行指定。对条件变量的预测可以写成下面这种方式：
+
+```c++
+cond.wait(lk,[]()->bool{return data_ready;});
+```
+
+还可以对lambda函数进行扩展，比如加上log信息的打印，或做更加复杂的操作：
+
+```c++
+cond.wait(lk,[]()->bool{
+  if(data_ready)
+  {
+    std::cout<<”Data ready”<<std::endl;
+    return true;
+  }
+  else
+  {
+    std::cout<<”Data not ready, resuming wait”<<std::endl;
+    return false;
+  }
+});
+```
+
+虽然简单的lambda函数很强大，并且能简化代码，不过其真正的强大的地方在于对本地变量的捕获。
+
 ###A.5.1 引用本地变量的Lambda函数
+
+Lambda函数使用空的`[]`(lambda introducer)就不能引用当前范围内的本地变量；其只能使用全局变量，或将其以参数的形式进行传递。当你想要方位一个本地变量，你需要对其进行捕获。最简单的方式就是将范围内的所有本地变量都进行捕获，使用`[=]`就可以完成这样的功能。在函数被创建的时候，就能对本地变量的副本进行访问了。
+
+实践一下，来考虑一下下面的例子：
+
+```c++
+std::function<int(int)> make_offseter(int offset)
+{
+  return [=](int j){return offset+j;};
+}
+```
+
+每当调用make_offseter时，就会通过`std::function<>`函数包装，返回一个新的lambda函数体。这个带有返回的函数添加了对参数的偏移功能。例如：
+
+```c++
+int main()
+{
+  std::function<int(int)> offset_42=make_offseter(42);
+  std::function<int(int)> offset_123=make_offseter(123);
+  std::cout<<offset_42(12)<<”,“<<offset_123(12)<<std::endl;
+  std::cout<<offset_42(12)<<”,“<<offset_123(12)<<std::endl;
+}
+```
+
+屏幕上将打印出54,135两次，因为第一次从make_offseter中返回，都是对参数加42的；第二次调用后，make_offseter会对参数加上123。所以，会打印两次相同的值。
+
+这种本地变量捕获的方式相当安全；所有的东西都进行了拷贝，所以你可以通过lambda函数对表达式的值进行返回，并且可以在原始函数之外的地方对其进行调用。这也不是唯一的选择；你也可以通过选择通过引用的方式捕获本地变量。在这种情况下，当本地变量被销毁的时候，lambda函数会出现未定义的行为。
+
+下面的例子，就介绍一下怎么使用`[&]`对所有本地变量进行引用：
+
+```c++
+int main()
+{
+  int offset=42;  // 1
+  std::function<int(int)> offset_a=[&](int j){return offset+j;};  // 2
+  offset=123;  // 3
+  std::function<int(int)> offset_b=[&](int j){return offset+j;};  // 4
+  std::cout<<offset_a(12)<<”,”<<offset_b(12)<<std::endl;  // 5
+  offset=99;  // 6
+  std::cout<<offset_a(12)<<”,”<<offset_b(12)<<std::endl;  // 7
+}
+```
+
+在之前的例子中，我们使用`[=]`来对要偏移的变量进行拷贝，offset_a函数就是个使用`[&]`捕获offset的引用的例子②。所以，offset初始化成42也没什么关系①；offset_a(12)的例子通常会依赖与当前offset的值。在③上，offset的值会变为123，offset_b④函数将会使用到这个值，同样第二个函数也是使用引用的方式。
+
+现在，第一行打印信息⑤，offset为123，所以输出为135,135。不过，第二行打印信息⑦就有所不同，offset变成99⑥，所以这是的输出为111,111。offset_a和offset_b都对当前值进行了加12的操作。
+
+尘归尘，土归土。C++还是C++，这些选项不会让你感觉到特别困惑；你可以选择以引用或拷贝的方式对变量进行捕获，并且你还可以通过调整中括号中的表达式，来对特定的变量进行显式捕获。如果你想要拷贝所有变量，而非一两个，你可以使用`[=]`，通过参考中括号中的符号，对变量进行捕获。下面的例子将会打印出1239，因为i是拷贝进lambda函数中的，而j和k是通过引用的方式进行捕获的：
+
+```c++
+int main()
+{
+  int i=1234,j=5678,k=9;
+  std::function<int()> f=[=,&j,&k]{return i+j+k;};
+  i=1;
+  j=2;
+  k=3;
+  std::cout<<f()<<std::endl;
+}
+```
+
+或者，你也可以通过默认引用方式对一些变量做引用，而对一些特别的变量进行拷贝。在这种情况下，就要使用`[&]`与拷贝符号相结合的方式对列表中的变量进行拷贝捕获。下面的例子将打印出5688，因为i通过引用捕获，但j和
+通过拷贝捕获：
+
+```c++
+int main()
+{
+  int i=1234,j=5678,k=9;
+  std::function<int()> f=[&,j,k]{return i+j+k;};
+  i=1;
+  j=2;
+  k=3;
+  std::cout<<f()<<std::endl;
+}
+```
+
+如果你只想捕获某些变量，那么你可以忽略=或&，仅使用变量名进行捕获就行；加上&前缀，是将对应变量以引用的方式进行捕获，而非拷贝的方式。下面的例子将打印出5682，因为i和k是通过引用的范式获取的，而j是通过拷贝的方式：
+
+```c++
+int main()
+{
+  int i=1234,j=5678,k=9;
+  std::function<int()> f=[&i,j,&k]{return i+j+k;};
+  i=1;
+  j=2;
+  k=3;
+  std::cout<<f()<<std::endl;
+}
+```
+
+最后一种方式，是为了确保预期的变量能被捕获，在捕获列表中，引用任何不存在的变量都会引起编译错误。当你选择以这种方式，你就要小心类成员的访问方式，确定类中是否包含一个lambda函数的成员变量。类成员变量是不能直接捕获的；如果你想通过lambda方式访问类中的成员，你需要在捕获列表中添加this指针，以便捕获。在下面的例子章，lambda捕获this，就能访问到some_data类中的成员：
+
+```c++
+struct X
+{
+  int some_data;
+  void foo(std::vector<int>& vec)
+  {
+    std::for_each(vec.begin(),vec.end(),
+         [this](int& i){i+=some_data;});
+  }
+};
+```
+
+在并发的上下文中，lambda是很有用的，其可以作为谓词放在`std::condition_variable::wait()`(见4.1.1节)和`std::packaged_task<>`(见4.2.1节)中；或是用在线程池中，对小任务进行打包。其也可以线程函数的方式`std::thread`的构造函数(见2.1.1)，以及作为一个并行算法实现，在parallel_for_each()(见8.5.1节)中使用。
 
 ##A.6 可变参数模板
 
