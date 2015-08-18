@@ -27,50 +27,50 @@
 </tr>
 <tr>
   <td rowspan=3> C++11 </td>
-  <td rowspan=3> `std::thread`和其成员函数 </td>
-  <td> `std::mutex`类和其成员函数 </td>
-  <td> `std::condition_variable` </td>
-  <td> `std::atomic_xxx`类型 </td>
+  <td rowspan=3> std::thread和其成员函数 </td>
+  <td> std::mutex类和其成员函数 </td>
+  <td> std::condition_variable </td>
+  <td> std::atomic_xxx类型 </td>
   <td rowspan=3> N/A </td>
-  <td> `std::future<>` </td>
+  <td> std::future<> </td>
   <td rowspan=3> N/A </td>
   <td rowspan=3> N/A </td>
 </tr>
 <tr>
-  <td> `std::lock_guard<>`模板 </td>
-  <td rowspan=2> `std::condition_variable_any`类和其成员函数 </td>
-  <td> `std::atomic<>`类模板 </td>
-  <td> `std::shared_future<>` </td>
+  <td> std::lock_guard<>模板 </td>
+  <td rowspan=2> std::condition_variable_any类和其成员函数 </td>
+  <td> std::atomic<>类模板 </td>
+  <td> std::shared_future<> </td>
 </tr>
 <tr>
-  <td> `std::unique_lock<>`模板 </td>
-  <td> `std::atomic_thread_fence()`函数 </td>
-  <td> `std::atomic_future<>`类模板 </td>
+  <td> std::unique_lock<>模板 </td>
+  <td> std::atomic_thread_fence()函数 </td>
+  <td> std::atomic_future<>类模板 </td>
 </tr>
 <tr>
   <td rowspan=3> Boost线程库 </td>
-  <td rowspan=3> `boost::thread`类和成员函数 </td>
-  <td> `boost::mutex`类和其成员函数 </td>
-  <td> `boost::condition_variable`类和其成员函数 </td>
+  <td rowspan=3> boost::thread类和成员函数 </td>
+  <td> boost::mutex类和其成员函数 </td>
+  <td> boost::condition_variable类和其成员函数 </td>
   <td rowspan=3> N/A </td>
   <td rowspan=3> N/A </td>
-  <td> `boost::unique_future<>`类模板</td>
+  <td> boost::unique_future<>类模板</td>
   <td rowspan=3> N/A </td>
-  <td rowspan=3> `boost::thread`类的`interrupt()`成员函数</td>
+  <td rowspan=3> boost::thread类的interrupt()成员函数</td>
 </tr>
 <tr>
-  <td> `boost::lock_guard<>`类模板 </td>
-  <td rowspan=2> `boost::condition_variable_any`类和其成员函数 </td>
-  <td rowspan=2> `boost::shared_future<>`类模板</td>
+  <td> boost::lock_guard<>类模板 </td>
+  <td rowspan=2> boost::condition_variable_any类和其成员函数 </td>
+  <td rowspan=2> boost::shared_future<>类模板</td>
 </tr>
 <tr>
-  <td> `boost::unique_lock<>`类模板 </td>
+  <td> boost::unique_lock<>类模板 </td>
 </tr>
 <tr>
   <td rowspan=4> POSIX C </td>
-  <td> `pthread_t`类型相关的API函数 </td>
-  <td> `pthread_mutex_t`类型相关的API函数</td>
-  <td> `pthread_cond_t`类型相关的API函数</td>
+  <td> pthread_t类型相关的API函数 </td>
+  <td> pthread_mutex_t类型相关的API函数</td>
+  <td> pthread_cond_t类型相关的API函数</td>
   <td rowspan=4> N/A </td>
   <td rowspan=4> N/A </td>
   <td rowspan=4> N/A </td>
@@ -78,29 +78,29 @@
   <td rowspan=4> pthread_cancel() </td>
 </tr>
 <tr>
-  <td> `pthread_create()` </td>
-  <td> `pthread_mutex_lock()` </td>
-  <td> `pthread_cond_wait()` </td>
+  <td> pthread_create() </td>
+  <td> pthread_mutex_lock() </td>
+  <td> pthread_cond_wait() </td>
 </tr>
 <tr>
-  <td> `pthread_detach()` </td>
-  <td> `pthread_mutex_unlock()` </td>
-  <td> `pthread_cond_timed_wait()` </td>
+  <td> pthread_detach() </td>
+  <td> pthread_mutex_unlock() </td>
+  <td> pthread_cond_timed_wait() </td>
 </tr>
 <tr>
-  <td> `pthread_join()` </td>
+  <td> pthread_join() </td>
   <td> 等等 </td>
   <td> 等等 </td>
 </tr>
 <tr>
   <td> Java </td>
-  <td> `java.lang.thread`类 </td>
-  <td> `synchronized`块 </td>
-  <td> `java.lang.Object`类的`wait()`和`notify()`函数，用在内部`synchronized`块中 </td>
-  <td> `java.util.concurrent.atomic`包中的`volatile`类型变量 </td>
-  <td> `java.util.concurrent`包中的容器 </td>
-  <td> 与`java.util.concurrent.future`接口相关的类 </td>
-  <td> `java.util.concurrent.ThreadPoolExecutor`类 </td>
-  <td> `java.lang.Thread`类的`interrupt()`函数 </td>
+  <td> java.lang.thread类 </td>
+  <td> synchronized块 </td>
+  <td> java.lang.Object类的wait()和notify()函数，用在内部synchronized块中 </td>
+  <td> java.util.concurrent.atomic包中的volatile类型变量 </td>
+  <td> java.util.concurrent包中的容器 </td>
+  <td> 与java.util.concurrent.future接口相关的类 </td>
+  <td> java.util.concurrent.ThreadPoolExecutor类 </td>
+  <td> java.lang.Thread类的interrupt()函数 </td>
 </tr>
 </table>
