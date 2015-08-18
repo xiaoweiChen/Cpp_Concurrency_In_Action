@@ -10,7 +10,7 @@
 * [第9章 高级线程管理](content/chapter9/chapter9-chinese.md)
 * [第10章 多线程程序的测试和调试](content/chapter10/chapter10-chinese.md)
 * [附录A C++11语言特性简明参考(部分)](content/appendix_A/appendix_A-chinese.md)
-* [附录B 并发类库简要对比]()
+* [附录B 并发库简要对比](content/appendix_B/appendix_B-chinese.md)
 * [附录C 消息传递框架与完整的ATM示例]()
 * [附录D C++线程类库参考]()
 * [资源]()
