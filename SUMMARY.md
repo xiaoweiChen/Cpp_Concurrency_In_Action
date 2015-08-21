@@ -1,3 +1,4 @@
+* [前言](content/preface/preface-chinese.md)
 * [关于封面](content/about_cover_illustration/about_cover_illustration-chinese.md)
 * [关于本书](content/about_this_book/about_this_book-chinese.md)
 * [第1章 你好，C++的并发世界](content/chapter1/chapter1-chinese.md)
