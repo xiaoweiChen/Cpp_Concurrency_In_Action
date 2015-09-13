@@ -109,7 +109,7 @@ template <class ToDuration, class Rep, class Period>
 
 `Period`必须是`std::ratio<>`实例。
 
-**std::chrono::duration::Rep 类型**
+####std::chrono::duration::Rep 类型
 
 用来记录`dration`中时钟周期的数量。
 
@@ -593,21 +593,116 @@ public:
 
 ####std::chrono::time_point 默认构造函数
 
-构造
+构造time_point代表着，使用相关的Clock，记录从epoch到现在的时间；其内部计时使用Duration::zero()进行初始化。
+
+**声明**
+```c++
+time_point();
+```
+
+**后验条件**<br>
+对于使用默认构造函数构造出的time_point对象tp，`tp.time_since_epoch() == tp::duration::zero()`。
 
 ####std::chrono::time_point 需要时间长度的构造函数
 
+构造time_point代表着，使用相关的Clock，记录从epoch到现在的时间。
+
+**声明**
+```c++
+explicit time_point(const duration& d);
+```
+
+**后验条件**<br>
+当有一个time_point对象tp，是通过duration d构造出来的(tp(d))，那么`tp.time_since_epoch() == d`。
+
 ####std::chrono::time_point 转换构造函数
+
+构造time_point代表着，使用相关的Clock，记录从epoch到现在的时间。
+
+**声明**
+```c++
+template <class Duration2>
+time_point(const time_point<clock, Duration2>& t);
+```
+
+**要求**<br>
+Duration2必须呢个隐式转换为Duration。
+
+
+**效果**<br>
+当`time_point(t.time_since_epoch())`存在，从t.time_since_epoch()中获取的返回值，可以隐式转换成Duration类型的对象，并且这个值可以存储在一个新的time_point对象中。
+
+(扩展阅读：[as-if准则](http://stackoverflow.com/questions/15718262/what-exactly-is-the-as-if-rule))
 
 ####std::chrono::time_point::time_since_epoch 成员函数
 
+返回当前time_point从epoch到现在的具体时长。
+
+**声明**
+```c++
+duration time_since_epoch() const;
+```
+
+**返回**<br>
+duration的值存储在*this中。
+
 ####std::chrono::time_point::operator+= 复合赋值函数
+
+将指定的duration的值与原存储在指定的time_point对象中的duration相加，并将加后值存储在*this对象中。
+
+**声明**
+```c++
+time_point& operator+=(const duration& d);
+```
+
+**效果**<br>
+将d的值和duration对象的值相加，存储在*this中，就如同this->internal_duration += d;
+
+**返回**
+`*this`
 
 ####std::chrono::time_point::operator-= 复合赋值函数
 
+将指定的duration的值与原存储在指定的time_point对象中的duration相减，并将加后值存储在*this对象中。
+
+**声明**
+```c++
+time_point& operator-=(const duration& d);
+```
+
+**效果**<br>
+将d的值和duration对象的值相减，存储在*this中，就如同this->internal_duration -= d;
+
+**返回**
+`*this`
+
 ####std::chrono::time_point::min 静态成员函数
 
+获取time_point对象可能表示的最小值。
+
+**声明**
+```c++
+static constexpr time_point min();
+```
+
+**返回**
+```c++
+time_point(time_point::duration::min()) (see 11.1.1.15)
+```
+
 ####std::chrono::time_point::max 静态成员函数
+
+获取time_point对象可能表示的最大值。
+
+**声明**
+```c++
+static constexpr time_point max();
+```
+
+**返回**
+```c++
+time_point(time_point::duration::max()) (see 11.1.1.16)
+```
 
 ###D.1.3 std::chrono::system_clock类
 
