@@ -706,6 +706,108 @@ time_point(time_point::duration::max()) (see 11.1.1.16)
 
 ###D.1.3 std::chrono::system_clock类
 
+`std::chrono::system_clock`类提供给了从系统实时时钟上获取当前时间功能。可以调用`std::chrono::system_clock::now()`来获取当前的时间。`std::chrono::system_clock::time_point`也可以通过`std::chrono::system_clock::to_time_t()`和`std::chrono::system_clock::to_time_point()`函数返回值转换成time_t类型。系统时钟不稳定，所以`std::chrono::system_clock::now()`获取到的时间可能会早于之前的一次调用(比如，时钟被手动调整过或与外部时钟进行了同步)。
+
+####类型定义
+
+```c++
+class system_clock
+{
+public:
+  typedef unspecified-integral-type rep;
+  typedef std::ratio<unspecified,unspecified> period;
+  typedef std::chrono::duration<rep,period> duration;
+  typedef std::chrono::time_point<system_clock> time_point;
+  static const bool is_steady=unspecified;
+
+  static time_point now() noexcept;
+
+  static time_t to_time_t(const time_point& t) noexcept;
+  static time_point from_time_t(time_t t) noexcept;
+};
+```
+
+####std::chrono::system_clock::rep 类型定义
+
+将时间周期数记录在一个duration值中
+
+**声明**
+```c++
+typedef unspecified-integral-type rep;
+```
+
+####std::chrono::system_clock::period 类型定义
+
+类型为`std::ratio`类型模板，通过在两个不同的duration或time_point间特化最小秒数(或将1秒分为好几份)。period指定了时钟的精度，而非时钟频率。
+
+**声明**
+```c++
+typedef std::ratio<unspecified,unspecified> period;
+```
+
+####std::chrono::system_clock::duration 类型定义
+
+类型为`std::ratio`类型模板，通过系统实时时钟获取两个时间点之间的时长。
+
+**声明**
+```c++
+typedef std::chrono::duration<
+   std::chrono::system_clock::rep,
+   std::chrono::system_clock::period> duration;
+```
+
+####std::chrono::system_clock::time_point 类型定义
+
+类型为`std::ratio`类型模板，通过系统实时时钟获取当前时间点的时间。
+
+**声明**<br>
+```c++
+typedef std::chrono::time_point<std::chrono::system_clock> time_point;
+```
+
+####std::chrono::system_clock::now 静态成员函数
+
+从系统实时时钟上获取当前的外部设备显示的时间。
+
+**声明**
+```c++
+time_point now() noexcept;
+```
+
+**返回**<br>
+time_point类型变量来代表当前系统实时时钟的时间。
+
+**抛出**<br>
+当错误发生，`std::system_error`异常将会抛出。
+
+####std::chrono::system_clock:to_time_t 静态成员函数
+
+将time_point类型值转化为time_t。
+
+**声明**
+```c++
+time_t to_time_t(time_point const& t) noexcept;
+```
+
+**返回**<br>
+通过对t进行舍入或截断精度，将其转化为一个time_t类型的值。
+
+**抛出**<br>
+当错误发生，`std::system_error`异常将会抛出。
+
+####std::chrono::system_clock::from_time_t 静态成员函数
+
+**声明**
+```c++
+time_point from_time_t(time_t const& t) noexcept;
+```
+
+**返回**<br>
+time_point中的值与t中的值一样。
+
+**抛出**<br>
+当错误发生，`std::system_error`异常将会抛出。
+
 ###D.1.4 std::chrono::steady_clock类
 
 ###D.1.5 std::chrono::high_resolution_clock类定义
