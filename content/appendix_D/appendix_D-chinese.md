@@ -28,6 +28,7 @@ namespace std
 `std::chrono::duration`类模板可以用来表示时间。模板参数`Rep`和`Period`是用来存储持续时间的数据类型，`std::ratio`实例代表了时间的长度(几分之一秒)，其表示了在两次“时钟滴答”后的时间(时钟周期)。因此，`std::chrono::duration<int, std::milli>`即为，时间以毫秒数的形式存储到int类型中，而`std::chrono::duration<short, std::ratio<1,50>>`则是记录1/50秒的个数，并将个数存入short类型的变量中，还有`std::chrono::duration <long long, std::ratio<60,1>>`则是将分钟数存储到long long类型的变量中。
 
 ####类的定义
+
 ```c++
 template <class Rep, class Period=ratio<1> >
 class duration
@@ -119,7 +120,7 @@ typedef Rep rep;
 
 `rep`类型用来记录`duration`对象内部的表示。
 
-**std::chrono::duration::Period 类型**
+####std::chrono::duration::Period 类型
 
 这个类型必须是一个`std::ratio`的特化实例，用来表示在继续时间中，1s所要记录的次数。例如，当`period`是`std::ratio<1, 50>`，`duration`变量的count()就会在N秒钟返回50N。
 
@@ -128,7 +129,7 @@ typedef Rep rep;
 typedef Period period;
 ```
 
-**std::chrono::duration 默认构造函数**
+####std::chrono::duration 默认构造函数
 
 使用默认值构造`std::chrono::duration`实例
 
@@ -140,7 +141,7 @@ constexpr duration() = default;
 **效果**<br>
 `duration`内部值(例如`rep`类型的值)都已初始化。
 
-**std::chrono::duration 需要计数值的转换构造函数**
+####std::chrono::duration 需要计数值的转换构造函数
 
 通过给定的数值来构造`std::chrono::duration`实例。
 
@@ -156,12 +157,12 @@ constexpr explicit duration(const Rep2& r);
 **结果**<br>
 当Rep2隐式转换为Rep，Rep是浮点类型或Rep2不是浮点类型，这个构造函数才能使用。
 
-后验条件
+**后验条件**
 ```c++
 this->count()==static_cast<rep>(r)
 ```
 
-**std::chrono::duration 需要另一个std::chrono::duration值的转化构造函数**
+####std::chrono::duration 需要另一个std::chrono::duration值的转化构造函数
 
 通过另一个`std::chrono::duration`类实例中的计数值来构造一个`std::chrono::duration`类实例。
 
@@ -172,7 +173,6 @@ constexpr duration(const duration<Rep2,Period2>& d);
 ```
 
 **结果**<br>
-
 duration对象的内部值通过`duration_cast<duration<Rep,Period>>(d).count()`初始化。
 
 **要求**<br>
@@ -189,7 +189,7 @@ duration<double, ratio<1,1>> s2(ms);  // 合法：s2.count() == 0.005
 duration<int, ration<1, 1000000>> us<ms>;  // 合法:us.count() == 5000
 ```
 
-**std::chrono::duration::count 成员函数**
+####std::chrono::duration::count 成员函数
 
 查询持续时长。
 
@@ -201,7 +201,7 @@ constexpr rep count() const;
 **返回**<br>
 返回duration的内部值，其值类型和rep一样。
 
-**std::chrono::duration::operator+ 加法操作符**
+####std::chrono::duration::operator+ 加法操作符
 
 这是一个空操作：只会返回*this的副本。
 
@@ -213,7 +213,7 @@ constexpr duration operator+() const;
 **返回**
 `*this`
 
-**std::chrono::duration::operator- 减法操作符**
+####std::chrono::duration::operator- 减法操作符
 
 返回将内部值只为负数的*this副本。
 
@@ -225,7 +225,7 @@ constexpr duration operator-() const;
 **返回**
 `duration(-this->count());`
 
-**std::chrono::duration::operator++ 前置自加操作符**
+####std::chrono::duration::operator++ 前置自加操作符
 
 增加内部计数值。
 
@@ -242,7 +242,7 @@ duration& operator++();
 **返回**
 `*this`
 
-**std::chrono::duration::operator++ 后置自加操作符**
+####std::chrono::duration::operator++ 后置自加操作符
 
 自加内部计数值，并且返回还没有增加前的*this。
 
@@ -258,7 +258,7 @@ duration temp(*this);
 return temp;
 ```
 
-**std::chrono::duration::operator-- 前置自减操作符**
+####std::chrono::duration::operator-- 前置自减操作符
 
 自减内部计数值
 
@@ -275,7 +275,7 @@ duration& operator--();
 **返回**
 `*this`
 
-**std::chrono::duration::operator-- 前置自减操作符**
+####std::chrono::duration::operator-- 前置自减操作符
 
 自减内部计数值，并且返回还没有减少前的*this。
 
@@ -291,7 +291,7 @@ duration temp(*this);
 return temp;
 ```
 
-**std::chrono::duration::operator+= 复合赋值操作符**
+####std::chrono::duration::operator+= 复合赋值操作符
 
 将其他duration对象中的内部值增加到现有duration对象当中。
 
@@ -308,7 +308,7 @@ internal_count+=other.count();
 **返回**
 `*this`
 
-**std::chrono::duration::operator-= 复合赋值操作符**
+####std::chrono::duration::operator-= 复合赋值操作符
 
 现有duration对象减去其他duration对象中的内部值。
 
@@ -325,7 +325,7 @@ internal_count-=other.count();
 **返回**
 `*this`
 
-**std::chrono::duration::operator*= 复合赋值操作符**
+####std::chrono::duration::operator*= 复合赋值操作符
 
 内部值乘以一个给定的值。
 
@@ -342,7 +342,7 @@ internal_count*=rhs;
 **返回**
 `*this`
 
-**std::chrono::duration::operator/= 复合赋值操作符**
+####std::chrono::duration::operator/= 复合赋值操作符
 
 内部值除以一个给定的值。
 
@@ -359,7 +359,7 @@ internal_count/=rhs;
 **返回**
 `*this`
 
-**std::chrono::duration::operator%= 复合赋值操作符**
+####std::chrono::duration::operator%= 复合赋值操作符
 
 内部值对一个给定的值求余。
 
@@ -376,7 +376,7 @@ internal_count%=rhs;
 **返回**
 `*this`
 
-**std::chrono::duration::operator%= 复合赋值操作符(重载)**
+####std::chrono::duration::operator%= 复合赋值操作符(重载)
 
 内部值对另一个duration类的内部值求余。
 
@@ -393,7 +393,7 @@ internal_count%=rhs.count();
 **返回**
 `*this`
 
-**std::chrono::duration::zero 静态成员函数**
+####std::chrono::duration::zero 静态成员函数
 
 返回一个内部值为0的duration对象。
 
@@ -407,7 +407,7 @@ constexpr duration zero();
 duration(duration_values<rep>::zero());
 ```
 
-**std::chrono::duration::min 静态成员函数**
+####std::chrono::duration::min 静态成员函数
 
 返回duration类实例化后能表示的最小值。
 
@@ -421,7 +421,7 @@ constexpr duration min();
 duration(duration_values<rep>::min());
 ```
 
-**std::chrono::duration::max 静态成员函数**
+####std::chrono::duration::max 静态成员函数
 
 返回duration类实例化后能表示的最大值。
 
@@ -435,7 +435,7 @@ constexpr duration max();
 duration(duration_values<rep>::max());
 ```
 
-**std::chrono::duration 等于比较操作符**
+####std::chrono::duration 等于比较操作符
 
 比较两个duration对象是否相等。
 
@@ -453,7 +453,7 @@ const duration<Rep2, Period2>& rhs);
 **结果**<br>
 当`CommonDuration`和`std::common_type< duration< Rep1, Period1>, duration< Rep2, Period2>>::type`同类，那么`lhs==rhs`就会返回`CommonDuration(lhs).count()==CommonDuration(rhs).count()`。
 
-**std::chrono::duration 不等于比较操作符**
+####std::chrono::duration 不等于比较操作符
 
 比较两个duration对象是否不相等。
 
@@ -471,7 +471,7 @@ constexpr bool operator!=(
 **返回**
 `!(lhs==rhs)`
 
-**std::chrono::duration 小于比较操作符**
+####std::chrono::duration 小于比较操作符
 
 比较两个duration对象是否小于。
 
@@ -489,7 +489,7 @@ constexpr bool operator<(
 **结果**<br>
 当`CommonDuration`和`std::common_type< duration< Rep1, Period1>, duration< Rep2, Period2>>::type`同类，那么`lhs<rhs`就会返回`CommonDuration(lhs).count()<CommonDuration(rhs).count()`。
 
-**std::chrono::duration 大于比较操作符**
+####std::chrono::duration 大于比较操作符
 
 比较两个duration对象是否大于。
 
@@ -507,7 +507,7 @@ constexpr bool operator>(
 **返回**
 `rhs<lhs`
 
-**std::chrono::duration 小于等于比较操作符**
+####std::chrono::duration 小于等于比较操作符
 
 比较两个duration对象是否小于等于。
 
@@ -525,7 +525,7 @@ constexpr bool operator<=(
 **返回**
 `!(rhs<lhs)`
 
-**std::chrono::duration 大于等于比较操作符**
+####std::chrono::duration 大于等于比较操作符
 
 比较两个duration对象是否大于等于。
 
@@ -543,7 +543,7 @@ constexpr bool operator>=(
 **返回**
 `!(lhs<rhs)`
 
-**std::chrono::duration_cast 非成员函数**
+####std::chrono::duration_cast 非成员函数
 
 显示将一个`std::chrono::duration`对象转化为另一个`std::chrono::duration`实例。
 
@@ -563,7 +563,8 @@ duration类d转换为指定类型ToDuration。这种方式可以在不同尺寸�
 
 `std::chrono::time_point`类型模板通过(特别的)时钟来表示某个时间点。这个时钟代表的是从epoch(1970-01-01 00:00:00 UTC，作为UNIX系列系统的特定时间戳)到现在的时间。模板参数Clock代表使用的使用(不同的使用必定有自己独特的类型)，而Duration模板参数使用来测量从epoch到现在的时间，并且这个参数的类型必须是`std::chrono::duration`类型。Duration默认存储Clock上的测量值。
 
-**类型定义**
+####类型定义
+
 ```c++
 template <class Clock,class Duration = typename Clock::duration>
 class time_point
@@ -590,23 +591,23 @@ public:
 };
 ```
 
-**std::chrono::time_point 默认构造函数**
+####std::chrono::time_point 默认构造函数
 
 构造
 
-**std::chrono::time_point 需要时间长度的构造函数**
+####std::chrono::time_point 需要时间长度的构造函数
 
-**std::chrono::time_point 转换构造函数**
+####std::chrono::time_point 转换构造函数
 
-**std::chrono::time_point::time_since_epoch 成员函数**
+####std::chrono::time_point::time_since_epoch 成员函数
 
-**std::chrono::time_point::operator+= 复合赋值函数**
+####std::chrono::time_point::operator+= 复合赋值函数
 
-**std::chrono::time_point::operator-= 复合赋值函数**
+####std::chrono::time_point::operator-= 复合赋值函数
 
-**std::chrono::time_point::min 静态成员函数**
+####std::chrono::time_point::min 静态成员函数
 
-**std::chrono::time_point::max 静态成员函数**
+####std::chrono::time_point::max 静态成员函数
 
 ###D.1.3 std::chrono::system_clock类
 
