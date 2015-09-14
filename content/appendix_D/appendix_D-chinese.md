@@ -810,7 +810,106 @@ time_point中的值与t中的值一样。
 
 ###D.1.4 std::chrono::steady_clock类
 
+`std::chrono::steady_clock`能访问系统稳定时钟。可以通过调用`std::chrono::steady_clock::now()`获取当前的时间。设备上显示的时间，与使用`std::chrono::steady_clock::now()`获取的时间没有固定的关系。稳定时钟是无法回调的，所以在`std::chrono::steady_clock::now()`两次调用后，第二次调用获取的时间必定等于或大于第一次获得的时间。时钟以固定的速率进行计时。
+
+####类型定义
+
+```c++
+class steady_clock
+{
+public:
+  typedef unspecified-integral-type rep;
+  typedef std::ratio<
+      unspecified,unspecified> period;
+  typedef std::chrono::duration<rep,period> duration;
+  typedef std::chrono::time_point<steady_clock>
+      time_point;
+  static const bool is_steady=true;
+
+  static time_point now() noexcept;
+};
+```
+
+####std::chrono::steady_clock::rep 类型定义
+
+定义一个整型，用来保存duration的值。
+
+**声明**
+```c++
+typedef unspecified-integral-type rep;
+```
+
+####std::chrono::steady_clock::period 类型定义
+
+类型为`std::ratio`类型模板，通过在两个不同的duration或time_point间特化最小秒数(或将1秒分为好几份)。period指定了时钟的精度，而非时钟频率。
+
+**声明**
+```c++
+typedef std::ratio<unspecified,unspecified> period;
+```
+
+####std::chrono::steady_clock::duration 类型定义
+
+类型为`std::ratio`类型模板，通过系统实时时钟获取两个时间点之间的时长。
+
+**声明**
+```c++
+typedef std::chrono::duration<
+   std::chrono::system_clock::rep,
+   std::chrono::system_clock::period> duration;
+```
+
+####std::chrono::steady_clock::time_point 类型定义
+
+`std::chrono::time_point`类型实例，可以存储从系统稳定时钟返回的时间点。
+
+**声明**
+```c++
+typedef std::chrono::time_point<std::chrono::steady_clock> time_point;
+```
+
+####std::chrono::steady_clock::now 静态成员函数
+
+从系统稳定时钟获取当前时间。
+
+**声明**
+```c++
+time_point now() noexcept;
+```
+
+**返回**<br>
+time_point表示当前系统稳定时钟的时间。
+
+**抛出**<br>
+当遇到错误，会抛出`std::system_error`异常。
+
+**同步**<br>
+当先行调用过一次`std::chrono::steady_clock::now()`，那么下一次time_point获取的值，一定大于等于第一次获取的值。
+
 ###D.1.5 std::chrono::high_resolution_clock类定义
+
+`td::chrono::high_resolution_clock`类能访问系统高精度时钟。和所有其他时钟一样，通过调用`std::chrono::high_resolution_clock::now()`来获取当前时间。`std::chrono::high_resolution_clock`可能是`std::chrono::system_clock`类或`std::chrono::steady_clock`类的别名，也可能就是独立的一个类。
+
+通过`std::chrono::high_resolution_clock`具有所有标准库支持时钟中最高的精度，这就意味着使用
+`std::chrono::high_resolution_clock::now()`要花掉一些时间。所以，当你再调用`std::chrono::high_resolution_clock::now()`的时候，需要注意函数本身的时间开销。
+
+####类型定义
+
+```c++
+class high_resolution_clock
+{
+public:
+  typedef unspecified-integral-type rep;
+  typedef std::ratio<
+      unspecified,unspecified> period;
+  typedef std::chrono::duration<rep,period> duration;
+  typedef std::chrono::time_point<
+      unspecified> time_point;
+  static const bool is_steady=unspecified;
+
+  static time_point now() noexcept;
+};
+```
 
 ##D.2 <condition_variable>头文件
 
