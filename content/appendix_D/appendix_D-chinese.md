@@ -913,7 +913,201 @@ public:
 
 ##D.2 <condition_variable>头文件
 
+<condition_variable>头文件提供了条件变量的定义。其作为基本同步机制，允许被阻塞的线程在某些条件达成或超时时，解除阻塞继续执行。
+
+####头文件内容
+```c++
+namespace std
+{
+  enum class cv_status { timeout, no_timeout };
+  
+  class condition_variable;
+  class condition_variable_any;
+}
+```
+
 ###D.2.1 std::condition_variable类
+
+`std::condition_variable`允许阻塞一个线程，直到条件达成。
+
+`std::condition_variable`实例不支持CopyAssignable(拷贝赋值), CopyConstructible(拷贝构造), MoveAssignable(移动赋值)和 MoveConstructible(移动构造)。
+
+####类型定义
+```c++
+class condition_variable
+{
+public:
+  condition_variable();
+  ~condition_variable();
+
+  condition_variable(condition_variable const& ) = delete;
+  condition_variable& operator=(condition_variable const& ) = delete;
+
+  void notify_one() noexcept;
+  void notify_all() noexcept;
+
+  void wait(std::unique_lock<std::mutex>& lock);
+
+  template <typename Predicate>
+  void wait(std::unique_lock<std::mutex>& lock,Predicate pred);
+
+  template <typename Clock, typename Duration>
+  cv_status wait_until(
+       std::unique_lock<std::mutex>& lock,
+       const std::chrono::time_point<Clock, Duration>& absolute_time);
+
+  template <typename Clock, typename Duration, typename Predicate>
+  bool wait_until(
+       std::unique_lock<std::mutex>& lock,
+       const std::chrono::time_point<Clock, Duration>& absolute_time,
+       Predicate pred);
+
+  template <typename Rep, typename Period>
+  cv_status wait_for(
+       std::unique_lock<std::mutex>& lock,
+       const std::chrono::duration<Rep, Period>& relative_time);
+
+  template <typename Rep, typename Period, typename Predicate>
+  bool wait_for(
+       std::unique_lock<std::mutex>& lock,
+       const std::chrono::duration<Rep, Period>& relative_time,
+       Predicate pred);
+};
+
+void notify_all_at_thread_exit(condition_variable&,unique_lock<mutex>);
+```
+
+####std::condition_variable 默认构造函数
+
+构造一个`std::condition_variable`对象。
+
+**声明**
+```c++
+condition_variable();
+```
+
+**效果**<br>
+构造一个新的`std::condition_variable`实例。
+
+**抛出**<br>
+当条件变量无法够早的时候，将会抛出一个`std::system_error`异常。
+
+####std::condition_variable 析构函数
+
+销毁一个`std::condition_variable`对象。
+
+**声明**
+```c++
+~condition_variable();
+```
+
+**先决条件**<br>
+之前没有使用*this总的wait(),wait_for()或wait_until()阻塞过线程。
+
+**效果**<br>
+销毁*this。
+
+**抛出**<br>
+无
+
+####std::condition_variable::notify_one 成员函数
+
+唤醒一个等待当前`std::condition_variable`实例的线程。
+
+**声明**
+```c++
+void notify_one() noexcept;
+```
+
+**效果**<br>
+唤醒一个等待*this的线程。如果没有线程在等待，那么调用没有任何效果。
+
+**抛出**<br>
+当效果没有达成，就会抛出`std::system_error`异常。
+
+**同步**<br>
+`std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable::notify_all 成员函数
+
+唤醒所有等待当前`std::condition_variable`实例的线程。
+
+**声明**
+```c++
+void notify_all() noexcept;
+```
+
+**效果**<br>
+唤醒所有等待*this的线程。如果没有线程在等待，那么调用没有任何效果。
+
+**抛出**<br>
+当效果没有达成，就会抛出`std::system_error`异常
+
+**同步**<br>
+`std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable::wait 成员函数
+
+通过`std::condition_variable`的notify_one()、notify_all()或伪唤醒结束等待。
+
+**等待**
+```c++
+void wait(std::unique_lock<std::mutex>& lock);
+```
+
+**先决条件**<br>
+lock.owns_lock()为true，这意味着调用线程具有锁的所有权。
+
+**效果**<br>
+自动解锁lock对象，对于线程等待线程，当其他线程调用notify_one()或notify_all()时被唤醒，亦或该线程处于伪唤醒状态。在wait()返回前，lock对象将会再次上锁。
+
+**抛出**<br>
+当效果没有达成的时候，将会抛出`std::system_error`异常。当lock对象在调用wait()阶段被解锁，那么当wait()退出的时候lock会再次上锁，即使函数是通过异常的方式退出。
+
+**NOTE**:伪唤醒意味着一个线程调用wait()后，在没有其他线程调用notify_one()或notify_all()时，还除以运行状态。因此，建议对wait()进行重载，在可能的情况下使用一个谓词。否则，建议wait()使用循环检查与条件变量相关的谓词。
+
+**同步**<br>
+`std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable::wait 需要一个谓词的成员函数重载
+
+等待`std::condition_variable`上的notify_one()或notify_all()被调用，或谓词为true的情况，来唤醒线程。
+
+**声明**
+```c++
+template<typename Predicate>
+void wait(std::unique_lock<std::mutex>& lock,Predicate pred);
+```
+
+**先决条件**<br>
+pred()谓词必须是合法的，并且需要返回一个值，这个值可以和bool互相转化。lock.owns_lock()必须为true，当线程调用wait()即可获得锁的所有权。
+
+**效果**<br>
+正如
+```c++
+while(!pred())
+{
+  wait(lock);
+}
+```
+
+**抛出**<br>
+pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`std::system_error`异常。
+
+**NOTE**：潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在`(bool)pred()`评估后，返回true。
+
+**同步**<br>
+`std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable::wait_for 成员函数
+
+####std::condition_variable::wait_for 需要一个谓词的成员函数重载
+
+####std::condition_variable::wait_until 成员函数
+
+####std::condition_variable::wait_until 需要一个谓词的成员函数重载
+
+####std::notify_all_at_thread_exit 非成员函数
 
 ###D.2.2 std::condition_variable_any类
 
