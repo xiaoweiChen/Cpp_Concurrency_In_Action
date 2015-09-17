@@ -1263,11 +1263,452 @@ cv.notify_all();
 
 ###D.2.2 std::condition_variable_any类
 
+`std::condition_variable_any`类允许线程等待某一条件为true的时候继续运行。不过`std::condition_variable`只能和`std::unique_lock<std::mutex>`一起使用，`std::condition_variable_any`可以和任意可上锁(Lockable)类型一起使用。
+
+`std::condition_variable_any`实例不能进行拷贝赋值(CopyAssignable)、拷贝构造(CopyConstructible)、移动赋值(MoveAssignable)或移动构造(MoveConstructible)。
+
+####类型定义
+```c++
+class condition_variable_any
+{
+public:
+  condition_variable_any();
+  ~condition_variable_any();
+
+  condition_variable_any(
+      condition_variable_any const& ) = delete;
+  condition_variable_any& operator=(
+      condition_variable_any const& ) = delete;
+
+  void notify_one() noexcept;
+  void notify_all() noexcept;
+
+  template<typename Lockable>
+  void wait(Lockable& lock);
+
+  template <typename Lockable, typename Predicate>
+  void wait(Lockable& lock, Predicate pred);
+
+  template <typename Lockable, typename Clock,typename Duration>
+  std::cv_status wait_until(
+      Lockable& lock,
+      const std::chrono::time_point<Clock, Duration>& absolute_time);
+
+  template <
+      typename Lockable, typename Clock,
+      typename Duration, typename Predicate>
+  bool wait_until(
+      Lockable& lock,
+      const std::chrono::time_point<Clock, Duration>& absolute_time,
+      Predicate pred);
+
+  template <typename Lockable, typename Rep, typename Period>
+  std::cv_status wait_for(
+      Lockable& lock,
+      const std::chrono::duration<Rep, Period>& relative_time);
+
+  template <
+      typename Lockable, typename Rep,
+      typename Period, typename Predicate>
+  bool wait_for(
+      Lockable& lock,
+      const std::chrono::duration<Rep, Period>& relative_time,
+      Predicate pred);
+};
+```
+
+####std::condition_variable_any 默认构造函数
+
+构造一个`std::condition_variable_any`对象。
+
+**声明**
+```c++
+condition_variable_any();
+```
+
+**效果**<br>
+构造一个新的`std::condition_variable_any`实例。
+
+**抛出**<br>
+当条件变量构造成功，将抛出`std::system_error`异常。
+
+####std::condition_variable_any 析构函数
+
+销毁`std::condition_variable_any`对象。
+
+**声明**
+```c++
+~condition_variable_any();
+```
+
+**先决条件**<br>
+之前没有使用*this总的wait(),wait_for()或wait_until()阻塞过线程。
+
+**效果**<br>
+销毁*this。
+
+**抛出**<br>
+无
+
+####std::condition_variable_any::notify_one 成员函数
+
+`std::condition_variable_any`唤醒一个等待该条件变量的线程。
+
+**声明**
+```c++
+void notify_all() noexcept;
+```
+
+**效果**<br>
+唤醒一个等待*this的线程。如果没有线程在等待，那么调用没有任何效果
+
+**抛出**<br>
+当效果没有达成，就会抛出std::system_error异常。
+
+**同步**<br>
+`std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable_any::notify_all 成员函数
+
+唤醒所有等待当前`std::condition_variable_any`实例的线程。
+
+**声明**
+```c++
+void notify_all() noexcept;
+```
+
+**效果**<br>
+唤醒所有等待*this的线程。如果没有线程在等待，那么调用没有任何效果
+
+**抛出**<br>
+当效果没有达成，就会抛出std::system_error异常。
+
+**同步**<br>
+`std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable_any::wait 成员函数
+
+通过`std::condition_variable_any`的notify_one()、notify_all()或伪唤醒结束等待。
+
+**声明**
+```c++
+template<typename Lockable>
+void wait(Lockable& lock);
+```
+
+**先决条件**<br>
+Lockable类型需要能够上锁，lock对象拥有一个锁。
+
+**效果**<br>
+自动解锁lock对象，对于线程等待线程，当其他线程调用notify_one()或notify_all()时被唤醒，亦或该线程处于伪唤醒状态。在wait()返回前，lock对象将会再次上锁。
+
+**抛出**<br>
+当效果没有达成的时候，将会抛出`std::system_error`异常。当lock对象在调用wait()阶段被解锁，那么当wait()退出的时候lock会再次上锁，即使函数是通过异常的方式退出。
+
+**NOTE**:伪唤醒意味着一个线程调用wait()后，在没有其他线程调用notify_one()或notify_all()时，还处以苏醒状态。因此，建议对wait()进行重载，在可能的情况下使用一个谓词。否则，建议wait()使用循环检查与条件变量相关的谓词。
+
+**同步**<br>
+std::condition_variable_any实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable_any::wait 需要一个谓词的成员函数重载
+
+等待`std::condition_variable_any`上的notify_one()或notify_all()被调用，或谓词为true的情况，来唤醒线程。
+
+**声明**
+```c++
+template<typename Lockable,typename Predicate>
+void wait(Lockable& lock,Predicate pred);
+```
+
+**先决条件**<br>
+pred()谓词必须是合法的，并且需要返回一个值，这个值可以和bool互相转化。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
+
+**效果**<br>
+正如
+```c++
+while(!pred())
+{
+wait(lock);
+}
+```
+
+**抛出**<br>
+pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`std::system_error`异常。
+
+**NOTE**:潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在`(bool)pred()`评估后，返回true。
+
+**同步**<br>
+`std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable_any::wait_for 成员函数
+
+`std::condition_variable_any`在调用notify_one()、调用notify_all()、超时或线程伪唤醒时，结束等待。
+
+**声明**
+```c++
+template<typename Lockable,typename Rep,typename Period>
+std::cv_status wait_for(
+    Lockable& lock,
+    std::chrono::duration<Rep,Period> const& relative_time);
+```
+
+**先决条件**<br>
+当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
+
+**效果**<br>
+当其他线程调用notify_one()或notify_all()函数时，或超出了relative_time的时间，亦或是线程被伪唤醒，则将lock对象自动解锁，并将阻塞线程唤醒。当wait_for()调用返回前，lock对象会再次上锁。
+
+**返回**<br>
+线程被notify_one()、notify_all()或伪唤醒唤醒时，会返回`std::cv_status::no_timeout`；反之，则返回std::cv_status::timeout。
+
+**抛出**<br>
+当效果没有达成的时候，会抛出`std::system_error`异常。当lock对象在调用wait_for()函数前解锁，那么lock对象会在wait_for()退出前再次上锁，即使函数是以异常的方式退出。
+
+**NOTE**:伪唤醒意味着，一个线程在调用wait_for()的时候，即使没有其他线程调用notify_one()和notify_all()函数，也处于苏醒状态。因此，这里建议重载wait_for()函数，重载函数可以使用谓词。要不，则建议wait_for()使用循环的方式对与谓词相关的条件变量进行检查。在这样做的时候还需要小心，以确保超时部分依旧有效；wait_until()可能适合更多的情况。这样的话，线程阻塞的时间就要比指定的时间长了。在有这样可能性的地方，流逝的时间是由稳定时钟决定。
+
+**同步**<br>
+`std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable_any::wait_for 需要一个谓词的成员函数重载
+
+`std::condition_variable_any`在调用notify_one()、调用notify_all()、超时或线程伪唤醒时，结束等待。
+
+**声明**
+```c++
+template<typename Lockable,typename Rep,
+    typename Period, typename Predicate>
+bool wait_for(
+    Lockable& lock,
+    std::chrono::duration<Rep,Period> const& relative_time,
+    Predicate pred);
+```
+
+**先决条件**<br>
+pred()谓词必须是合法的，并且需要返回一个值，这个值可以和bool互相转化。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
+
+**效果**<br>
+正如
+```c++
+internal_clock::time_point end=internal_clock::now()+relative_time;
+while(!pred())
+{
+  std::chrono::duration<Rep,Period> remaining_time=
+      end-internal_clock::now();
+  if(wait_for(lock,remaining_time)==std::cv_status::timeout)
+      return pred();
+}
+return true;
+```
+
+**返回**<br>
+当pred()为true，则返回true；当超过relative_time并且pred()返回false时，返回false。
+
+**NOTE**:
+潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在(bool)pred()评估后返回true，或在指定时间relative_time内完成。线程阻塞的时间就要比指定的时间长了。在有这样可能性的地方，流逝的时间是由稳定时钟决定。
+
+**抛出**<br>
+当效果没有达成时，会抛出`std::system_error`异常或者由pred抛出任意异常。
+
+**同步**<br>
+`std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable_any::wait_until 成员函数
+
+`std::condition_variable_any`在调用notify_one()、调用notify_all()、指定时间内达成条件或线程伪唤醒时，结束等待
+
+**声明**
+```c++
+template<typename Lockable,typename Clock,typename Duration>
+std::cv_status wait_until(
+    Lockable& lock,
+    std::chrono::time_point<Clock,Duration> const& absolute_time);
+```
+
+**先决条件**<br>
+Lockable类型需要能够上锁，lock对象拥有一个锁。
+
+**效果**<br>
+当其他线程调用notify_one()或notify_all()函数，或Clock::now()返回一个大于或等于absolute_time的时间，亦或线程伪唤醒，lock都将自动解锁，并且唤醒阻塞的线程。在wait_until()返回之前lock对象会再次上锁。
+
+**返回**<br>
+线程被notify_one()、notify_all()或伪唤醒唤醒时，会返回std::cv_status::no_timeout；反之，则返回`std::cv_status::timeout`。
+
+**抛出**<br>
+当效果没有达成的时候，会抛出`std::system_error`异常。当lock对象在调用wait_for()函数前解锁，那么lock对象会在wait_for()退出前再次上锁，即使函数是以异常的方式退出。
+
+**NOTE**:伪唤醒意味着一个线程调用wait()后，在没有其他线程调用notify_one()或notify_all()时，还处以苏醒状态。因此，这里建议重载wait_until()函数，重载函数可以使用谓词。要不，则建议wait_until()使用循环的方式对与谓词相关的条件变量进行检查。这里不保证线程会被阻塞多长时间，只有当函数返回false后(Clock::now()的返回值大于或等于absolute_time)，线程才能解除阻塞。
+
+**同步**
+`std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+
+####std::condition_variable_any::wait_unti 需要一个谓词的成员函数重载
+
+`std::condition_variable_any`在调用notify_one()、调用notify_all()、谓词返回true或指定时间内达到条件，结束等待。
+
+**声明**
+```c++
+template<typename Lockable,typename Clock,
+    typename Duration, typename Predicate>
+bool wait_until(
+    Lockable& lock,
+    std::chrono::time_point<Clock,Duration> const& absolute_time,
+    Predicate pred);
+```
+
+**先决条件**<br>
+pred()必须是合法的，并且其返回值能转换为bool值。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
+
+**效果**<br>
+等价于
+```c++
+while(!pred())
+{
+  if(wait_until(lock,absolute_time)==std::cv_status::timeout)
+    return pred();
+}
+return true;
+```
+
+**返回**<br>
+当调用pred()返回true时，返回true；当Clock::now()的时间大于或等于指定的时间absolute_time，并且pred()返回false时，返回false。
+
+**NOTE**：潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在(bool)pred()评估后返回true，或Clock::now()返回的时间大于或等于absolute_time。这里不保证调用线程将被阻塞的时长，只有当函数返回false后(Clock::now()返回一个等于或大于absolute_time的值)，线程接触阻塞。
+
+**抛出**<br>
+当效果没有达成时，会抛出`std::system_error`异常或者由pred抛出任意异常。
+
+**同步**<br>
+`std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
+ 
 ##D.3 <atomic>头文件
+
+<atomic>头文件提供一组基础的原子类型，和提供对这些基本类型的操作，以及一个原子模板函数，用来接收用户定义的类型，以适用于某些标准。
+
+####头文件内容
+```c++
+#define ATOMIC_BOOL_LOCK_FREE 参见详述
+#define ATOMIC_CHAR_LOCK_FREE 参见详述
+#define ATOMIC_SHORT_LOCK_FREE 参见详述
+#define ATOMIC_INT_LOCK_FREE 参见详述
+#define ATOMIC_LONG_LOCK_FREE 参见详述
+#define ATOMIC_LLONG_LOCK_FREE 参见详述
+#define ATOMIC_CHAR16_T_LOCK_FREE 参见详述
+#define ATOMIC_CHAR32_T_LOCK_FREE 参见详述
+#define ATOMIC_WCHAR_T_LOCK_FREE 参见详述
+#define ATOMIC_POINTER_LOCK_FREE 参见详述
+
+#define ATOMIC_VAR_INIT(value) 参见详述
+
+namespace std
+{
+  enum memory_order;
+
+  struct atomic_flag;
+  参见类型定义详述 atomic_bool;
+  参见类型定义详述 atomic_char;
+  参见类型定义详述 atomic_char16_t;
+  参见类型定义详述 atomic_char32_t;
+  参见类型定义详述 atomic_schar;
+  参见类型定义详述 atomic_uchar;
+  参见类型定义详述 atomic_short;
+  参见类型定义详述 atomic_ushort;
+  参见类型定义详述 atomic_int;
+  参见类型定义详述 atomic_uint;
+  参见类型定义详述 atomic_long;
+  参见类型定义详述 atomic_ulong;
+  参见类型定义详述 atomic_llong;
+  参见类型定义详述 atomic_ullong;
+  参见类型定义详述 atomic_wchar_t;
+
+  参见类型定义详述 atomic_int_least8_t;
+  参见类型定义详述 atomic_uint_least8_t;
+  参见类型定义详述 atomic_int_least16_t;
+  参见类型定义详述 atomic_uint_least16_t;
+  参见类型定义详述 atomic_int_least32_t;
+  参见类型定义详述 atomic_uint_least32_t;
+  参见类型定义详述 atomic_int_least64_t;
+  参见类型定义详述 atomic_uint_least64_t;
+  参见类型定义详述 atomic_int_fast8_t;
+  参见类型定义详述 atomic_uint_fast8_t;
+  参见类型定义详述 atomic_int_fast16_t;
+  参见类型定义详述 atomic_uint_fast16_t;
+  参见类型定义详述 atomic_int_fast32_t;
+  参见类型定义详述 atomic_uint_fast32_t;
+  参见类型定义详述 atomic_int_fast64_t;
+  参见类型定义详述 atomic_uint_fast64_t;
+  参见类型定义详述 atomic_int8_t;
+  参见类型定义详述 atomic_uint8_t;
+  参见类型定义详述 atomic_int16_t;
+  参见类型定义详述 atomic_uint16_t;
+  参见类型定义详述 atomic_int32_t;
+  参见类型定义详述 atomic_uint32_t;
+  参见类型定义详述 atomic_int64_t;
+  参见类型定义详述 atomic_uint64_t;
+  参见类型定义详述 atomic_intptr_t;
+  参见类型定义详述 atomic_uintptr_t;
+  参见类型定义详述 atomic_size_t;
+  参见类型定义详述 atomic_ssize_t;
+  参见类型定义详述 atomic_ptrdiff_t;
+  参见类型定义详述 atomic_intmax_t;
+  参见类型定义详述 atomic_uintmax_t;
+
+  template<typename T>
+  struct atomic;
+
+  extern "C" void atomic_thread_fence(memory_order order);
+  extern "C" void atomic_signal_fence(memory_order order);
+
+  template<typename T>
+  T kill_dependency(T);
+}
+```
 
 ###std::atomic_xxx类型定义
 
+为了兼容新的C标准(C11)，C++支持定义原子整型类型。这些类型都与`std::atimic<T>`特化类相对应，或是用同一接口特化的一个基本类型。
+
+**Table D.1 原子类型定义和与之相关的std::atmoic<>特化模板**
+
+| std::atomic_itype 原子类型 | std::atomic<> 相关特化类 |
+| ------------ | -------------- |
+| atomic_char | std::atomic&lt;char> |
+| atomic_schar | std::atomic&lt;signed char> |
+| atomic_uchar | std::atomic&lt;unsigned char> |
+| atomic_int | std::atomic&lt;int> |
+| atomic_uint | std::atomic&lt;unsigned> |
+| atomic_short | std::atomic&lt;short> |
+| atomic_ushort | std::atomic&lt;unsigned short> |
+| atomic_long | std::atomic&lt;long> |
+| atomic_ulong | std::atomic&lt;unsigned long> |
+| atomic_llong | std::atomic&lt;long long> |
+| atomic_ullong | std::atomic&lt;unsigned long long> |
+| atomic_wchar_t | std::atomic&lt;wchar_t> |
+| atomic_char16_t | std::atomic&lt;char16_t> |
+| atomic_char32_t | std::atomic&lt;char32_t> |
+
+(译者注：该表与第5章中的表5.1几乎一致)
+
 ###D.3.2 ATOMIC_xxx_LOCK_FREE宏
+
+这里的宏指定了原子类型与其内置类型是否是无锁的。
+
+**宏定义**
+```c++
+#define ATOMIC_BOOL_LOCK_FREE 参见详述
+#define ATOMIC_CHAR_LOCK_FREE参见详述
+#define ATOMIC_SHORT_LOCK_FREE 参见详述
+#define ATOMIC_INT_LOCK_FREE 参见详述
+#define ATOMIC_LONG_LOCK_FREE 参见详述
+#define ATOMIC_LLONG_LOCK_FREE 参见详述
+#define ATOMIC_CHAR16_T_LOCK_FREE 参见详述
+#define ATOMIC_CHAR32_T_LOCK_FREE 参见详述
+#define ATOMIC_WCHAR_T_LOCK_FREE 参见详述
+#define ATOMIC_POINTER_LOCK_FREE 参见详述
+```
+
+`ATOMIC_xxx_LOCK_FREE`的值无非就是0，1，2。0意味着，在对有无符号的相关原子类型操作是有锁的；1意味着，操作只对一些特定的类型上锁，而对没有指定的类型不上锁；2意味着，所有操作都是无锁的。例如，当`ATOMIC_INT_LOCK_FREE`是2的时候，在`std::atomic<int>`和`std::atomic<unsigned>`上的操作始终无锁。
+
+宏`ATOMIC_POINTER_LOCK_FREE`描述了，对于特化的原子类型指针`std::atomic<T*>`操作的无锁特性。
 
 ###D.3.3 ATOMIC_VAR_INIT宏
 
