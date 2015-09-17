@@ -58,7 +58,7 @@ std::thread my_thread{background_task()};    // 2
 它允许使用一个可以捕获局部变量的局部函数（可以避免传递参数，参见2.2节）。想要具体的了解lambda表达式，可以阅读附录A的A.5节。之前的例子可以改写为lambda表达式的类型，如下：
 
 ```c++
-std::thread my_thread([](
+std::thread my_thread([]{
   do_something();
   do_something_else();
 });
