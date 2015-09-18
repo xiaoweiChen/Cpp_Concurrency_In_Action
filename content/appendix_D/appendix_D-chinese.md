@@ -1776,6 +1776,23 @@ typedef enum memory_order
 
 ###D.3.5 std::atomic_thread_fence函数
 
+`std::atomic_thread_fence()`会在代码中插入“内存栅栏”，强制两个操作保持内存约束顺序。
+
+**声明**
+```c++
+extern "C" void atomic_thread_fence(std::memory_order order);
+```
+
+**效果**<br>
+插入栅栏的目的是为了保证内存序的约束性。
+
+栅栏使用`std::memory_order_release`, `std::memory_order_acq_rel`, 或 `std::memory_order_seq_cst`内存序，会同步与一些内存位置上的获取操作进行同步，如果这些获取操作要获取一个已存储的值(通过原子操作进行的存储)，就会通过栅栏进行同步。
+
+释放操作可对`std::memory_order_acquire`, `std::memory_order_acq_rel`, 或 `std::memory_order_seq_cst`进行栅栏同步，；当释放操作存储的值，在一个原子操作之前读取，那么就会通过栅栏进行同步。
+
+**抛出**<br>
+无
+
 ###D.3.6 std::atomic_signal_fence函数
 
 ###D.3.7 std::atomic_flag类
