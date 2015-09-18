@@ -1712,7 +1712,67 @@ namespace std
 
 ###D.3.3 ATOMIC_VAR_INIT宏
 
+`ATOMIC_VAR_INIT`宏可以通过一个特定的值来初始化一个原子变量。
+
+**声明**
+`#define ATOMIC_VAR_INIT(value)参见详述`
+
+宏可以扩展成一系列符号，这个宏可以通过一个给定值，初始化一个标准原子类型，表达式如下所示：
+```c++
+std::atomic<type> x = ATOMIC_VAR_INIT(val);
+```
+
+给定值可以兼容与原子变量相关的非原子变量，例如：
+
+```c++
+std::atomic<int> i = ATOMIC_VAR_INIT(42);
+std::string s;
+std::atomic<std::string*> p = ATOMIC_VAR_INIT(&s);
+```
+
+这样初始化的变量是非原子的，并且在变量初始化之后，其他线程可以随意的访问该变量，这样可以避免条件竞争和未定义行为的发生。
+
 ###D.3.4 std::memory_order枚举类型
+
+`std::memory_order`枚举类型用来表明原子操作的约束顺序。
+
+**声明**
+```c++
+typedef enum memory_order
+{
+  memory_order_relaxed,memory_order_consume,
+  memory_order_acquire,memory_order_release,
+  memory_order_acq_rel,memory_order_seq_cst
+} memory_order;
+```
+
+通过标记各种内存序变量来标记操作的顺序(详见第5章，在该章节中有对书序约束更加详尽的介绍)
+
+####std::memory_order_relaxed
+
+操作不受任何额外的限制。
+
+####std::memory_order_release
+
+对于指定位置上的内存可进行释放操作。因此，与获取操作读取同一内存位置所存储的值。
+
+####std::memory_order_acquire
+
+操作可以获取指定内存位置上的值。当需要存储的值通过释放操作写入时，是与存储操同步的。
+
+####std::memory_order_acq_rel
+
+操作必须是“读-改-写”操作，并且其行为需要在`std::memory_order_acquire`和`std::memory_order_release`序指定的内存位置上进行操作。
+
+####std::memory_order_seq_cst
+
+操作在全局序上都会受到约束。还有，当为存储操作时，其行为好比`std::memory_order_release`操作；当为加载操作时，其行为好比`std::memory_order_acquire`操作；并且，当其是一个“读-改-写”操作时，其行为和`std::memory_order_acquire`和`std::memory_order_release`类似。对于所有顺序来说，该顺序为默认序。
+
+####std::memory_order_consume
+
+对于指定位置的内存进行消耗操作(consume operation)。
+
+(译者注：与memory_order_acquire类似)
 
 ###D.3.5 std::atomic_thread_fence函数
 
