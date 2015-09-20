@@ -1990,6 +1990,204 @@ return flag->clear(order);
 
 ###D.3.8 std::atomic类型模板
 
+`std::atomic`提供了对任意类型的原子操作的包装，以满足下面的需求。
+
+模板参数BaseType必须满足下面的条件。
+
+- 具有简单的默认构造函数<br>
+- 具有简单的拷贝赋值操作<br>
+- 具有简单的析构函数<br>
+- 可以进行位比较<br>
+
+这就意味着`std::atomic<some-simple-struct>`会和使用`std::atomic<some-built-in-type>`一样简单；不过对于`std::atomic<std::string>`就不同了。
+
+除了主模板，对于内置整型和指针的特化，模板也支持类似x++这样的操作。
+
+`std::atomic`实例是不支持`CopyConstructible`(拷贝构造)和`CopyAssignable`(拷贝赋值)，原因你懂得，因为这样原子操作就无法执行。
+
+**类型定义**
+```c++
+template<typename BaseType>
+struct atomic
+{
+  atomic() noexcept = default;
+  constexpr atomic(BaseType) noexcept;
+  BaseType operator=(BaseType) volatile noexcept;
+  BaseType operator=(BaseType) noexcept;
+
+  atomic(const atomic&) = delete;
+  atomic& operator=(const atomic&) = delete;
+  atomic& operator=(const atomic&) volatile = delete;
+
+  bool is_lock_free() const volatile noexcept;
+  bool is_lock_free() const noexcept;
+
+  void store(BaseType,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+  void store(BaseType,memory_order = memory_order_seq_cst) noexcept;
+  BaseType load(memory_order = memory_order_seq_cst)
+      const volatile noexcept;
+  BaseType load(memory_order = memory_order_seq_cst) const noexcept;
+  BaseType exchange(BaseType,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+  BaseType exchange(BaseType,memory_order = memory_order_seq_cst)
+      noexcept;
+
+  bool compare_exchange_strong(
+      BaseType & old_value, BaseType new_value,
+      memory_order order = memory_order_seq_cst) volatile noexcept;
+  bool compare_exchange_strong(
+      BaseType & old_value, BaseType new_value,
+      memory_order order = memory_order_seq_cst) noexcept;
+  bool compare_exchange_strong(
+      BaseType & old_value, BaseType new_value,
+      memory_order success_order,
+      memory_order failure_order) volatile noexcept;
+  bool compare_exchange_strong(
+      BaseType & old_value, BaseType new_value,
+      memory_order success_order,
+      memory_order failure_order) noexcept;
+  bool compare_exchange_weak(
+      BaseType & old_value, BaseType new_value,
+      memory_order order = memory_order_seq_cst)
+      volatile noexcept;
+  bool compare_exchange_weak(
+      BaseType & old_value, BaseType new_value,
+      memory_order order = memory_order_seq_cst) noexcept;
+  bool compare_exchange_weak(
+      BaseType & old_value, BaseType new_value,
+      memory_order success_order,
+      memory_order failure_order) volatile noexcept;
+  bool compare_exchange_weak(
+      BaseType & old_value, BaseType new_value,
+      memory_order success_order,
+      memory_order failure_order) noexcept;
+      operator BaseType () const volatile noexcept;
+      operator BaseType () const noexcept;
+};
+
+template<typename BaseType>
+bool atomic_is_lock_free(volatile const atomic<BaseType>*) noexcept;
+template<typename BaseType>
+bool atomic_is_lock_free(const atomic<BaseType>*) noexcept;
+template<typename BaseType>
+void atomic_init(volatile atomic<BaseType>*, void*) noexcept;
+template<typename BaseType>
+void atomic_init(atomic<BaseType>*, void*) noexcept;
+template<typename BaseType>
+BaseType atomic_exchange(volatile atomic<BaseType>*, memory_order)
+  noexcept;
+template<typename BaseType>
+BaseType atomic_exchange(atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
+BaseType atomic_exchange_explicit(
+  volatile atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
+BaseType atomic_exchange_explicit(
+  atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
+void atomic_store(volatile atomic<BaseType>*, BaseType) noexcept;
+template<typename BaseType>
+void atomic_store(atomic<BaseType>*, BaseType) noexcept;
+template<typename BaseType>
+void atomic_store_explicit(
+  volatile atomic<BaseType>*, BaseType, memory_order) noexcept;
+template<typename BaseType>
+void atomic_store_explicit(
+  atomic<BaseType>*, BaseType, memory_order) noexcept;
+template<typename BaseType>
+BaseType atomic_load(volatile const atomic<BaseType>*) noexcept;
+template<typename BaseType>
+BaseType atomic_load(const atomic<BaseType>*) noexcept;
+template<typename BaseType>
+BaseType atomic_load_explicit(
+  volatile const atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
+BaseType atomic_load_explicit(
+  const atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_strong(
+  volatile atomic<BaseType>*,BaseType * old_value,
+  BaseType new_value) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_strong(
+  atomic<BaseType>*,BaseType * old_value,
+  BaseType new_value) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_strong_explicit(
+  volatile atomic<BaseType>*,BaseType * old_value,
+  BaseType new_value, memory_order success_order,
+  memory_order failure_order) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_strong_explicit(
+  atomic<BaseType>*,BaseType * old_value,
+  BaseType new_value, memory_order success_order,
+  memory_order failure_order) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_weak(
+  volatile atomic<BaseType>*,BaseType * old_value,BaseType new_value)
+  noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_weak(
+  atomic<BaseType>*,BaseType * old_value,BaseType new_value) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_weak_explicit(
+  volatile atomic<BaseType>*,BaseType * old_value,
+  BaseType new_value, memory_order success_order,
+  memory_order failure_order) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_weak_explicit(
+  atomic<BaseType>*,BaseType * old_value,
+  BaseType new_value, memory_order success_order,
+  memory_order failure_order) noexcept;
+```
+
+**NOTE**:虽然非成员函数通过模板的方式指定，不过他们只作为从在函数提供，并且对于这些函数，不能显示的指定模板的参数。
+
+####std::atomic 构造函数
+
+####std::atomic_init 非成员函数
+
+####std::atomic 转换构造函数
+
+####std::atomic 转换赋值操作
+
+####std::atomic::is_lock_free 成员函数
+
+####std::atomic_is_lock_free 非成员函数
+
+####std::atomic::load 成员函数
+
+####std::atomic_load 非成员函数
+
+####std::atomic_load_explicit 非成员函数
+
+####std::atomic::operator BastType转换操作
+
+####std::atomic::store 成员函数
+
+####std::atomic_store 非成员函数
+
+####std::atomic_explicit 非成员函数
+
+####std::atomic::exchange 成员函数
+
+####std::atomic_exchange 非成员函数
+
+####std::atomic_exchange_explicit 非成员函数
+
+####std::atomic::compare_exchange_strong 成员函数
+
+####std::atomic_compare_exchange_strong 非成员函数
+
+####std::atomic_compare_exchange_strong_explicit 非成员函数
+
+####std::atomic::compare_exchange_weak 成员函数
+
+####std::atomic_compare_exchange_weak 非成员函数
+
+####std::atomic_compare_exchange_weak_explicit 非成员函数
+
 ###D.3.9 std::atomic模板类型的特化
 
 ###D.3.10 特化std::atomic<integral-type>
