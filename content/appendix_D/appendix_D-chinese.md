@@ -1795,7 +1795,198 @@ extern "C" void atomic_thread_fence(std::memory_order order);
 
 ###D.3.6 std::atomic_signal_fence函数
 
+`std::atomic_signal_fence()`会在代码中插入“内存栅栏”，强制两个操作保持内存约束顺序，并且在对应线程上执行信号处理操作。
+
+**声明**
+```c++
+extern "C" void atomic_signal_fence(std::memory_order order);
+```
+
+**效果**<br>
+根据需要的内存约束序插入一个栅栏。除非约束序应用于“操作和信号处理函数在同一线程”的情况下，否则，这个操作等价于`std::atomic_thread_fence(order)`操作。
+
+**抛出**<br>
+无
+
 ###D.3.7 std::atomic_flag类
+
+`std::atomic_flag`类算是原子标识的骨架。在C++11标准下，只有这个数据类型可以保证是无锁的(当然，更多的原子类型在未来的实现中将采取无锁实现)。
+
+对于一个`std::atomic_flag`来说，其状态不是set，就是clear。
+
+**类型定义**
+```c++
+struct atomic_flag
+{
+  atomic_flag() noexcept = default;
+  atomic_flag(const atomic_flag&) = delete;
+  atomic_flag& operator=(const atomic_flag&) = delete;
+  atomic_flag& operator=(const atomic_flag&) volatile = delete;
+
+  bool test_and_set(memory_order = memory_order_seq_cst) volatile
+    noexcept;
+  bool test_and_set(memory_order = memory_order_seq_cst) noexcept;
+  void clear(memory_order = memory_order_seq_cst) volatile noexcept;
+  void clear(memory_order = memory_order_seq_cst) noexcept;
+};
+
+bool atomic_flag_test_and_set(volatile atomic_flag*) noexcept;
+bool atomic_flag_test_and_set(atomic_flag*) noexcept;
+bool atomic_flag_test_and_set_explicit(
+  volatile atomic_flag*, memory_order) noexcept;
+bool atomic_flag_test_and_set_explicit(
+  atomic_flag*, memory_order) noexcept;
+void atomic_flag_clear(volatile atomic_flag*) noexcept;
+void atomic_flag_clear(atomic_flag*) noexcept;
+void atomic_flag_clear_explicit(
+  volatile atomic_flag*, memory_order) noexcept;
+void atomic_flag_clear_explicit(
+  atomic_flag*, memory_order) noexcept;
+
+#define ATOMIC_FLAG_INIT unspecified
+```
+
+####std::atomic_flag 默认构造函数
+
+这里未指定默认构造出来的`std::atomic_flag`实例是clear状态，还是set状态。因为对象存储过程是静态的，所以初始化必须是静态的。
+
+**声明**
+```c++
+std::atomic_flag() noexcept = default;
+```
+
+**效果**<br>
+构造一个新`std::atomic_flag`对象，不过未指明状态。(薛定谔的猫？)
+
+**抛出**<br>
+无
+
+####std::atomic_flag 使用ATOMIC_FLAG_INIT进行初始化
+
+`std::atomic_flag`实例可以使用`ATOMIC_FLAG_INIT`宏进行创建，这样构造出来的实例状态为clear。因为对象存储过程是静态的，所以初始化必须是静态的。
+
+**声明**
+```c++
+#define ATOMIC_FLAG_INIT unspecified
+```
+
+**用法**
+```c++
+std::atomic_flag flag=ATOMIC_FLAG_INIT;
+```
+
+**效果**<br>
+构造一个新`std::atomic_flag`对象，状态为clear。
+
+**抛出**<br>
+无
+
+**NOTE**：
+对于内存位置上的*this，这个操作属于“读-改-写”操作。
+
+####std::atomic_flag::test_and_set 成员函数
+
+自动设置实例状态标识，并且检查实例的状态标识是否已经设置。
+
+**声明**
+```c++
+bool atomic_flag_test_and_set(volatile atomic_flag* flag) noexcept;
+bool atomic_flag_test_and_set(atomic_flag* flag) noexcept;
+```
+
+**效果**
+```c++
+return flag->test_and_set();
+```
+
+####std::atomic_flag_test_and_set 非成员函数
+
+自动设置原子变量的状态标识，并且检查原子变量的状态标识是否已经设置。
+
+**声明**
+```c++
+bool atomic_flag_test_and_set_explicit(
+    volatile atomic_flag* flag, memory_order order) noexcept;
+bool atomic_flag_test_and_set_explicit(
+    atomic_flag* flag, memory_order order) noexcept;
+```
+
+**效果**
+```c++
+return flag->test_and_set(order);
+```
+
+####std::atomic_flag_test_and_set_explicit 非成员函数
+
+自动设置原子变量的状态标识，并且检查原子变量的状态标识是否已经设置。
+
+**声明**
+```c++
+bool atomic_flag_test_and_set_explicit(
+    volatile atomic_flag* flag, memory_order order) noexcept;
+bool atomic_flag_test_and_set_explicit(
+    atomic_flag* flag, memory_order order) noexcept;
+```
+
+**效果**
+```c++
+return flag->test_and_set(order);
+```
+
+####std::atomic_flag::clear 成员函数
+
+自动清除原子变量的状态标识。
+
+**声明**
+```c++
+void clear(memory_order order = memory_order_seq_cst) volatile noexcept;
+void clear(memory_order order = memory_order_seq_cst) noexcept;
+```
+
+**先决条件**<br>
+支持`std::memory_order_relaxed`,`std::memory_order_release`和`std::memory_order_seq_cst`中任意一个。
+
+
+**效果**<br>
+自动清除变量状态标识。
+
+**抛出**<br>
+无
+
+**NOTE**:对于内存位置上的*this，这个操作属于“写”操作(存储操作)。
+
+
+####std::atomic_flag_clear 非成员函数
+
+自动清除原子变量的状态标识。
+
+**声明**
+```c++
+void atomic_flag_clear(volatile atomic_flag* flag) noexcept;
+void atomic_flag_clear(atomic_flag* flag) noexcept;
+```
+
+**效果**
+```c++
+flag->clear();
+```
+
+####std::atomic_flag_clear_explicit 非成员函数
+
+自动清除原子变量的状态标识。
+
+**声明**
+```c++
+void atomic_flag_clear_explicit(
+    volatile atomic_flag* flag, memory_order order) noexcept;
+void atomic_flag_clear_explicit(
+    atomic_flag* flag, memory_order order) noexcept;
+```
+
+**效果**
+```c++
+return flag->clear(order);
+```
 
 ###D.3.8 std::atomic类型模板
 
