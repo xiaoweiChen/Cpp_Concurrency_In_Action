@@ -2146,47 +2146,463 @@ bool atomic_compare_exchange_weak_explicit(
 
 ####std::atomic 构造函数
 
+使用默认初始值，构造一个`std::atomic`实例。
+
+**声明**
+```c++
+atomic() noexcept;
+```
+
+**效果**<br>
+使用默认初始值，构造一个新`std::atomic`实例。因对象是静态存储的，所以初始化过程也是静态的。
+
+**NOTE**:当`std::atomic`实例以非静态方式初始化的，那么其值就是不可估计的。
+
+**抛出**<br>
+无
+
 ####std::atomic_init 非成员函数
+
+`std::atomic<BaseType>`实例提供的值，可非原子的进行存储。
+
+**声明**
+```c++
+template<typename BaseType>
+void atomic_init(atomic<BaseType> volatile* p, BaseType v) noexcept;
+template<typename BaseType>
+void atomic_init(atomic<BaseType>* p, BaseType v) noexcept;
+```
+
+**效果**<br>
+将值v以非原子存储的方式，存储在*p中。调用`atomic<BaseType>`实例中的atomic_init()，这里需要实例不是默认构造出来的，或者在构造出来的时候被执行了某些操作，否则将会引发未定义行为。
+
+**NOTE**:因为存储是非原子的，对对象指针p任意的并发访问(即使是原子操作)都会引发数据竞争。
+
+**抛出**<br>
+无
 
 ####std::atomic 转换构造函数
 
+使用提供的BaseType值去构造一个`std::atomic`实例。
+
+**声明**
+```c++
+constexpr atomic(BaseType b) noexcept;
+```
+
+**效果**<br>
+通过b值构造一个新的`std::atomic`对象。因对象是静态存储的，所以初始化过程也是静态的。
+
+**抛出**<br>
+无
+
 ####std::atomic 转换赋值操作
+
+在*this存储一个新值。
+
+**声明**
+```c++
+BaseType operator=(BaseType b) volatile noexcept;
+BaseType operator=(BaseType b) noexcept;
+```
+
+**效果**
+```c++
+return this->store(b);
+```
 
 ####std::atomic::is_lock_free 成员函数
 
+确定对于*this是否是无锁操作。
+
+**声明**
+```c++
+bool is_lock_free() const volatile noexcept;
+bool is_lock_free() const noexcept;
+```
+
+**返回**<br>
+当操作是无锁操作，那么就返回true，否则返回false。
+
+**抛出**<br>
+无
+
 ####std::atomic_is_lock_free 非成员函数
+
+确定对于*this是否是无锁操作。
+
+**声明**
+```c++
+template<typename BaseType>
+bool atomic_is_lock_free(volatile const atomic<BaseType>* p) noexcept;
+template<typename BaseType>
+bool atomic_is_lock_free(const atomic<BaseType>* p) noexcept;
+```
+
+**效果**
+```c++
+return p->is_lock_free();
+```
 
 ####std::atomic::load 成员函数
 
+原子的加载`std::atomic`实例当前的值
+
+**声明**
+```c++
+BaseType load(memory_order order = memory_order_seq_cst)
+    const volatile noexcept;
+BaseType load(memory_order order = memory_order_seq_cst) const noexcept;
+```
+
+**先决条件**<br>
+支持`std::memory_order_relaxed`、`std::memory_order_acquire`、`std::memory_order_consume`或`std::memory_order_seq_cst`内存序。
+
+**效果**<br>
+原子的加载已存储到*this上的值。
+
+**返回**<br>
+返回存储在*this上的值。
+
+**抛出**<br>
+无
+
+**NOTE**:是对于*this内存地址原子加载的操作。
+
 ####std::atomic_load 非成员函数
+
+原子的加载`std::atomic`实例当前的值。
+
+**声明**
+```c++
+template<typename BaseType>
+BaseType atomic_load(volatile const atomic<BaseType>* p) noexcept;
+template<typename BaseType>
+BaseType atomic_load(const atomic<BaseType>* p) noexcept;
+```
+
+**效果**
+```c++
+return p->load();
+```
 
 ####std::atomic_load_explicit 非成员函数
 
+原子的加载`std::atomic`实例当前的值。
+
+**声明**
+```c++
+template<typename BaseType>
+BaseType atomic_load_explicit(
+    volatile const atomic<BaseType>* p, memory_order order) noexcept;
+template<typename BaseType>
+BaseType atomic_load_explicit(
+    const atomic<BaseType>* p, memory_order order) noexcept;
+```
+
+**效果**
+```c++
+return p->load(order);
+```
+
 ####std::atomic::operator BastType转换操作
+
+加载存储在*this中的值。
+
+**声明**
+```c++
+operator BaseType() const volatile noexcept;
+operator BaseType() const noexcept;
+```
+
+**效果**
+```c++
+return this->load();
+```
 
 ####std::atomic::store 成员函数
 
+以原子操作的方式存储一个新值到`atomic<BaseType>`实例中。
+
+**声明**
+```c++
+void store(BaseType new_value,memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+void store(BaseType new_value,memory_order order = memory_order_seq_cst)
+    noexcept;
+```
+
+**先决条件**<br>
+支持`std::memory_order_relaxed`、`std::memory_order_release`或`std::memory_order_seq_cst`内存序。
+
+**效果**<br>
+将new_value原子的存储到*this中。
+
+**抛出**<br>
+无
+
+**NOTE**:是对于*this内存地址原子加载的操作。
+
 ####std::atomic_store 非成员函数
+
+以原子操作的方式存储一个新值到`atomic<BaseType>`实例中。
+
+**声明**
+```c++
+template<typename BaseType>
+void atomic_store(volatile atomic<BaseType>* p, BaseType new_value)
+    noexcept;
+template<typename BaseType>
+void atomic_store(atomic<BaseType>* p, BaseType new_value) noexcept;
+```
+
+**效果**
+```c++
+p->store(new_value);
+```
 
 ####std::atomic_explicit 非成员函数
 
+以原子操作的方式存储一个新值到`atomic<BaseType>`实例中。
+
+**声明**
+```c++
+template<typename BaseType>
+void atomic_store_explicit(
+    volatile atomic<BaseType>* p, BaseType new_value, memory_order order)
+    noexcept;
+template<typename BaseType>
+void atomic_store_explicit(
+    atomic<BaseType>* p, BaseType new_value, memory_order order) noexcept;
+```
+
+**效果**
+```c++
+p->store(new_value,order);
+```
+
 ####std::atomic::exchange 成员函数
+
+原子的存储一个新值，并读取旧值。
+
+**声明**
+```c++
+BaseType exchange(
+    BaseType new_value,
+    memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+```
+
+**效果**<br>
+原子的将new_value存储在*this中，并且取出*this中已经存储的值。
+
+**返回**<br>
+返回*this之前的值。
+
+**抛出**<br>
+无
+
+**NOTE**:这是对*this内存地址的原子“读-改-写”操作。
 
 ####std::atomic_exchange 非成员函数
 
+原子的存储一个新值到`atomic<BaseType>`实例中，并且读取旧值。
+
+**声明**
+```c++
+template<typename BaseType>
+BaseType atomic_exchange(volatile atomic<BaseType>* p, BaseType new_value)
+    noexcept;
+template<typename BaseType>
+BaseType atomic_exchange(atomic<BaseType>* p, BaseType new_value) noexcept;
+```
+
+**效果**
+```c++
+return p->exchange(new_value);
+```
+
 ####std::atomic_exchange_explicit 非成员函数
+
+原子的存储一个新值到`atomic<BaseType>`实例中，并且读取旧值。
+
+**声明**
+```c++
+template<typename BaseType>
+BaseType atomic_exchange_explicit(
+    volatile atomic<BaseType>* p, BaseType new_value, memory_order order)
+    noexcept;
+template<typename BaseType>
+BaseType atomic_exchange_explicit(
+    atomic<BaseType>* p, BaseType new_value, memory_order order) noexcept;
+```
+
+**效果**
+```c++
+return p->exchange(new_value,order);
+```
 
 ####std::atomic::compare_exchange_strong 成员函数
 
+当期望值和新值一样时，将新值存储到实例中。如果不相等，那么就实用新值更新期望值。
+
+**声明**
+```c++
+bool compare_exchange_strong(
+    BaseType& expected,BaseType new_value,
+    memory_order order = std::memory_order_seq_cst) volatile noexcept;
+bool compare_exchange_strong(
+    BaseType& expected,BaseType new_value,
+    memory_order order = std::memory_order_seq_cst) noexcept;
+bool compare_exchange_strong(
+    BaseType& expected,BaseType new_value,
+    memory_order success_order,memory_order failure_order)
+    volatile noexcept;
+bool compare_exchange_strong(
+    BaseType& expected,BaseType new_value,
+    memory_order success_order,memory_order failure_order) noexcept;
+```
+
+**先决条件**<br>
+failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`内存序。
+
+**效果**<br>
+将存储在*this中的expected值与new_value值进行逐位对比，当相等时间new_value存储在*this中；否则，更新expected的值。
+
+**返回**<br>
+当new_value的值与*this中已经存在的值相同，就返回true；否则，返回false。
+
+**抛出**<br>
+无
+
+**NOTE**:在success_order==order和failure_order==order的情况下，三个参数的重载函数与四个参数的重载函数等价。除非，order是`std::memory_order_acq_rel`时，failure_order是`std::memory_order_acquire`，且当order是`std::memory_order_release`时，failure_order是`std::memory_order_relaxed`。
+
+**NOTE**:当返回true和success_order内存序时，是对*this内存地址的原子“读-改-写”操作；反之，这是对*this内存地址的原子加载操作(failure_order)。
+
 ####std::atomic_compare_exchange_strong 非成员函数
+
+当期望值和新值一样时，将新值存储到实例中。如果不相等，那么就实用新值更新期望值。
+
+**声明**
+```c++
+template<typename BaseType>
+bool atomic_compare_exchange_strong(
+    volatile atomic<BaseType>* p,BaseType * old_value,BaseType new_value)
+    noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_strong(  
+    atomic<BaseType>* p,BaseType * old_value,BaseType new_value) noexcept;
+```
+
+**效果**
+```c++
+return p->compare_exchange_strong(*old_value,new_value);
+```
 
 ####std::atomic_compare_exchange_strong_explicit 非成员函数
 
+当期望值和新值一样时，将新值存储到实例中。如果不相等，那么就实用新值更新期望值。
+
+**声明**
+```c++
+template<typename BaseType>
+bool atomic_compare_exchange_strong_explicit(
+    volatile atomic<BaseType>* p,BaseType * old_value,
+    BaseType new_value, memory_order success_order,
+    memory_order failure_order) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_strong_explicit(
+    atomic<BaseType>* p,BaseType * old_value,
+    BaseType new_value, memory_order success_order,
+    memory_order failure_order) noexcept;
+```
+
+**效果**<br>
+```c++
+return p->compare_exchange_strong(
+    *old_value,new_value,success_order,failure_order) noexcept;
+```
+
 ####std::atomic::compare_exchange_weak 成员函数
+
+原子的比较新值和期望值，如果相等，那么存储新值并且进行原子化更新。当两值不相等，或更新未进行，那期望值会更新为新值。
+
+**声明**
+```c++
+bool compare_exchange_weak(
+    BaseType& expected,BaseType new_value,
+    memory_order order = std::memory_order_seq_cst) volatile noexcept;
+bool compare_exchange_weak(
+    BaseType& expected,BaseType new_value,
+    memory_order order = std::memory_order_seq_cst) noexcept;
+bool compare_exchange_weak(
+    BaseType& expected,BaseType new_value,
+    memory_order success_order,memory_order failure_order)
+    volatile noexcept;
+bool compare_exchange_weak(
+    BaseType& expected,BaseType new_value,
+    memory_order success_order,memory_order failure_order) noexcept;
+```
+
+**先决条件**<br>
+failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`内存序。
+
+**效果**<br>
+将存储在*this中的expected值与new_value值进行逐位对比，当相等时间new_value存储在*this中；否则，更新expected的值。
+
+**返回**<br>
+当new_value的值与*this中已经存在的值相同，就返回true；否则，返回false。
+
+**抛出**<br>
+无
+
+**NOTE**:在success_order==order和failure_order==order的情况下，三个参数的重载函数与四个参数的重载函数等价。除非，order是`std::memory_order_acq_rel`时，failure_order是`std::memory_order_acquire`，且当order是`std::memory_order_release`时，failure_order是`std::memory_order_relaxed`。
+
+**NOTE**:当返回true和success_order内存序时，是对*this内存地址的原子“读-改-写”操作；反之，这是对*this内存地址的原子加载操作(failure_order)。
 
 ####std::atomic_compare_exchange_weak 非成员函数
 
+原子的比较新值和期望值，如果相等，那么存储新值并且进行原子化更新。当两值不相等，或更新未进行，那期望值会更新为新值。
+
+**声明**
+```c++
+template<typename BaseType>
+bool atomic_compare_exchange_weak(
+    volatile atomic<BaseType>* p,BaseType * old_value,BaseType new_value)
+    noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_weak(
+    atomic<BaseType>* p,BaseType * old_value,BaseType new_value) noexcept;
+```
+
+**效果**
+```c++
+return p->compare_exchange_weak(*old_value,new_value);
+```
+
 ####std::atomic_compare_exchange_weak_explicit 非成员函数
+
+原子的比较新值和期望值，如果相等，那么存储新值并且进行原子化更新。当两值不相等，或更新未进行，那期望值会更新为新值。
+
+**声明**
+```c++
+template<typename BaseType>
+bool atomic_compare_exchange_weak_explicit(
+    volatile atomic<BaseType>* p,BaseType * old_value,
+    BaseType new_value, memory_order success_order,
+    memory_order failure_order) noexcept;
+template<typename BaseType>
+bool atomic_compare_exchange_weak_explicit(
+    atomic<BaseType>* p,BaseType * old_value,
+    BaseType new_value, memory_order success_order,
+    memory_order failure_order) noexcept;
+```
+
+**效果**
+```c++
+return p->compare_exchange_weak(
+   *old_value,new_value,success_order,failure_order);
+```
 
 ###D.3.9 std::atomic模板类型的特化
 
