@@ -2657,8 +2657,8 @@ std::atomic<char32_t>
 
 **类型定义**
 ```c++
-template&lt;&gt;
-struct atomic&lt;integral-type&gt;
+template<>
+struct atomic<integral-type>
 {
   atomic() noexcept = default;
   constexpr atomic(integral-type) noexcept;
@@ -2759,99 +2759,99 @@ struct atomic&lt;integral-type&gt;
   integral-type operator^=(integral-type) noexcept;
 };
 
-bool atomic_is_lock_free(volatile const atomic&lt;integral-type&gt;*) noexcept;
-bool atomic_is_lock_free(const atomic&lt;integral-type&gt;*) noexcept;
-void atomic_init(volatile atomic&lt;integral-type&gt;*,integral-type) noexcept;
-void atomic_init(atomic&lt;integral-type&gt;*,integral-type) noexcept;
+bool atomic_is_lock_free(volatile const atomic<integral-type>*) noexcept;
+bool atomic_is_lock_free(const atomic<integral-type>*) noexcept;
+void atomic_init(volatile atomic<integral-type>*,integral-type) noexcept;
+void atomic_init(atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_exchange(
-    volatile atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    volatile atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_exchange(
-    atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_exchange_explicit(
-    volatile atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_exchange_explicit(
-    atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
-void atomic_store(volatile atomic&lt;integral-type&gt;*,integral-type) noexcept;
-void atomic_store(atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+void atomic_store(volatile atomic<integral-type>*,integral-type) noexcept;
+void atomic_store(atomic<integral-type>*,integral-type) noexcept;
 void atomic_store_explicit(
-    volatile atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
 void atomic_store_explicit(
-    atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
-integral-type atomic_load(volatile const atomic&lt;integral-type&gt;*) noexcept;
-integral-type atomic_load(const atomic&lt;integral-type&gt;*) noexcept;
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_load(volatile const atomic<integral-type>*) noexcept;
+integral-type atomic_load(const atomic<integral-type>*) noexcept;
 integral-type atomic_load_explicit(
-    volatile const atomic&lt;integral-type&gt;*,memory_order) noexcept;
+    volatile const atomic<integral-type>*,memory_order) noexcept;
 integral-type atomic_load_explicit(
-    const atomic&lt;integral-type&gt;*,memory_order) noexcept;
+    const atomic<integral-type>*,memory_order) noexcept;
 bool atomic_compare_exchange_strong(
-    volatile atomic&lt;integral-type&gt;*,
+    volatile atomic<integral-type>*,
     integral-type * old_value,integral-type new_value) noexcept;
 bool atomic_compare_exchange_strong(
-    atomic&lt;integral-type&gt;*,
+    atomic<integral-type>*,
     integral-type * old_value,integral-type new_value) noexcept;
 bool atomic_compare_exchange_strong_explicit(
-    volatile atomic&lt;integral-type&gt;*,
+    volatile atomic<integral-type>*,
     integral-type * old_value,integral-type new_value,
     memory_order success_order,memory_order failure_order) noexcept;
 bool atomic_compare_exchange_strong_explicit(
-    atomic&lt;integral-type&gt;*,
+    atomic<integral-type>*,
     integral-type * old_value,integral-type new_value,
     memory_order success_order,memory_order failure_order) noexcept;
 bool atomic_compare_exchange_weak(
-    volatile atomic&lt;integral-type&gt;*,
+    volatile atomic<integral-type>*,
     integral-type * old_value,integral-type new_value) noexcept;
 bool atomic_compare_exchange_weak(
-    atomic&lt;integral-type&gt;*,
+    atomic<integral-type>*,
     integral-type * old_value,integral-type new_value) noexcept;
 bool atomic_compare_exchange_weak_explicit(
-    volatile atomic&lt;integral-type&gt;*,
+    volatile atomic<integral-type>*,
     integral-type * old_value,integral-type new_value,
     memory_order success_order,memory_order failure_order) noexcept;
 bool atomic_compare_exchange_weak_explicit(
-    atomic&lt;integral-type&gt;*,
+    atomic<integral-type>*,
     integral-type * old_value,integral-type new_value,
     memory_order success_order,memory_order failure_order) noexcept;
 
 integral-type atomic_fetch_add(
-    volatile atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    volatile atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_add(
-    atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_add_explicit(
-    volatile atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_add_explicit(
-    atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_sub(
-    volatile atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    volatile atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_sub(
-    atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_sub_explicit(
-    volatile atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_sub_explicit(
-    atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_and(
-    volatile atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    volatile atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_and(
-    atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_and_explicit(
-    volatile atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_and_explicit(
-    atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_or(
-    volatile atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    volatile atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_or(
-    atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_or_explicit(
-    volatile atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_or_explicit(
-    atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_xor(
-    volatile atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    volatile atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_xor(
-    atomic&lt;integral-type&gt;*,integral-type) noexcept;
+    atomic<integral-type>*,integral-type) noexcept;
 integral-type atomic_fetch_xor_explicit(
-    volatile atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
 integral-type atomic_fetch_xor_explicit(
-    atomic&lt;integral-type&gt;*,integral-type, memory_order) noexcept;
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
 ```
 
 这些操作在主模板中也有提供(见D.3.8)。
