@@ -2606,7 +2606,328 @@ return p->compare_exchange_weak(
 
 ###D.3.9 std::atomic模板类型的特化
 
+`std::atomic`类模板的特化类型有整型和指针类型。对于整型来说，特化模板提供原子加减，以及位域操作(主模板未提供)。对于指针类型来说，特化模板提供原子指针的运算(主模板未提供)。
+
+特化模板提供如下整型：
+```c++
+std::atomic<bool>
+std::atomic<char>
+std::atomic<signed char>
+std::atomic<unsigned char>
+std::atomic<short>
+std::atomic<unsigned short>
+std::atomic<int>
+std::atomic<unsigned>
+std::atomic<long>
+std::atomic<unsigned long>
+std::atomic<long long>
+std::atomic<unsigned long long>
+std::atomic<wchar_t>
+std::atomic<char16_t>
+std::atomic<char32_t>
+```
+
+`std::atomic<T*>`原子指针，可以使用以上的类型作为T。
+
 ###D.3.10 特化std::atomic<integral-type>
+
+`std::atomic<integral-type>`是为每一个基础整型提供的`std::atomic`类模板，其中提供了一套完整的整型操作。
+
+下面的特化模板也适用于`std::atomic<>`类模板：
+
+```c++
+std::atomic<char>
+std::atomic<signed char>
+std::atomic<unsigned char>
+std::atomic<short>
+std::atomic<unsigned short>
+std::atomic<int>
+std::atomic<unsigned>
+std::atomic<long>
+std::atomic<unsigned long>
+std::atomic<long long>
+std::atomic<unsigned long long>
+std::atomic<wchar_t>
+std::atomic<char16_t>
+std::atomic<char32_t>
+```
+
+因为原子操作只能执行其中一个，所以特化模板的实例不可`CopyConstructible`(拷贝构造)和`CopyAssignable`(拷贝赋值)。
+
+**类型定义**
+```c++
+template<>
+struct atomic<integral-type>
+{
+  atomic() noexcept = default;
+  constexpr atomic(integral-type) noexcept;
+  bool operator=(integral-type) volatile noexcept;
+
+  atomic(const atomic&) = delete;
+  atomic& operator=(const atomic&) = delete;
+  atomic& operator=(const atomic&) volatile = delete;
+
+  bool is_lock_free() const volatile noexcept;
+  bool is_lock_free() const noexcept;
+
+  void store(integral-type,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+  void store(integral-type,memory_order = memory_order_seq_cst) noexcept;
+  integral-type load(memory_order = memory_order_seq_cst)
+      const volatile noexcept;
+  integral-type load(memory_order = memory_order_seq_cst) const noexcept;
+  integral-type exchange(
+      integral-type,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+ integral-type exchange(
+      integral-type,memory_order = memory_order_seq_cst) noexcept;
+
+  bool compare_exchange_strong(
+      integral-type & old_value,integral-type new_value,
+      memory_order order = memory_order_seq_cst) volatile noexcept;
+  bool compare_exchange_strong(
+      integral-type & old_value,integral-type new_value,
+      memory_order order = memory_order_seq_cst) noexcept;
+  bool compare_exchange_strong(
+      integral-type & old_value,integral-type new_value,
+      memory_order success_order,memory_order failure_order)
+      volatile noexcept;
+  bool compare_exchange_strong(
+      integral-type & old_value,integral-type new_value,
+      memory_order success_order,memory_order failure_order) noexcept;
+  bool compare_exchange_weak(
+      integral-type & old_value,integral-type new_value,
+      memory_order order = memory_order_seq_cst) volatile noexcept;
+  bool compare_exchange_weak(
+      integral-type & old_value,integral-type new_value,
+      memory_order order = memory_order_seq_cst) noexcept;
+  bool compare_exchange_weak(
+      integral-type & old_value,integral-type new_value,
+      memory_order success_order,memory_order failure_order)
+      volatile noexcept;
+  bool compare_exchange_weak(
+      integral-type & old_value,integral-type new_value,
+      memory_order success_order,memory_order failure_order) noexcept;
+
+  operator integral-type() const volatile noexcept;
+  operator integral-type() const noexcept;
+
+  integral-type fetch_add(
+      integral-type,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+  integral-type fetch_add(
+      integral-type,memory_order = memory_order_seq_cst) noexcept;
+  integral-type fetch_sub(
+      integral-type,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+  integral-type fetch_sub(
+      integral-type,memory_order = memory_order_seq_cst) noexcept;
+  integral-type fetch_and(
+      integral-type,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+  integral-type fetch_and(
+      integral-type,memory_order = memory_order_seq_cst) noexcept;
+  integral-type fetch_or(
+      integral-type,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+  integral-type fetch_or(
+      integral-type,memory_order = memory_order_seq_cst) noexcept;
+  integral-type fetch_xor(
+      integral-type,memory_order = memory_order_seq_cst)
+      volatile noexcept;
+  integral-type fetch_xor(
+      integral-type,memory_order = memory_order_seq_cst) noexcept;
+
+  integral-type operator++() volatile noexcept;
+  integral-type operator++() noexcept;
+  integral-type operator++(int) volatile noexcept;
+  integral-type operator++(int) noexcept;
+  integral-type operator--() volatile noexcept;
+  integral-type operator--() noexcept;
+  integral-type operator--(int) volatile noexcept;
+  integral-type operator--(int) noexcept;
+  integral-type operator+=(integral-type) volatile noexcept;
+  integral-type operator+=(integral-type) noexcept;
+  integral-type operator-=(integral-type) volatile noexcept;
+  integral-type operator-=(integral-type) noexcept;
+  integral-type operator&=(integral-type) volatile noexcept;
+  integral-type operator&=(integral-type) noexcept;
+  integral-type operator|=(integral-type) volatile noexcept;
+  integral-type operator|=(integral-type) noexcept;
+  integral-type operator^=(integral-type) volatile noexcept;
+  integral-type operator^=(integral-type) noexcept;
+};
+
+bool atomic_is_lock_free(volatile const atomic<integral-type>*) noexcept;
+bool atomic_is_lock_free(const atomic<integral-type>*) noexcept;
+void atomic_init(volatile atomic<integral-type>*,integral-type) noexcept;
+void atomic_init(atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_exchange(
+    volatile atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_exchange(
+    atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_exchange_explicit(
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_exchange_explicit(
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+void atomic_store(volatile atomic<integral-type>*,integral-type) noexcept;
+void atomic_store(atomic<integral-type>*,integral-type) noexcept;
+void atomic_store_explicit(
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
+void atomic_store_explicit(
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_load(volatile const atomic<integral-type>*) noexcept;
+integral-type atomic_load(const atomic<integral-type>*) noexcept;
+integral-type atomic_load_explicit(
+    volatile const atomic<integral-type>*,memory_order) noexcept;
+integral-type atomic_load_explicit(
+    const atomic<integral-type>*,memory_order) noexcept;
+bool atomic_compare_exchange_strong(
+    volatile atomic<integral-type>*,
+    integral-type * old_value,integral-type new_value) noexcept;
+bool atomic_compare_exchange_strong(
+    atomic<integral-type>*,
+    integral-type * old_value,integral-type new_value) noexcept;
+bool atomic_compare_exchange_strong_explicit(
+    volatile atomic<integral-type>*,
+    integral-type * old_value,integral-type new_value,
+    memory_order success_order,memory_order failure_order) noexcept;
+bool atomic_compare_exchange_strong_explicit(
+    atomic<integral-type>*,
+    integral-type * old_value,integral-type new_value,
+    memory_order success_order,memory_order failure_order) noexcept;
+bool atomic_compare_exchange_weak(
+    volatile atomic<integral-type>*,
+    integral-type * old_value,integral-type new_value) noexcept;
+bool atomic_compare_exchange_weak(
+    atomic<integral-type>*,
+    integral-type * old_value,integral-type new_value) noexcept;
+bool atomic_compare_exchange_weak_explicit(
+    volatile atomic<integral-type>*,
+    integral-type * old_value,integral-type new_value,
+    memory_order success_order,memory_order failure_order) noexcept;
+bool atomic_compare_exchange_weak_explicit(
+    atomic<integral-type>*,
+    integral-type * old_value,integral-type new_value,
+    memory_order success_order,memory_order failure_order) noexcept;
+
+integral-type atomic_fetch_add(
+    volatile atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_add(
+    atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_add_explicit(
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_add_explicit(
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_sub(
+    volatile atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_sub(
+    atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_sub_explicit(
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_sub_explicit(
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_and(
+    volatile atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_and(
+    atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_and_explicit(
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_and_explicit(
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_or(
+    volatile atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_or(
+    atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_or_explicit(
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_or_explicit(
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_xor(
+    volatile atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_xor(
+    atomic<integral-type>*,integral-type) noexcept;
+integral-type atomic_fetch_xor_explicit(
+    volatile atomic<integral-type>*,integral-type, memory_order) noexcept;
+integral-type atomic_fetch_xor_explicit(
+    atomic<integral-type>*,integral-type, memory_order) noexcept;
+```
+
+这些操作在主模板中也有提供(见D.3.8)。
+
+####std::atomic<integral-type>::fetch_add 成员函数
+
+####std::atomic_fetch_add 非成员函数
+
+####std::atomic_fetch_add_explicit 非成员函数
+
+####std::atomic<integral-type>::fetch_sub 成员函数
+
+####std::atomic_fetch_sub 非成员函数
+
+####std::atomic_fetch_sub_explicit 非成员函数
+
+####std::atomic<integral-type>::fetch_and 成员函数
+
+####std::atomic_fetch_and 非成员函数
+
+####std::atomic_fetch_and_explicit 非成员函数
+
+####std::atomic<integral-type>::fetch_or 成员函数
+
+####std::atomic_fetch_or 非成员函数
+
+####std::atomic_fetch_or_explicit 非成员函数
+
+####std::atomic<integral-type>::fetch_xor 成员函数
+
+####std::atomic_fetch_xor 非成员函数
+
+####std::atomic_fetch_xor_explicit 非成员函数
+
+####std::atomic<integral-type>::operator++ 前置递增操作
+
+####std::atomic<integral-type>::operator++ 后置递增操作
+
+####std::atomic<integral-type>::operator-- 前置递减操作
+
+####std::atomic<integral-type>::operator-- 后置递减操作
+
+####std::atomic<integral-type>::operator+= 复合赋值操作
+
+####std::atomic<integral-type>::operator-= 复合赋值操作
+
+####std::atomic<integral-type>::operator&= 复合赋值操作
+
+####std::atomic<integral-type>::operator|= 复合赋值操作
+
+####std::atomic<integral-type>::operator^= 复合赋值操作
+
+####std::atomic<T*> 局部特化
+
+####std::atomic<T*>::fetch_add 成员函数
+
+####std::atomic_fetch_add 非成员函数
+
+####std::atomic_fetch_add_explicit 非成员函数
+
+####std::atomic<T*>::fetch_sub 成员函数
+
+####std::atomic_fetch_sub 非成员函数
+
+####std::atomic_fetch_sub_explicit 非成员函数
+
+####std::atomic<T*>::operator++ 前置递增操作
+
+####std::atomic<T*>::operator++ 后置递增操作
+
+####std::atomic<T*>::operator-- 前置递减操作
+
+####std::atomic<T*>::operator-- 后置递减操作
+
+####std::atomic<T*>::operator+= 复合赋值操作
+
+####std::atomic<T*>::operator-= 复合赋值操作
 
 ##D.4 <future>头文件
 
