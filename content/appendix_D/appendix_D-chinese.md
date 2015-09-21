@@ -10,11 +10,11 @@ namespace std
 {
   namespace chrono
   {
-    template&lt;typename Rep,typename Period = ratio&lt;1&gt;&gt;
+    template<typename Rep,typename Period = ratio<1>>
     class duration;
-    template&lt;
+    template<
         typename Clock,
-        typename Duration = typename Clock::duration&gt;
+        typename Duration = typename Clock::duration>
     class time_point;
     class system_clock;
     class steady_clock;
@@ -25,12 +25,12 @@ namespace std
 
 ###D.1.1 std::chrono::duration类型模板
 
-`std::chrono::duration`类模板可以用来表示时间。模板参数`Rep`和`Period`是用来存储持续时间的数据类型，`std::ratio`实例代表了时间的长度(几分之一秒)，其表示了在两次“时钟滴答”后的时间(时钟周期)。因此，`std::chrono::duration&lt;int, std::milli&gt;`即为，时间以毫秒数的形式存储到int类型中，而`std::chrono::duration&lt;short, std::ratio&lt;1,50&gt;&gt;`则是记录1/50秒的个数，并将个数存入short类型的变量中，还有`std::chrono::duration &lt;long long, std::ratio&lt;60,1&gt;&gt;`则是将分钟数存储到long long类型的变量中。
+`std::chrono::duration`类模板可以用来表示时间。模板参数`Rep`和`Period`是用来存储持续时间的数据类型，`std::ratio`实例代表了时间的长度(几分之一秒)，其表示了在两次“时钟滴答”后的时间(时钟周期)。因此，`std::chrono::duration<int, std::milli>`即为，时间以毫秒数的形式存储到int类型中，而`std::chrono::duration<short, std::ratio<1,50>>`则是记录1/50秒的个数，并将个数存入short类型的变量中，还有`std::chrono::duration <long long, std::ratio<60,1>>`则是将分钟数存储到long long类型的变量中。
 
 ####类的定义
 
 ```c++
-template &lt;class Rep, class Period=ratio&lt;1&gt; &gt;
+template <class Rep, class Period=ratio<1> >
 class duration
 {
 public:
@@ -43,11 +43,11 @@ public:
   duration(const duration&) = default;
   duration& operator=(const duration&) = default;
 
-  template &lt;class Rep2&gt;
+  template <class Rep2>
   constexpr explicit duration(const Rep2& r);
 
-  template &lt;class Rep2, class Period2&gt;
-  constexpr duration(const duration&lt;Rep2, Period2&gt;& d);
+  template <class Rep2, class Period2>
+  constexpr duration(const duration<Rep2, Period2>& d);
 
   constexpr rep count() const;
   constexpr duration operator+() const;
@@ -70,50 +70,51 @@ public:
   static constexpr duration min();
   static constexpr duration max();
 };
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
+
+template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator==(
-    const duration&lt;Rep1, Period1&gt;& lhs,
-    const duration&lt;Rep2, Period2&gt;& rhs);
+    const duration<Rep1, Period1>& lhs,
+    const duration<Rep2, Period2>& rhs);
 
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
+template <class Rep1, class Period1, class Rep2, class Period2>
     constexpr bool operator!=(
-    const duration&lt;Rep1, Period1&gt;& lhs,
-    const duration&lt;Rep2, Period2&gt;& rhs);
+    const duration<Rep1, Period1>& lhs,
+    const duration<Rep2, Period2>& rhs);
 
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
-    constexpr bool operator&lt;(
-    const duration&lt;Rep1, Period1&gt;& lhs,
-    const duration&lt;Rep2, Period2&gt;& rhs);
+template <class Rep1, class Period1, class Rep2, class Period2>
+    constexpr bool operator<(
+    const duration<Rep1, Period1>& lhs,
+    const duration<Rep2, Period2>& rhs);
 
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
-    constexpr bool operator&lt;=(
-    const duration&lt;Rep1, Period1&gt;& lhs,
-    const duration&lt;Rep2, Period2&gt;& rhs);
+template <class Rep1, class Period1, class Rep2, class Period2>
+    constexpr bool operator<=(
+    const duration<Rep1, Period1>& lhs,
+    const duration<Rep2, Period2>& rhs);
 
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
-    constexpr bool operator&gt;(
-    const duration&lt;Rep1, Period1&gt;& lhs,
-    const duration&lt;Rep2, Period2&gt;& rhs);
+template <class Rep1, class Period1, class Rep2, class Period2>
+    constexpr bool operator>(
+    const duration<Rep1, Period1>& lhs,
+    const duration<Rep2, Period2>& rhs);
 
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
-    constexpr bool operator&gt;=(
-    const duration&lt;Rep1, Period1&gt;& lhs,
-    const duration&lt;Rep2, Period2&gt;& rhs);
+template <class Rep1, class Period1, class Rep2, class Period2>
+    constexpr bool operator>=(
+    const duration<Rep1, Period1>& lhs,
+    const duration<Rep2, Period2>& rhs);
 
-template &lt;class ToDuration, class Rep, class Period&gt;
-    constexpr ToDuration duration_cast(const duration&lt;Rep, Period&gt;& d);
+template <class ToDuration, class Rep, class Period>
+    constexpr ToDuration duration_cast(const duration<Rep, Period>& d);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 `Rep`必须是内置数值类型，或是自定义的类数值类型。
 
-`Period`必须是`std::ratio&lt;&gt;`实例。
+`Period`必须是`std::ratio<>`实例。
 
 ####std::chrono::duration::Rep 类型
 
 用来记录`dration`中时钟周期的数量。
 
-**声明**&lt;br&gt;
+**声明**<br>
 ```c++
 typedef Rep rep;
 ```
@@ -122,7 +123,7 @@ typedef Rep rep;
 
 ####std::chrono::duration::Period 类型
 
-这个类型必须是一个`std::ratio`的特化实例，用来表示在继续时间中，1s所要记录的次数。例如，当`period`是`std::ratio&lt;1, 50&gt;`，`duration`变量的count()就会在N秒钟返回50N。
+这个类型必须是一个`std::ratio`的特化实例，用来表示在继续时间中，1s所要记录的次数。例如，当`period`是`std::ratio<1, 50>`，`duration`变量的count()就会在N秒钟返回50N。
 
 **声明**
 ```c++
@@ -138,7 +139,7 @@ typedef Period period;
 constexpr duration() = default;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 `duration`内部值(例如`rep`类型的值)都已初始化。
 
 ####std::chrono::duration 需要计数值的转换构造函数
@@ -147,19 +148,19 @@ constexpr duration() = default;
 
 **声明**
 ```c++
-template &lt;class Rep2&gt;
+template <class Rep2>;
 constexpr explicit duration(const Rep2& r);
 ```
 
-**效果**&lt;br&gt;
-`duration`对象的内部值会使用`static_cast&lt;rep&gt;(r)`进行初始化。
+**效果**<br>
+`duration`对象的内部值会使用`static_cast<rep>(r)`进行初始化。
 
-**结果**&lt;br&gt;
+**结果**<br>
 当Rep2隐式转换为Rep，Rep是浮点类型或Rep2不是浮点类型，这个构造函数才能使用。
 
 **后验条件**
 ```c++
-this-&gt;count()==static_cast&lt;rep&gt;(r)
+this->count()==static_cast<rep>(r)
 ```
 
 ####std::chrono::duration 需要另一个std::chrono::duration值的转化构造函数
@@ -168,25 +169,25 @@ this-&gt;count()==static_cast&lt;rep&gt;(r)
 
 **声明**
 ```c++
-template &lt;class Rep2, class Period2&gt;
-constexpr duration(const duration&lt;Rep2,Period2&gt;& d);
+template <class Rep2, class Period>
+constexpr duration(const duration<Rep2,Period2>& d);
 ```
 
-**结果**&lt;br&gt;
-duration对象的内部值通过`duration_cast&lt;duration&lt;Rep,Period&gt;&gt;(d).count()`初始化。
+**结果**<br>
+duration对象的内部值通过`duration_cast<duration<Rep,Period>>(d).count()`初始化。
 
-**要求**&lt;br&gt;
+**要求**<br>
 当Rep是一个浮点类或Rep2不是浮点类，且Period2是Period数的倍数(比如，ratio_divide&lt;Period2,Period&gt;::den==1)时，才能调用该重载。当一个较小的数据转换为一个较大的数据时，使用该构造函数就能避免数位截断和精度损失。
 
-**后验条件**&lt;br&gt;
-`this-&gt;count() == dutation_cast&lt;duration&lt;Rep, Period&gt;&gt;(d).count()`
+**后验条件**<br>
+`this->count() == dutation_cast&lt;duration<Rep, Period>>(d).count()`
 
 **例子**
 ```c++
-duration&lt;int, ratio&lt;1, 1000&gt;&gt; ms(5);  // 5毫秒
-duration&lt;int, ratio&lt;1, 1&gt;&gt; s(ms);  // 错误：不能将ms当做s进行存储
-duration&lt;double, ratio&lt;1,1&gt;&gt; s2(ms);  // 合法：s2.count() == 0.005
-duration&lt;int, ration&lt;1, 1000000&gt;&gt; us&lt;ms&gt;;  // 合法:us.count() == 5000
+duration<int, ratio<1, 1000>> ms(5);  // 5毫秒
+duration<int, ratio<1, 1>> s(ms);  // 错误：不能将ms当做s进行存储
+duration<double, ratio<1,1>> s2(ms);  // 合法：s2.count() == 0.005
+duration<int, ration<1, 1000000>> us<ms>;  // 合法:us.count() == 5000
 ```
 
 ####std::chrono::duration::count 成员函数
@@ -198,7 +199,7 @@ duration&lt;int, ration&lt;1, 1000000&gt;&gt; us&lt;ms&gt;;  // 合法:us.count(
 constexpr rep count() const;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 返回duration的内部值，其值类型和rep一样。
 
 ####std::chrono::duration::operator+ 加法操作符
@@ -223,7 +224,7 @@ constexpr duration operator-() const;
 ```
 
 **返回**
-`duration(-this-&gt;count());`
+`duration(--this->count());`
 
 ####std::chrono::duration::operator++ 前置自加操作符
 
@@ -236,7 +237,7 @@ duration& operator++();
 
 **结果**
 ```c++
-++this-&gt;internal_count;
+++this->internal_count;
 ```
 
 **返回**
@@ -269,7 +270,7 @@ duration& operator--();
 
 **结果**
 ```c++
---this-&gt;internal_count;
+--this->internal_count;
 ```
 
 **返回**
@@ -404,7 +405,7 @@ constexpr duration zero();
 
 **返回**
 ```c++
-duration(duration_values&lt;rep&gt;::zero());
+duration(duration_values<rep>::zero());
 ```
 
 ####std::chrono::duration::min 静态成员函数
@@ -418,7 +419,7 @@ constexpr duration min();
 
 **返回**
 ```c++
-duration(duration_values&lt;rep&gt;::min());
+duration(duration_values<rep>::min());
 ```
 
 ####std::chrono::duration::max 静态成员函数
@@ -432,7 +433,7 @@ constexpr duration max();
 
 **返回**
 ```c++
-duration(duration_values&lt;rep&gt;::max());
+duration(duration_values<rep>::max());
 ```
 
 ####std::chrono::duration 等于比较操作符
@@ -441,17 +442,17 @@ duration(duration_values&lt;rep&gt;::max());
 
 **声明**
 ```c++
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
+template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator==(
-const duration&lt;Rep1, Period1&gt;& lhs,
-const duration&lt;Rep2, Period2&gt;& rhs);
+const duration<Rep1, Period1>& lhs,
+const duration<Rep2, Period2>& rhs);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 `lhs`和`rhs`两种类型可以互相进行隐式转换。当两种类型无法进行隐式转换，或是可以互相转换的两个不同类型的duration类，则表达式不合理。
 
-**结果**&lt;br&gt;
-当`CommonDuration`和`std::common_type&lt; duration&lt; Rep1, Period1&gt;, duration&lt; Rep2, Period2&gt;&gt;::type`同类，那么`lhs==rhs`就会返回`CommonDuration(lhs).count()==CommonDuration(rhs).count()`。
+**结果**<br>
+当`CommonDuration`和`std::common_type< duration< Rep1, Period1>, duration< Rep2, Period2>>::type`同类，那么`lhs==rhs`就会返回`CommonDuration(lhs).count()==CommonDuration(rhs).count()`。
 
 ####std::chrono::duration 不等于比较操作符
 
@@ -459,13 +460,13 @@ const duration&lt;Rep2, Period2&gt;& rhs);
 
 **声明**
 ```c++
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
+template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator!=(
-   const duration&lt;Rep1, Period1&gt;& lhs,
-   const duration&lt;Rep2, Period2&gt;& rhs);
+   const duration<Rep1, Period1>& lhs,
+   const duration<Rep2, Period2>& rhs);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 `lhs`和`rhs`两种类型可以互相进行隐式转换。当两种类型无法进行隐式转换，或是可以互相转换的两个不同类型的duration类，则表达式不合理。
 
 **返回**
@@ -477,17 +478,17 @@ constexpr bool operator!=(
 
 **声明**
 ```c++
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
-constexpr bool operator&lt;(
-   const duration&lt;Rep1, Period1&gt;& lhs,
-   const duration&lt;Rep2, Period2&gt;& rhs);
+template <class Rep1, class Period1, class Rep2, class Period2>
+constexpr bool operator<(
+   const duration<Rep1, Period1>& lhs,
+   const duration<Rep2, Period2>& rhs);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 `lhs`和`rhs`两种类型可以互相进行隐式转换。当两种类型无法进行隐式转换，或是可以互相转换的两个不同类型的duration类，则表达式不合理。
 
-**结果**&lt;br&gt;
-当`CommonDuration`和`std::common_type&lt; duration&lt; Rep1, Period1&gt;, duration&lt; Rep2, Period2&gt;&gt;::type`同类，那么`lhs&lt;rhs`就会返回`CommonDuration(lhs).count()&lt;CommonDuration(rhs).count()`。
+**结果**<br>
+当`CommonDuration`和`std::common_type< duration< Rep1, Period1>, duration< Rep2, Period2>>::type`同类，那么`lhs&lt;rhs`就会返回`CommonDuration(lhs).count()&lt;CommonDuration(rhs).count()`。
 
 ####std::chrono::duration 大于比较操作符
 
@@ -495,17 +496,17 @@ constexpr bool operator&lt;(
 
 **声明**
 ```c++
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
-constexpr bool operator&gt;(
-   const duration&lt;Rep1, Period1&gt;& lhs,
-   const duration&lt;Rep2, Period2&gt;& rhs);
+template <class Rep1, class Period1, class Rep2, class Period2>
+constexpr bool operator>(
+   const duration<Rep1, Period1>& lhs,
+   const duration<Rep2, Period2>& rhs);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 `lhs`和`rhs`两种类型可以互相进行隐式转换。当两种类型无法进行隐式转换，或是可以互相转换的两个不同类型的duration类，则表达式不合理。
 
 **返回**
-`rhs&lt;lhs`
+`rhs<lhs`
 
 ####std::chrono::duration 小于等于比较操作符
 
@@ -513,17 +514,17 @@ constexpr bool operator&gt;(
 
 **声明**
 ```c++
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
-constexpr bool operator&lt;=(
-   const duration&lt;Rep1, Period1&gt;& lhs,
-   const duration&lt;Rep2, Period2&gt;& rhs);
+template <class Rep1, class Period1, class Rep2, class Period2>
+constexpr bool operator<=(
+   const duration<Rep1, Period1>& lhs,
+   const duration<Rep2, Period2>& rhs);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 `lhs`和`rhs`两种类型可以互相进行隐式转换。当两种类型无法进行隐式转换，或是可以互相转换的两个不同类型的duration类，则表达式不合理。
 
 **返回**
-`!(rhs&lt;lhs)`
+`!(rhs<lhs)`
 
 ####std::chrono::duration 大于等于比较操作符
 
@@ -531,17 +532,17 @@ constexpr bool operator&lt;=(
 
 **声明**
 ```c++
-template &lt;class Rep1, class Period1, class Rep2, class Period2&gt;
-constexpr bool operator&gt;=(
-   const duration&lt;Rep1, Period1&gt;& lhs,
-   const duration&lt;Rep2, Period2&gt;& rhs);
+template <class Rep1, class Period1, class Rep2, class Period2>
+constexpr bool operator>=(
+   const duration<Rep1, Period1>& lhs,
+   const duration<Rep2, Period2>& rhs);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 `lhs`和`rhs`两种类型可以互相进行隐式转换。当两种类型无法进行隐式转换，或是可以互相转换的两个不同类型的duration类，则表达式不合理。
 
 **返回**
-`!(lhs&lt;rhs)`
+`!(lhs<rhs)`
 
 ####std::chrono::duration_cast 非成员函数
 
@@ -549,14 +550,14 @@ constexpr bool operator&gt;=(
 
 **声明**
 ```c++
-template &lt;class ToDuration, class Rep, class Period&gt;
-constexpr ToDuration duration_cast(const duration&lt;Rep, Period&gt;& d);
+template <class ToDuration, class Rep, class Period>
+constexpr ToDuration duration_cast(const duration<Rep, Period>& d);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 ToDuration必须是`std::chrono::duration`的实例。
 
-**返回**&lt;br&gt;
+**返回**<br>
 duration类d转换为指定类型ToDuration。这种方式可以在不同尺寸和表示类型的转换中尽可能减少精度损失。
 
 ###D.1.2 std::chrono::time_point类型模板
@@ -566,7 +567,7 @@ duration类d转换为指定类型ToDuration。这种方式可以在不同尺寸�
 ####类型定义
 
 ```c++
-template &lt;class Clock,class Duration = typename Clock::duration&gt;
+template <class Clock,class Duration = typename Clock::duration>
 class time_point
 {
 public:
@@ -578,8 +579,8 @@ public:
   time_point();
   explicit time_point(const duration& d);
 
-  template &lt;class Duration2&gt;
-  time_point(const time_point&lt;clock, Duration2&gt;& t);
+  template <class Duration2>
+  time_point(const time_point<clock, Duration2>& t);
 
   duration time_since_epoch() const;
   
@@ -600,7 +601,7 @@ public:
 time_point();
 ```
 
-**后验条件**&lt;br&gt;
+**后验条件**<br>
 对于使用默认构造函数构造出的time_point对象tp，`tp.time_since_epoch() == tp::duration::zero()`。
 
 ####std::chrono::time_point 需要时间长度的构造函数
@@ -612,7 +613,7 @@ time_point();
 explicit time_point(const duration& d);
 ```
 
-**后验条件**&lt;br&gt;
+**后验条件**<br>
 当有一个time_point对象tp，是通过duration d构造出来的(tp(d))，那么`tp.time_since_epoch() == d`。
 
 ####std::chrono::time_point 转换构造函数
@@ -621,15 +622,15 @@ explicit time_point(const duration& d);
 
 **声明**
 ```c++
-template &lt;class Duration2&gt;
-time_point(const time_point&lt;clock, Duration2&gt;& t);
+template <class Duration2>
+time_point(const time_point<clock, Duration2>& t);
 ```
 
-**要求**&lt;br&gt;
+**要求**<br>
 Duration2必须呢个隐式转换为Duration。
 
 
-**效果**&lt;br&gt;
+**效果**<br>
 当`time_point(t.time_since_epoch())`存在，从t.time_since_epoch()中获取的返回值，可以隐式转换成Duration类型的对象，并且这个值可以存储在一个新的time_point对象中。
 
 (扩展阅读：[as-if准则](http://stackoverflow.com/questions/15718262/what-exactly-is-the-as-if-rule))
@@ -643,7 +644,7 @@ Duration2必须呢个隐式转换为Duration。
 duration time_since_epoch() const;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 duration的值存储在*this中。
 
 ####std::chrono::time_point::operator+= 复合赋值函数
@@ -655,7 +656,7 @@ duration的值存储在*this中。
 time_point& operator+=(const duration& d);
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 将d的值和duration对象的值相加，存储在*this中，就如同this-&gt;internal_duration += d;
 
 **返回**
@@ -670,7 +671,7 @@ time_point& operator+=(const duration& d);
 time_point& operator-=(const duration& d);
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 将d的值和duration对象的值相减，存储在*this中，就如同this-&gt;internal_duration -= d;
 
 **返回**
@@ -715,9 +716,9 @@ class system_clock
 {
 public:
   typedef unspecified-integral-type rep;
-  typedef std::ratio&lt;unspecified,unspecified&gt; period;
-  typedef std::chrono::duration&lt;rep,period&gt; duration;
-  typedef std::chrono::time_point&lt;system_clock&gt; time_point;
+  typedef std::ratio<unspecified,unspecified> period;
+  typedef std::chrono::duration<rep,period> duration;
+  typedef std::chrono::time_point<system_clock> time_point;
   static const bool is_steady=unspecified;
 
   static time_point now() noexcept;
@@ -742,7 +743,7 @@ typedef unspecified-integral-type rep;
 
 **声明**
 ```c++
-typedef std::ratio&lt;unspecified,unspecified&gt; period;
+typedef std::ratio<unspecified,unspecified> period;
 ```
 
 ####std::chrono::system_clock::duration 类型定义
@@ -751,16 +752,16 @@ typedef std::ratio&lt;unspecified,unspecified&gt; period;
 
 **声明**
 ```c++
-typedef std::chrono::duration&lt;
+typedef std::chrono::duration<
    std::chrono::system_clock::rep,
-   std::chrono::system_clock::period&gt; duration;
+   std::chrono::system_clock::period> duration;
 ```
 
 ####std::chrono::system_clock::time_point 类型定义
 
 类型为`std::ratio`类型模板，通过系统实时时钟获取当前时间点的时间。
 
-**声明**&lt;br&gt;
+**声明**<br>
 ```c++
 typedef std::chrono::time_point&lt;std::chrono::system_clock&gt; time_point;
 ```
@@ -774,10 +775,10 @@ typedef std::chrono::time_point&lt;std::chrono::system_clock&gt; time_point;
 time_point now() noexcept;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 time_point类型变量来代表当前系统实时时钟的时间。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当错误发生，`std::system_error`异常将会抛出。
 
 ####std::chrono::system_clock:to_time_t 静态成员函数
@@ -789,10 +790,10 @@ time_point类型变量来代表当前系统实时时钟的时间。
 time_t to_time_t(time_point const& t) noexcept;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 通过对t进行舍入或截断精度，将其转化为一个time_t类型的值。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当错误发生，`std::system_error`异常将会抛出。
 
 ####std::chrono::system_clock::from_time_t 静态成员函数
@@ -802,10 +803,10 @@ time_t to_time_t(time_point const& t) noexcept;
 time_point from_time_t(time_t const& t) noexcept;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 time_point中的值与t中的值一样。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当错误发生，`std::system_error`异常将会抛出。
 
 ###D.1.4 std::chrono::steady_clock类
@@ -819,10 +820,10 @@ class steady_clock
 {
 public:
   typedef unspecified-integral-type rep;
-  typedef std::ratio&lt;
-      unspecified,unspecified&gt; period;
-  typedef std::chrono::duration&lt;rep,period&gt; duration;
-  typedef std::chrono::time_point&lt;steady_clock&gt;
+  typedef std::ratio<
+      unspecified,unspecified> period;
+  typedef std::chrono::duration<rep,period> duration;
+  typedef std::chrono::time_point<steady_clock>
       time_point;
   static const bool is_steady=true;
 
@@ -845,7 +846,7 @@ typedef unspecified-integral-type rep;
 
 **声明**
 ```c++
-typedef std::ratio&lt;unspecified,unspecified&gt; period;
+typedef std::ratio<unspecified,unspecified> period;
 ```
 
 ####std::chrono::steady_clock::duration 类型定义
@@ -854,9 +855,9 @@ typedef std::ratio&lt;unspecified,unspecified&gt; period;
 
 **声明**
 ```c++
-typedef std::chrono::duration&lt;
+typedef std::chrono::duration<
    std::chrono::system_clock::rep,
-   std::chrono::system_clock::period&gt; duration;
+   std::chrono::system_clock::period> duration;
 ```
 
 ####std::chrono::steady_clock::time_point 类型定义
@@ -865,7 +866,7 @@ typedef std::chrono::duration&lt;
 
 **声明**
 ```c++
-typedef std::chrono::time_point&lt;std::chrono::steady_clock&gt; time_point;
+typedef std::chrono::time_point<std::chrono::steady_clock> time_point;
 ```
 
 ####std::chrono::steady_clock::now 静态成员函数
@@ -877,13 +878,13 @@ typedef std::chrono::time_point&lt;std::chrono::steady_clock&gt; time_point;
 time_point now() noexcept;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 time_point表示当前系统稳定时钟的时间。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当遇到错误，会抛出`std::system_error`异常。
 
-**同步**&lt;br&gt;
+**同步**<br>
 当先行调用过一次`std::chrono::steady_clock::now()`，那么下一次time_point获取的值，一定大于等于第一次获取的值。
 
 ###D.1.5 std::chrono::high_resolution_clock类定义
@@ -900,11 +901,11 @@ class high_resolution_clock
 {
 public:
   typedef unspecified-integral-type rep;
-  typedef std::ratio&lt;
-      unspecified,unspecified&gt; period;
-  typedef std::chrono::duration&lt;rep,period&gt; duration;
-  typedef std::chrono::time_point&lt;
-      unspecified&gt; time_point;
+  typedef std::ratio<
+      unspecified,unspecified> period;
+  typedef std::chrono::duration<rep,period> duration;
+  typedef std::chrono::time_point<
+      unspecified> time_point;
   static const bool is_steady=unspecified;
 
   static time_point now() noexcept;
@@ -946,35 +947,35 @@ public:
   void notify_one() noexcept;
   void notify_all() noexcept;
 
-  void wait(std::unique_lock&lt;std::mutex&gt;& lock);
+  void wait(std::unique_lock<std::mutex>& lock);
 
-  template &lt;typename Predicate&gt;
-  void wait(std::unique_lock&lt;std::mutex&gt;& lock,Predicate pred);
+  template <typename Predicate>
+  void wait(std::unique_lock<std::mutex>& lock,Predicate pred);
 
-  template &lt;typename Clock, typename Duration&gt;
+  template <typename Clock, typename Duration>
   cv_status wait_until(
-       std::unique_lock&lt;std::mutex&gt;& lock,
-       const std::chrono::time_point&lt;Clock, Duration&gt;& absolute_time);
+       std::unique_lock<std::mutex>& lock,
+       const std::chrono::time_point<Clock, Duration>& absolute_time);
 
-  template &lt;typename Clock, typename Duration, typename Predicate&gt;
+  template <typename Clock, typename Duration, typename Predicate>
   bool wait_until(
-       std::unique_lock&lt;std::mutex&gt;& lock,
-       const std::chrono::time_point&lt;Clock, Duration&gt;& absolute_time,
+       std::unique_lock<std::mutex>& lock,
+       const std::chrono::time_point<Clock, Duration>& absolute_time,
        Predicate pred);
 
-  template &lt;typename Rep, typename Period&gt;
+  template <typename Rep, typename Period>
   cv_status wait_for(
-       std::unique_lock&lt;std::mutex&gt;& lock,
-       const std::chrono::duration&lt;Rep, Period&gt;& relative_time);
+       std::unique_lock<std::mutex>& lock,
+       const std::chrono::duration<Rep, Period>& relative_time);
 
-  template &lt;typename Rep, typename Period, typename Predicate&gt;
+  template <typename Rep, typename Period, typename Predicate>
   bool wait_for(
-       std::unique_lock&lt;std::mutex&gt;& lock,
-       const std::chrono::duration&lt;Rep, Period&gt;& relative_time,
+       std::unique_lock<std::mutex>& lock,
+       const std::chrono::duration<Rep, Period>& relative_time,
        Predicate pred);
 };
 
-void notify_all_at_thread_exit(condition_variable&,unique_lock&lt;mutex&gt;);
+void notify_all_at_thread_exit(condition_variable&,unique_lock<mutex>);
 ```
 
 ####std::condition_variable 默认构造函数
@@ -986,10 +987,10 @@ void notify_all_at_thread_exit(condition_variable&,unique_lock&lt;mutex&gt;);
 condition_variable();
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 构造一个新的`std::condition_variable`实例。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当条件变量无法够早的时候，将会抛出一个`std::system_error`异常。
 
 ####std::condition_variable 析构函数
@@ -1001,13 +1002,13 @@ condition_variable();
 ~condition_variable();
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 之前没有使用*this总的wait(),wait_for()或wait_until()阻塞过线程。
 
-**效果**&lt;br&gt;
+**效果**<br>
 销毁*this。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ####std::condition_variable::notify_one 成员函数
@@ -1019,13 +1020,13 @@ condition_variable();
 void notify_one() noexcept;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 唤醒一个等待*this的线程。如果没有线程在等待，那么调用没有任何效果。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成，就会抛出`std::system_error`异常。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable::notify_all 成员函数
@@ -1037,13 +1038,13 @@ void notify_one() noexcept;
 void notify_all() noexcept;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 唤醒所有等待*this的线程。如果没有线程在等待，那么调用没有任何效果。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成，就会抛出`std::system_error`异常
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable::wait 成员函数
@@ -1052,21 +1053,21 @@ void notify_all() noexcept;
 
 **等待**
 ```c++
-void wait(std::unique_lock&lt;std::mutex&gt;& lock);
+void wait(std::unique_lock<std::mutex>& lock);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 自动解锁lock对象，对于线程等待线程，当其他线程调用notify_one()或notify_all()时被唤醒，亦或该线程处于伪唤醒状态。在wait()返回前，lock对象将会再次上锁。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成的时候，将会抛出`std::system_error`异常。当lock对象在调用wait()阶段被解锁，那么当wait()退出的时候lock会再次上锁，即使函数是通过异常的方式退出。
 
 **NOTE**:伪唤醒意味着一个线程调用wait()后，在没有其他线程调用notify_one()或notify_all()时，还处以苏醒状态。因此，建议对wait()进行重载，在可能的情况下使用一个谓词。否则，建议wait()使用循环检查与条件变量相关的谓词。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable::wait 需要一个谓词的成员函数重载
@@ -1075,14 +1076,14 @@ void wait(std::unique_lock&lt;std::mutex&gt;& lock);
 
 **声明**
 ```c++
-template&lt;typename Predicate&gt;
-void wait(std::unique_lock&lt;std::mutex&gt;& lock,Predicate pred);
+template<typename Predicate>
+void wait(std::unique_lock<std::mutex>& lock,Predicate pred);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 pred()谓词必须是合法的，并且需要返回一个值，这个值可以和bool互相转化。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 正如
 ```c++
 while(!pred())
@@ -1091,12 +1092,12 @@ while(!pred())
 }
 ```
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`std::system_error`异常。
 
 **NOTE**:潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在`(bool)pred()`评估后，返回true。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable::wait_for 成员函数
@@ -1105,27 +1106,27 @@ pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`
 
 **声明**
 ```c++
-template&lt;typename Rep,typename Period&gt;
+template<typename Rep,typename Period>
 cv_status wait_for(
-    std::unique_lock&lt;std::mutex&gt;& lock,
-    std::chrono::duration&lt;Rep,Period&gt; const& relative_time);
+    std::unique_lock<std::mutex>& lock,
+    std::chrono::duration<Rep,Period> const& relative_time);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 当其他线程调用notify_one()或notify_all()函数时，或超出了relative_time的时间，亦或是线程被伪唤醒，则将lock对象自动解锁，并将阻塞线程唤醒。当wait_for()调用返回前，lock对象会再次上锁。
 
-**返回**&lt;br&gt;
+**返回**<br>
 线程被notify_one()、notify_all()或伪唤醒唤醒时，会返回`std::cv_status::no_timeout`；反之，则返回`std::cv_status::timeout`。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成的时候，会抛出`std::system_error`异常。当lock对象在调用wait_for()函数前解锁，那么lock对象会在wait_for()退出前再次上锁，即使函数是以异常的方式退出。
 
 **NOTE**:伪唤醒意味着，一个线程在调用wait_for()的时候，即使没有其他线程调用notify_one()和notify_all()函数，也处于苏醒状态。因此，这里建议重载wait_for()函数，重载函数可以使用谓词。要不，则建议wait_for()使用循环的方式对与谓词相关的条件变量进行检查。在这样做的时候还需要小心，以确保超时部分依旧有效；wait_until()可能适合更多的情况。这样的话，线程阻塞的时间就要比指定的时间长了。在有这样可能性的地方，流逝的时间是由稳定时钟决定。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable::wait_for 需要一个谓词的成员函数重载
@@ -1134,23 +1135,23 @@ cv_status wait_for(
 
 **声明**
 ```c++
-template&lt;typename Rep,typename Period,typename Predicate&gt;
+template<typename Rep,typename Period,typename Predicate>
 bool wait_for(
-    std::unique_lock&lt;std::mutex&gt;& lock,
-    std::chrono::duration&lt;Rep,Period&gt; const& relative_time,
+    std::unique_lock<std::mutex>& lock,
+    std::chrono::duration<Rep,Period> const& relative_time,
     Predicate pred);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 pred()谓词必须是合法的，并且需要返回一个值，这个值可以和bool互相转化。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 等价于
 ```c++
 internal_clock::time_point end=internal_clock::now()+relative_time;
 while(!pred())
 {
-  std::chrono::duration&lt;Rep,Period&gt; remaining_time=
+  std::chrono::duration<Rep,Period> remaining_time=
       end-internal_clock::now();
   if(wait_for(lock,remaining_time)==std::cv_status::timeout)
       return pred();
@@ -1158,15 +1159,15 @@ while(!pred())
 return true;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 当pred()为true，则返回true；当超过relative_time并且pred()返回false时，返回false。
 
 **NOTE**:潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在`(bool)pred()`评估后返回true，或在指定时间relative_time内完成。线程阻塞的时间就要比指定的时间长了。在有这样可能性的地方，流逝的时间是由稳定时钟决定。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成时，会抛出`std::system_error`异常或者由pred抛出任意异常。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable::wait_until 成员函数
@@ -1175,27 +1176,27 @@ return true;
 
 **声明**
 ```c++
-template&lt;typename Clock,typename Duration&gt;
+template<typename Clock,typename Duration>
 cv_status wait_until(
-    std::unique_lock&lt;std::mutex&gt;& lock,
-    std::chrono::time_point&lt;Clock,Duration&gt; const& absolute_time);
+    std::unique_lock<std::mutex>& lock,
+    std::chrono::time_point<Clock,Duration> const& absolute_time);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 当其他线程调用notify_one()或notify_all()函数，或Clock::now()返回一个大于或等于absolute_time的时间，亦或线程伪唤醒，lock都将自动解锁，并且唤醒阻塞的线程。在wait_until()返回之前lock对象会再次上锁。
 
-**返回**&lt;br&gt;
+**返回**<br>
 线程被notify_one()、notify_all()或伪唤醒唤醒时，会返回`std::cv_status::no_timeout`；反之，则返回`std::cv_status::timeout`。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成的时候，会抛出`std::system_error`异常。当lock对象在调用wait_for()函数前解锁，那么lock对象会在wait_for()退出前再次上锁，即使函数是以异常的方式退出。
 
 **NOTE**:伪唤醒意味着一个线程调用wait()后，在没有其他线程调用notify_one()或notify_all()时，还处以苏醒状态。因此，这里建议重载wait_until()函数，重载函数可以使用谓词。要不，则建议wait_until()使用循环的方式对与谓词相关的条件变量进行检查。这里不保证线程会被阻塞多长时间，只有当函数返回false后(Clock::now()的返回值大于或等于absolute_time)，线程才能解除阻塞。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable::wait_until 需要一个谓词的成员函数重载
@@ -1204,17 +1205,17 @@ cv_status wait_until(
 
 **声明**
 ```c++
-template&lt;typename Clock,typename Duration,typename Predicate&gt;
+template<typename Clock,typename Duration,typename Predicate>
 bool wait_until(
-    std::unique_lock&lt;std::mutex&gt;& lock,
-    std::chrono::time_point&lt;Clock,Duration&gt; const& absolute_time,
+    std::unique_lock<std::mutex>& lock,
+    std::chrono::time_point<Clock,Duration> const& absolute_time,
     Predicate pred);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 pred()必须是合法的，并且其返回值能转换为bool值。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 等价于
 ```c++
 while(!pred())
@@ -1225,15 +1226,15 @@ while(!pred())
 return true;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 当调用pred()返回true时，返回true；当Clock::now()的时间大于或等于指定的时间absolute_time，并且pred()返回false时，返回false。
 
 **NOTE**:潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在`(bool)pred()`评估后返回true，或Clock::now()返回的时间大于或等于absolute_time。这里不保证调用线程将被阻塞的时长，只有当函数返回false后(Clock::now()返回一个等于或大于absolute_time的值)，线程接触阻塞。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成时，会抛出`std::system_error`异常或者由pred抛出任意异常。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::notify_all_at_thread_exit 非成员函数
@@ -1243,27 +1244,27 @@ return true;
 **声明**
 ```c++
 void notify_all_at_thread_exit(
-  condition_variable& cv,unique_lock&lt;mutex&gt; lk);
+  condition_variable& cv,unique_lock<mutex> lk);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 当线程调用wait()即可获得锁的所有权,lk.owns_lock()必须为true。lk.mutex()需要返回的值要与并发等待线程相关的任意cv中锁对象提供的wait(),wait_for()或wait_until()相同。
 
-**效果**&lt;br&gt;
+**效果**<br>
 将lk的所有权转移到内部存储中，并且当有线程退出时，安排被提醒的cv类。这里的提醒等价于
 ```c++
 lk.unlock();
 cv.notify_all();
 ```
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成时，抛出`std::system_error`异常。
 
 **NOTE**:在线程退出前，掌握着锁的所有权，所以这里要避免死锁发生。这里建议调用该函数的线程应该尽快退出，并且在该线程可以执行一些阻塞的操作。用户必须保证等地线程不会错误的将唤醒线程当做已退出的线程，特别是伪唤醒。可以通过等待线程上的谓词测试来实现这一功能，在互斥量保护的情况下，只有谓词返回true时线程才能被唤醒，并且在调用notify_all_at_thread_exit(std::condition_variable_any类中函数)前是不会释放锁。
 
 ###D.2.2 std::condition_variable_any类
 
-`std::condition_variable_any`类允许线程等待某一条件为true的时候继续运行。不过`std::condition_variable`只能和`std::unique_lock&lt;std::mutex&gt;`一起使用，`std::condition_variable_any`可以和任意可上锁(Lockable)类型一起使用。
+`std::condition_variable_any`类允许线程等待某一条件为true的时候继续运行。不过`std::condition_variable`只能和`std::unique_lock<std::mutex>`一起使用，`std::condition_variable_any`可以和任意可上锁(Lockable)类型一起使用。
 
 `std::condition_variable_any`实例不能进行拷贝赋值(CopyAssignable)、拷贝构造(CopyConstructible)、移动赋值(MoveAssignable)或移动构造(MoveConstructible)。
 
@@ -1283,36 +1284,36 @@ public:
   void notify_one() noexcept;
   void notify_all() noexcept;
 
-  template&lt;typename Lockable&gt;
+  template<typename Lockable>
   void wait(Lockable& lock);
 
-  template &lt;typename Lockable, typename Predicate&gt;
+  template <typename Lockable, typename Predicate>
   void wait(Lockable& lock, Predicate pred);
 
-  template &lt;typename Lockable, typename Clock,typename Duration&gt;
+  template <typename Lockable, typename Clock,typename Duration>
   std::cv_status wait_until(
       Lockable& lock,
-      const std::chrono::time_point&lt;Clock, Duration&gt;& absolute_time);
+      const std::chrono::time_point<Clock, Duration>& absolute_time);
 
-  template &lt;
+  template <
       typename Lockable, typename Clock,
-      typename Duration, typename Predicate&gt;
+      typename Duration, typename Predicate>
   bool wait_until(
       Lockable& lock,
-      const std::chrono::time_point&lt;Clock, Duration&gt;& absolute_time,
+      const std::chrono::time_point<Clock, Duration>& absolute_time,
       Predicate pred);
 
-  template &lt;typename Lockable, typename Rep, typename Period&gt;
+  template <typename Lockable, typename Rep, typename Period>
   std::cv_status wait_for(
       Lockable& lock,
-      const std::chrono::duration&lt;Rep, Period&gt;& relative_time);
+      const std::chrono::duration<Rep, Period>& relative_time);
 
-  template &lt;
+  template <
       typename Lockable, typename Rep,
-      typename Period, typename Predicate&gt;
+      typename Period, typename Predicate>
   bool wait_for(
       Lockable& lock,
-      const std::chrono::duration&lt;Rep, Period&gt;& relative_time,
+      const std::chrono::duration<Rep, Period>& relative_time,
       Predicate pred);
 };
 ```
@@ -1326,10 +1327,10 @@ public:
 condition_variable_any();
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 构造一个新的`std::condition_variable_any`实例。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当条件变量构造成功，将抛出`std::system_error`异常。
 
 ####std::condition_variable_any 析构函数
@@ -1341,13 +1342,13 @@ condition_variable_any();
 ~condition_variable_any();
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 之前没有使用*this总的wait(),wait_for()或wait_until()阻塞过线程。
 
-**效果**&lt;br&gt;
+**效果**<br>
 销毁*this。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ####std::condition_variable_any::notify_one 成员函数
@@ -1359,13 +1360,13 @@ condition_variable_any();
 void notify_all() noexcept;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 唤醒一个等待*this的线程。如果没有线程在等待，那么调用没有任何效果
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成，就会抛出std::system_error异常。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable_any::notify_all 成员函数
@@ -1377,13 +1378,13 @@ void notify_all() noexcept;
 void notify_all() noexcept;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 唤醒所有等待*this的线程。如果没有线程在等待，那么调用没有任何效果
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成，就会抛出std::system_error异常。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable_any::wait 成员函数
@@ -1392,22 +1393,22 @@ void notify_all() noexcept;
 
 **声明**
 ```c++
-template&lt;typename Lockable&gt;
+template<typename Lockable>
 void wait(Lockable& lock);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 Lockable类型需要能够上锁，lock对象拥有一个锁。
 
-**效果**&lt;br&gt;
+**效果**<br>
 自动解锁lock对象，对于线程等待线程，当其他线程调用notify_one()或notify_all()时被唤醒，亦或该线程处于伪唤醒状态。在wait()返回前，lock对象将会再次上锁。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成的时候，将会抛出`std::system_error`异常。当lock对象在调用wait()阶段被解锁，那么当wait()退出的时候lock会再次上锁，即使函数是通过异常的方式退出。
 
 **NOTE**:伪唤醒意味着一个线程调用wait()后，在没有其他线程调用notify_one()或notify_all()时，还处以苏醒状态。因此，建议对wait()进行重载，在可能的情况下使用一个谓词。否则，建议wait()使用循环检查与条件变量相关的谓词。
 
-**同步**&lt;br&gt;
+**同步**<br>
 std::condition_variable_any实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable_any::wait 需要一个谓词的成员函数重载
@@ -1416,14 +1417,14 @@ std::condition_variable_any实例中的notify_one(),notify_all(),wait(),wait_for
 
 **声明**
 ```c++
-template&lt;typename Lockable,typename Predicate&gt;
+template<typename Lockable,typename Predicate>
 void wait(Lockable& lock,Predicate pred);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 pred()谓词必须是合法的，并且需要返回一个值，这个值可以和bool互相转化。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 正如
 ```c++
 while(!pred())
@@ -1432,12 +1433,12 @@ wait(lock);
 }
 ```
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`std::system_error`异常。
 
 **NOTE**:潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在`(bool)pred()`评估后，返回true。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable_any::wait_for 成员函数
@@ -1446,27 +1447,27 @@ pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`
 
 **声明**
 ```c++
-template&lt;typename Lockable,typename Rep,typename Period&gt;
+template<typename Lockable,typename Rep,typename Period>
 std::cv_status wait_for(
     Lockable& lock,
-    std::chrono::duration&lt;Rep,Period&gt; const& relative_time);
+    std::chrono::duration<Rep,Period> const& relative_time);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 当其他线程调用notify_one()或notify_all()函数时，或超出了relative_time的时间，亦或是线程被伪唤醒，则将lock对象自动解锁，并将阻塞线程唤醒。当wait_for()调用返回前，lock对象会再次上锁。
 
-**返回**&lt;br&gt;
+**返回**<br>
 线程被notify_one()、notify_all()或伪唤醒唤醒时，会返回`std::cv_status::no_timeout`；反之，则返回std::cv_status::timeout。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成的时候，会抛出`std::system_error`异常。当lock对象在调用wait_for()函数前解锁，那么lock对象会在wait_for()退出前再次上锁，即使函数是以异常的方式退出。
 
 **NOTE**:伪唤醒意味着，一个线程在调用wait_for()的时候，即使没有其他线程调用notify_one()和notify_all()函数，也处于苏醒状态。因此，这里建议重载wait_for()函数，重载函数可以使用谓词。要不，则建议wait_for()使用循环的方式对与谓词相关的条件变量进行检查。在这样做的时候还需要小心，以确保超时部分依旧有效；wait_until()可能适合更多的情况。这样的话，线程阻塞的时间就要比指定的时间长了。在有这样可能性的地方，流逝的时间是由稳定时钟决定。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable_any::wait_for 需要一个谓词的成员函数重载
@@ -1475,24 +1476,24 @@ std::cv_status wait_for(
 
 **声明**
 ```c++
-template&lt;typename Lockable,typename Rep,
-    typename Period, typename Predicate&gt;
+template<typename Lockable,typename Rep,
+    typename Period, typename Predicate>
 bool wait_for(
     Lockable& lock,
-    std::chrono::duration&lt;Rep,Period&gt; const& relative_time,
+    std::chrono::duration<Rep,Period> const& relative_time,
     Predicate pred);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 pred()谓词必须是合法的，并且需要返回一个值，这个值可以和bool互相转化。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 正如
 ```c++
 internal_clock::time_point end=internal_clock::now()+relative_time;
 while(!pred())
 {
-  std::chrono::duration&lt;Rep,Period&gt; remaining_time=
+  std::chrono::duration<Rep,Period> remaining_time=
       end-internal_clock::now();
   if(wait_for(lock,remaining_time)==std::cv_status::timeout)
       return pred();
@@ -1500,16 +1501,16 @@ while(!pred())
 return true;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 当pred()为true，则返回true；当超过relative_time并且pred()返回false时，返回false。
 
 **NOTE**:
 潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在(bool)pred()评估后返回true，或在指定时间relative_time内完成。线程阻塞的时间就要比指定的时间长了。在有这样可能性的地方，流逝的时间是由稳定时钟决定。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成时，会抛出`std::system_error`异常或者由pred抛出任意异常。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
 ####std::condition_variable_any::wait_until 成员函数
@@ -1518,22 +1519,22 @@ return true;
 
 **声明**
 ```c++
-template&lt;typename Lockable,typename Clock,typename Duration&gt;
+template<typename Lockable,typename Clock,typename Duration>
 std::cv_status wait_until(
     Lockable& lock,
-    std::chrono::time_point&lt;Clock,Duration&gt; const& absolute_time);
+    std::chrono::time_point<Clock,Duration> const& absolute_time);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 Lockable类型需要能够上锁，lock对象拥有一个锁。
 
-**效果**&lt;br&gt;
+**效果**<br>
 当其他线程调用notify_one()或notify_all()函数，或Clock::now()返回一个大于或等于absolute_time的时间，亦或线程伪唤醒，lock都将自动解锁，并且唤醒阻塞的线程。在wait_until()返回之前lock对象会再次上锁。
 
-**返回**&lt;br&gt;
+**返回**<br>
 线程被notify_one()、notify_all()或伪唤醒唤醒时，会返回std::cv_status::no_timeout；反之，则返回`std::cv_status::timeout`。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成的时候，会抛出`std::system_error`异常。当lock对象在调用wait_for()函数前解锁，那么lock对象会在wait_for()退出前再次上锁，即使函数是以异常的方式退出。
 
 **NOTE**:伪唤醒意味着一个线程调用wait()后，在没有其他线程调用notify_one()或notify_all()时，还处以苏醒状态。因此，这里建议重载wait_until()函数，重载函数可以使用谓词。要不，则建议wait_until()使用循环的方式对与谓词相关的条件变量进行检查。这里不保证线程会被阻塞多长时间，只有当函数返回false后(Clock::now()的返回值大于或等于absolute_time)，线程才能解除阻塞。
@@ -1547,18 +1548,18 @@ Lockable类型需要能够上锁，lock对象拥有一个锁。
 
 **声明**
 ```c++
-template&lt;typename Lockable,typename Clock,
-    typename Duration, typename Predicate&gt;
+template<typename Lockable,typename Clock,
+    typename Duration, typename Predicate>
 bool wait_until(
     Lockable& lock,
-    std::chrono::time_point&lt;Clock,Duration&gt; const& absolute_time,
+    std::chrono::time_point<Clock,Duration> const& absolute_time,
     Predicate pred);
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 pred()必须是合法的，并且其返回值能转换为bool值。当线程调用wait()即可获得锁的所有权,lock.owns_lock()必须为true。
 
-**效果**&lt;br&gt;
+**效果**<br>
 等价于
 ```c++
 while(!pred())
@@ -1569,15 +1570,15 @@ while(!pred())
 return true;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 当调用pred()返回true时，返回true；当Clock::now()的时间大于或等于指定的时间absolute_time，并且pred()返回false时，返回false。
 
 **NOTE**：潜在的伪唤醒意味着不会指定pred调用的次数。通过lock进行上锁，pred经常会被互斥量引用所调用，并且函数必须返回(只能返回)一个值，在(bool)pred()评估后返回true，或Clock::now()返回的时间大于或等于absolute_time。这里不保证调用线程将被阻塞的时长，只有当函数返回false后(Clock::now()返回一个等于或大于absolute_time的值)，线程接触阻塞。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 当效果没有达成时，会抛出`std::system_error`异常或者由pred抛出任意异常。
 
-**同步**&lt;br&gt;
+**同步**<br>
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
  
 ##D.3 &lt;atomic&gt;头文件
@@ -1652,20 +1653,20 @@ namespace std
   参见类型定义详述 atomic_intmax_t;
   参见类型定义详述 atomic_uintmax_t;
 
-  template&lt;typename T&gt;
+  template<typename T>
   struct atomic;
 
   extern "C" void atomic_thread_fence(memory_order order);
   extern "C" void atomic_signal_fence(memory_order order);
 
-  template&lt;typename T&gt;
+  template<typename T>
   T kill_dependency(T);
 }
 ```
 
 ###std::atomic_xxx类型定义
 
-为了兼容新的C标准(C11)，C++支持定义原子整型类型。这些类型都与`std::atimic&lt;T&gt;`特化类相对应，或是用同一接口特化的一个基本类型。
+为了兼容新的C标准(C11)，C++支持定义原子整型类型。这些类型都与`std::atimic<T>;`特化类相对应，或是用同一接口特化的一个基本类型。
 
 **Table D.1 原子类型定义和与之相关的std::atmoic&lt;&gt;特化模板**
 
@@ -1708,7 +1709,7 @@ namespace std
 
 `ATOMIC_xxx_LOCK_FREE`的值无非就是0，1，2。0意味着，在对有无符号的相关原子类型操作是有锁的；1意味着，操作只对一些特定的类型上锁，而对没有指定的类型不上锁；2意味着，所有操作都是无锁的。例如，当`ATOMIC_INT_LOCK_FREE`是2的时候，在`std::atomic&lt;int&gt;`和`std::atomic&lt;unsigned&gt;`上的操作始终无锁。
 
-宏`ATOMIC_POINTER_LOCK_FREE`描述了，对于特化的原子类型指针`std::atomic&lt;T*&gt;`操作的无锁特性。
+宏`ATOMIC_POINTER_LOCK_FREE`描述了，对于特化的原子类型指针`std::atomic<T*>`操作的无锁特性。
 
 ###D.3.3 ATOMIC_VAR_INIT宏
 
@@ -1719,15 +1720,15 @@ namespace std
 
 宏可以扩展成一系列符号，这个宏可以通过一个给定值，初始化一个标准原子类型，表达式如下所示：
 ```c++
-std::atomic&lt;type&gt; x = ATOMIC_VAR_INIT(val);
+std::atomic<type> x = ATOMIC_VAR_INIT(val);
 ```
 
 给定值可以兼容与原子变量相关的非原子变量，例如：
 
 ```c++
-std::atomic&lt;int&gt; i = ATOMIC_VAR_INIT(42);
+std::atomic&lt;int> i = ATOMIC_VAR_INIT(42);
 std::string s;
-std::atomic&lt;std::string*&gt; p = ATOMIC_VAR_INIT(&s);
+std::atomic&lt;std::string*> p = ATOMIC_VAR_INIT(&s);
 ```
 
 这样初始化的变量是非原子的，并且在变量初始化之后，其他线程可以随意的访问该变量，这样可以避免条件竞争和未定义行为的发生。
@@ -1783,14 +1784,14 @@ typedef enum memory_order
 extern "C" void atomic_thread_fence(std::memory_order order);
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 插入栅栏的目的是为了保证内存序的约束性。
 
 栅栏使用`std::memory_order_release`, `std::memory_order_acq_rel`, 或 `std::memory_order_seq_cst`内存序，会同步与一些内存位置上的获取操作进行同步，如果这些获取操作要获取一个已存储的值(通过原子操作进行的存储)，就会通过栅栏进行同步。
 
 释放操作可对`std::memory_order_acquire`, `std::memory_order_acq_rel`, 或 `std::memory_order_seq_cst`进行栅栏同步，；当释放操作存储的值，在一个原子操作之前读取，那么就会通过栅栏进行同步。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ###D.3.6 std::atomic_signal_fence函数
@@ -1802,10 +1803,10 @@ extern "C" void atomic_thread_fence(std::memory_order order);
 extern "C" void atomic_signal_fence(std::memory_order order);
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 根据需要的内存约束序插入一个栅栏。除非约束序应用于“操作和信号处理函数在同一线程”的情况下，否则，这个操作等价于`std::atomic_thread_fence(order)`操作。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ###D.3.7 std::atomic_flag类
@@ -1855,10 +1856,10 @@ void atomic_flag_clear_explicit(
 std::atomic_flag() noexcept = default;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 构造一个新`std::atomic_flag`对象，不过未指明状态。(薛定谔的猫？)
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ####std::atomic_flag 使用ATOMIC_FLAG_INIT进行初始化
@@ -1875,10 +1876,10 @@ std::atomic_flag() noexcept = default;
 std::atomic_flag flag=ATOMIC_FLAG_INIT;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 构造一个新`std::atomic_flag`对象，状态为clear。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 **NOTE**：
@@ -1896,7 +1897,7 @@ bool atomic_flag_test_and_set(atomic_flag* flag) noexcept;
 
 **效果**
 ```c++
-return flag-&gt;test_and_set();
+return flag->test_and_set();
 ```
 
 ####std::atomic_flag_test_and_set 非成员函数
@@ -1913,7 +1914,7 @@ bool atomic_flag_test_and_set_explicit(
 
 **效果**
 ```c++
-return flag-&gt;test_and_set(order);
+return flag->test_and_set(order);
 ```
 
 ####std::atomic_flag_test_and_set_explicit 非成员函数
@@ -1930,7 +1931,7 @@ bool atomic_flag_test_and_set_explicit(
 
 **效果**
 ```c++
-return flag-&gt;test_and_set(order);
+return flag->test_and_set(order);
 ```
 
 ####std::atomic_flag::clear 成员函数
@@ -1943,14 +1944,14 @@ void clear(memory_order order = memory_order_seq_cst) volatile noexcept;
 void clear(memory_order order = memory_order_seq_cst) noexcept;
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 支持`std::memory_order_relaxed`,`std::memory_order_release`和`std::memory_order_seq_cst`中任意一个。
 
 
-**效果**&lt;br&gt;
+**效果**<br>
 自动清除变量状态标识。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 **NOTE**:对于内存位置上的*this，这个操作属于“写”操作(存储操作)。
@@ -1968,7 +1969,7 @@ void atomic_flag_clear(atomic_flag* flag) noexcept;
 
 **效果**
 ```c++
-flag-&gt;clear();
+flag->clear();
 ```
 
 ####std::atomic_flag_clear_explicit 非成员函数
@@ -1985,7 +1986,7 @@ void atomic_flag_clear_explicit(
 
 **效果**
 ```c++
-return flag-&gt;clear(order);
+return flag->clear(order);
 ```
 
 ###D.3.8 std::atomic类型模板
@@ -1994,12 +1995,12 @@ return flag-&gt;clear(order);
 
 模板参数BaseType必须满足下面的条件。
 
-- 具有简单的默认构造函数&lt;br&gt;
-- 具有简单的拷贝赋值操作&lt;br&gt;
-- 具有简单的析构函数&lt;br&gt;
-- 可以进行位比较&lt;br&gt;
+- 具有简单的默认构造函数<br>
+- 具有简单的拷贝赋值操作<br>
+- 具有简单的析构函数<br>
+- 可以进行位比较<br>
 
-这就意味着`std::atomic&lt;some-simple-struct&gt;`会和使用`std::atomic&lt;some-built-in-type&gt;`一样简单；不过对于`std::atomic&lt;std::string&gt;`就不同了。
+这就意味着`std::atomic&lt;some-simple-struct&gt;`会和使用`std::atomic<some-built-in-type>`一样简单；不过对于`std::atomic<std::string>`就不同了。
 
 除了主模板，对于内置整型和指针的特化，模板也支持类似x++这样的操作。
 
@@ -2007,7 +2008,7 @@ return flag-&gt;clear(order);
 
 **类型定义**
 ```c++
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 struct atomic
 {
   atomic() noexcept = default;
@@ -2066,78 +2067,78 @@ struct atomic
       operator BaseType () const noexcept;
 };
 
-template&lt;typename BaseType&gt;
-bool atomic_is_lock_free(volatile const atomic&lt;BaseType&gt;*) noexcept;
-template&lt;typename BaseType&gt;
-bool atomic_is_lock_free(const atomic&lt;BaseType&gt;*) noexcept;
-template&lt;typename BaseType&gt;
-void atomic_init(volatile atomic&lt;BaseType&gt;*, void*) noexcept;
-template&lt;typename BaseType&gt;
-void atomic_init(atomic&lt;BaseType&gt;*, void*) noexcept;
-template&lt;typename BaseType&gt;
-BaseType atomic_exchange(volatile atomic&lt;BaseType&gt;*, memory_order)
+template<typename BaseType>
+bool atomic_is_lock_free(volatile const atomic<BaseType>*) noexcept;
+template<typename BaseType>
+bool atomic_is_lock_free(const atomic<BaseType>*) noexcept;
+template<typename BaseType>
+void atomic_init(volatile atomic<BaseType>*, void*) noexcept;
+template<typename BaseType>
+void atomic_init(atomic<BaseType>*, void*) noexcept;
+template<typename BaseType>
+BaseType atomic_exchange(volatile atomic<BaseType>*, memory_order)
   noexcept;
-template&lt;typename BaseType&gt;
-BaseType atomic_exchange(atomic&lt;BaseType&gt;*, memory_order) noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
+BaseType atomic_exchange(atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
 BaseType atomic_exchange_explicit(
-  volatile atomic&lt;BaseType&gt;*, memory_order) noexcept;
-template&lt;typename BaseType&gt;
+  volatile atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
 BaseType atomic_exchange_explicit(
-  atomic&lt;BaseType&gt;*, memory_order) noexcept;
-template&lt;typename BaseType&gt;
-void atomic_store(volatile atomic&lt;BaseType&gt;*, BaseType) noexcept;
-template&lt;typename BaseType&gt;
-void atomic_store(atomic&lt;BaseType&gt;*, BaseType) noexcept;
-template&lt;typename BaseType&gt;
+  atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
+void atomic_store(volatile atomic<BaseType>*, BaseType) noexcept;
+template<typename BaseType>
+void atomic_store(atomic<BaseType>*, BaseType) noexcept;
+template<typename BaseType>
 void atomic_store_explicit(
-  volatile atomic&lt;BaseType&gt;*, BaseType, memory_order) noexcept;
-template&lt;typename BaseType&gt;
+  volatile atomic<BaseType>*, BaseType, memory_order) noexcept;
+template<typename BaseType>
 void atomic_store_explicit(
-  atomic&lt;BaseType&gt;*, BaseType, memory_order) noexcept;
-template&lt;typename BaseType&gt;
-BaseType atomic_load(volatile const atomic&lt;BaseType&gt;*) noexcept;
-template&lt;typename BaseType&gt;
-BaseType atomic_load(const atomic&lt;BaseType&gt;*) noexcept;
-template&lt;typename BaseType&gt;
+  atomic<BaseType>*, BaseType, memory_order) noexcept;
+template<typename BaseType>
+BaseType atomic_load(volatile const atomic<BaseType>*) noexcept;
+template<typename BaseType>
+BaseType atomic_load(const atomic<BaseType>*) noexcept;
+template<typename BaseType>
 BaseType atomic_load_explicit(
-  volatile const atomic&lt;BaseType&gt;*, memory_order) noexcept;
-template&lt;typename BaseType&gt;
+  volatile const atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
 BaseType atomic_load_explicit(
-  const atomic&lt;BaseType&gt;*, memory_order) noexcept;
-template&lt;typename BaseType&gt;
+  const atomic<BaseType>*, memory_order) noexcept;
+template<typename BaseType>
 bool atomic_compare_exchange_strong(
-  volatile atomic&lt;BaseType&gt;*,BaseType * old_value,
+  volatile atomic<BaseType>*,BaseType * old_value,
   BaseType new_value) noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_strong(
-  atomic&lt;BaseType&gt;*,BaseType * old_value,
+  atomic<BaseType>*,BaseType * old_value,
   BaseType new_value) noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_strong_explicit(
-  volatile atomic&lt;BaseType&gt;*,BaseType * old_value,
+  volatile atomic<BaseType>*,BaseType * old_value,
   BaseType new_value, memory_order success_order,
   memory_order failure_order) noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_strong_explicit(
-  atomic&lt;BaseType&gt;*,BaseType * old_value,
+  atomic<BaseType>*,BaseType * old_value,
   BaseType new_value, memory_order success_order,
   memory_order failure_order) noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_weak(
-  volatile atomic&lt;BaseType&gt;*,BaseType * old_value,BaseType new_value)
+  volatile atomic<BaseType>*,BaseType * old_value,BaseType new_value)
   noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_weak(
-  atomic&lt;BaseType&gt;*,BaseType * old_value,BaseType new_value) noexcept;
-template&lt;typename BaseType&gt;
+  atomic<BaseType>*,BaseType * old_value,BaseType new_value) noexcept;
+template<typename BaseType>
 bool atomic_compare_exchange_weak_explicit(
-  volatile atomic&lt;BaseType&gt;*,BaseType * old_value,
+  volatile atomic<BaseType>*,BaseType * old_value,
   BaseType new_value, memory_order success_order,
   memory_order failure_order) noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_weak_explicit(
-  atomic&lt;BaseType&gt;*,BaseType * old_value,
+  atomic<BaseType>*,BaseType * old_value,
   BaseType new_value, memory_order success_order,
   memory_order failure_order) noexcept;
 ```
@@ -2153,32 +2154,32 @@ bool atomic_compare_exchange_weak_explicit(
 atomic() noexcept;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 使用默认初始值，构造一个新`std::atomic`实例。因对象是静态存储的，所以初始化过程也是静态的。
 
 **NOTE**:当`std::atomic`实例以非静态方式初始化的，那么其值就是不可估计的。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ####std::atomic_init 非成员函数
 
-`std::atomic&lt;BaseType&gt;`实例提供的值，可非原子的进行存储。
+`std::atomic<BaseType>`实例提供的值，可非原子的进行存储。
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
-void atomic_init(atomic&lt;BaseType&gt; volatile* p, BaseType v) noexcept;
-template&lt;typename BaseType&gt;
-void atomic_init(atomic&lt;BaseType&gt;* p, BaseType v) noexcept;
+template<typename BaseType>
+void atomic_init(atomic<BaseType> volatile* p, BaseType v) noexcept;
+template<typename BaseType>
+void atomic_init(atomic<BaseType>* p, BaseType v) noexcept;
 ```
 
-**效果**&lt;br&gt;
-将值v以非原子存储的方式，存储在*p中。调用`atomic&lt;BaseType&gt;`实例中的atomic_init()，这里需要实例不是默认构造出来的，或者在构造出来的时候被执行了某些操作，否则将会引发未定义行为。
+**效果**<br>
+将值v以非原子存储的方式，存储在*p中。调用`atomic<BaseType>`实例中的atomic_init()，这里需要实例不是默认构造出来的，或者在构造出来的时候被执行了某些操作，否则将会引发未定义行为。
 
 **NOTE**:因为存储是非原子的，对对象指针p任意的并发访问(即使是原子操作)都会引发数据竞争。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ####std::atomic 转换构造函数
@@ -2190,10 +2191,10 @@ void atomic_init(atomic&lt;BaseType&gt;* p, BaseType v) noexcept;
 constexpr atomic(BaseType b) noexcept;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 通过b值构造一个新的`std::atomic`对象。因对象是静态存储的，所以初始化过程也是静态的。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ####std::atomic 转换赋值操作
@@ -2208,7 +2209,7 @@ BaseType operator=(BaseType b) noexcept;
 
 **效果**
 ```c++
-return this-&gt;store(b);
+return this->store(b);
 ```
 
 ####std::atomic::is_lock_free 成员函数
@@ -2221,10 +2222,10 @@ bool is_lock_free() const volatile noexcept;
 bool is_lock_free() const noexcept;
 ```
 
-**返回**&lt;br&gt;
+**返回**<br>
 当操作是无锁操作，那么就返回true，否则返回false。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 ####std::atomic_is_lock_free 非成员函数
@@ -2233,15 +2234,15 @@ bool is_lock_free() const noexcept;
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
-bool atomic_is_lock_free(volatile const atomic&lt;BaseType&gt;* p) noexcept;
-template&lt;typename BaseType&gt;
-bool atomic_is_lock_free(const atomic&lt;BaseType&gt;* p) noexcept;
+template<typename BaseType>
+bool atomic_is_lock_free(volatile const atomic<BaseType>* p) noexcept;
+template<typename BaseType>
+bool atomic_is_lock_free(const atomic<BaseType>* p) noexcept;
 ```
 
 **效果**
 ```c++
-return p-&gt;is_lock_free();
+return p->is_lock_free();
 ```
 
 ####std::atomic::load 成员函数
@@ -2255,16 +2256,16 @@ BaseType load(memory_order order = memory_order_seq_cst)
 BaseType load(memory_order order = memory_order_seq_cst) const noexcept;
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 支持`std::memory_order_relaxed`、`std::memory_order_acquire`、`std::memory_order_consume`或`std::memory_order_seq_cst`内存序。
 
-**效果**&lt;br&gt;
+**效果**<br>
 原子的加载已存储到*this上的值。
 
-**返回**&lt;br&gt;
+**返回**<br>
 返回存储在*this上的值。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 **NOTE**:是对于*this内存地址原子加载的操作。
@@ -2275,15 +2276,15 @@ BaseType load(memory_order order = memory_order_seq_cst) const noexcept;
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
-BaseType atomic_load(volatile const atomic&lt;BaseType&gt;* p) noexcept;
-template&lt;typename BaseType&gt;
-BaseType atomic_load(const atomic&lt;BaseType&gt;* p) noexcept;
+template<typename BaseType>
+BaseType atomic_load(volatile const atomic<BaseType>* p) noexcept;
+template<typename BaseType>
+BaseType atomic_load(const atomic<BaseType>* p) noexcept;
 ```
 
 **效果**
 ```c++
-return p-&gt;load();
+return p->load();
 ```
 
 ####std::atomic_load_explicit 非成员函数
@@ -2292,17 +2293,17 @@ return p-&gt;load();
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 BaseType atomic_load_explicit(
-    volatile const atomic&lt;BaseType&gt;* p, memory_order order) noexcept;
-template&lt;typename BaseType&gt;
+    volatile const atomic<BaseType>* p, memory_order order) noexcept;
+template<typename BaseType>
 BaseType atomic_load_explicit(
-    const atomic&lt;BaseType&gt;* p, memory_order order) noexcept;
+    const atomic<BaseType>* p, memory_order order) noexcept;
 ```
 
 **效果**
 ```c++
-return p-&gt;load(order);
+return p->load(order);
 ```
 
 ####std::atomic::operator BastType转换操作
@@ -2317,12 +2318,12 @@ operator BaseType() const noexcept;
 
 **效果**
 ```c++
-return this-&gt;load();
+return this->load();
 ```
 
 ####std::atomic::store 成员函数
 
-以原子操作的方式存储一个新值到`atomic&lt;BaseType&gt;`实例中。
+以原子操作的方式存储一个新值到`atomic<BaseType>`实例中。
 
 **声明**
 ```c++
@@ -2332,13 +2333,13 @@ void store(BaseType new_value,memory_order order = memory_order_seq_cst)
     noexcept;
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 支持`std::memory_order_relaxed`、`std::memory_order_release`或`std::memory_order_seq_cst`内存序。
 
-**效果**&lt;br&gt;
+**效果**<br>
 将new_value原子的存储到*this中。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 **NOTE**:是对于*this内存地址原子加载的操作。
@@ -2349,16 +2350,16 @@ void store(BaseType new_value,memory_order order = memory_order_seq_cst)
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
-void atomic_store(volatile atomic&lt;BaseType&gt;* p, BaseType new_value)
+template<typename BaseType>
+void atomic_store(volatile atomic<BaseType>* p, BaseType new_value)
     noexcept;
-template&lt;typename BaseType&gt;
-void atomic_store(atomic&lt;BaseType&gt;* p, BaseType new_value) noexcept;
+template<typename BaseType>
+void atomic_store(atomic<BaseType>* p, BaseType new_value) noexcept;
 ```
 
 **效果**
 ```c++
-p-&gt;store(new_value);
+p->store(new_value);
 ```
 
 ####std::atomic_explicit 非成员函数
@@ -2367,18 +2368,18 @@ p-&gt;store(new_value);
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 void atomic_store_explicit(
-    volatile atomic&lt;BaseType&gt;* p, BaseType new_value, memory_order order)
+    volatile atomic<BaseType>* p, BaseType new_value, memory_order order)
     noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 void atomic_store_explicit(
-    atomic&lt;BaseType&gt;* p, BaseType new_value, memory_order order) noexcept;
+    atomic<BaseType>* p, BaseType new_value, memory_order order) noexcept;
 ```
 
 **效果**
 ```c++
-p-&gt;store(new_value,order);
+p->store(new_value,order);
 ```
 
 ####std::atomic::exchange 成员函数
@@ -2393,53 +2394,53 @@ BaseType exchange(
     volatile noexcept;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 原子的将new_value存储在*this中，并且取出*this中已经存储的值。
 
-**返回**&lt;br&gt;
+**返回**<br>
 返回*this之前的值。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 **NOTE**:这是对*this内存地址的原子“读-改-写”操作。
 
 ####std::atomic_exchange 非成员函数
 
-原子的存储一个新值到`atomic&lt;BaseType&gt;`实例中，并且读取旧值。
+原子的存储一个新值到`atomic<BaseType>`实例中，并且读取旧值。
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
-BaseType atomic_exchange(volatile atomic&lt;BaseType&gt;* p, BaseType new_value)
+template<typename BaseType>
+BaseType atomic_exchange(volatile atomic<BaseType>* p, BaseType new_value)
     noexcept;
-template&lt;typename BaseType&gt;
-BaseType atomic_exchange(atomic&lt;BaseType&gt;* p, BaseType new_value) noexcept;
+template<typename BaseType>
+BaseType atomic_exchange(atomic<BaseType>* p, BaseType new_value) noexcept;
 ```
 
 **效果**
 ```c++
-return p-&gt;exchange(new_value);
+return p->exchange(new_value);
 ```
 
 ####std::atomic_exchange_explicit 非成员函数
 
-原子的存储一个新值到`atomic&lt;BaseType&gt;`实例中，并且读取旧值。
+原子的存储一个新值到`atomic<BaseType>`实例中，并且读取旧值。
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 BaseType atomic_exchange_explicit(
-    volatile atomic&lt;BaseType&gt;* p, BaseType new_value, memory_order order)
+    volatile atomic<BaseType>* p, BaseType new_value, memory_order order)
     noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 BaseType atomic_exchange_explicit(
-    atomic&lt;BaseType&gt;* p, BaseType new_value, memory_order order) noexcept;
+    atomic<BaseType>* p, BaseType new_value, memory_order order) noexcept;
 ```
 
 **效果**
 ```c++
-return p-&gt;exchange(new_value,order);
+return p->exchange(new_value,order);
 ```
 
 ####std::atomic::compare_exchange_strong 成员函数
@@ -2463,16 +2464,16 @@ bool compare_exchange_strong(
     memory_order success_order,memory_order failure_order) noexcept;
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`内存序。
 
-**效果**&lt;br&gt;
+**效果**<br>
 将存储在*this中的expected值与new_value值进行逐位对比，当相等时间new_value存储在*this中；否则，更新expected的值。
 
-**返回**&lt;br&gt;
+**返回**<br>
 当new_value的值与*this中已经存在的值相同，就返回true；否则，返回false。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 **NOTE**:在success_order==order和failure_order==order的情况下，三个参数的重载函数与四个参数的重载函数等价。除非，order是`std::memory_order_acq_rel`时，failure_order是`std::memory_order_acquire`，且当order是`std::memory_order_release`时，failure_order是`std::memory_order_relaxed`。
@@ -2485,18 +2486,18 @@ failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`�
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_strong(
-    volatile atomic&lt;BaseType&gt;* p,BaseType * old_value,BaseType new_value)
+    volatile atomic<BaseType>* p,BaseType * old_value,BaseType new_value)
     noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_strong(  
-    atomic&lt;BaseType&gt;* p,BaseType * old_value,BaseType new_value) noexcept;
+    atomic<BaseType>* p,BaseType * old_value,BaseType new_value) noexcept;
 ```
 
 **效果**
 ```c++
-return p-&gt;compare_exchange_strong(*old_value,new_value);
+return p->compare_exchange_strong(*old_value,new_value);
 ```
 
 ####std::atomic_compare_exchange_strong_explicit 非成员函数
@@ -2505,21 +2506,21 @@ return p-&gt;compare_exchange_strong(*old_value,new_value);
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_strong_explicit(
-    volatile atomic&lt;BaseType&gt;* p,BaseType * old_value,
+    volatile atomic<BaseType>* p,BaseType * old_value,
     BaseType new_value, memory_order success_order,
     memory_order failure_order) noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_strong_explicit(
-    atomic&lt;BaseType&gt;* p,BaseType * old_value,
+    atomic<BaseType>* p,BaseType * old_value,
     BaseType new_value, memory_order success_order,
     memory_order failure_order) noexcept;
 ```
 
-**效果**&lt;br&gt;
+**效果**<br>
 ```c++
-return p-&gt;compare_exchange_strong(
+return p->compare_exchange_strong(
     *old_value,new_value,success_order,failure_order) noexcept;
 ```
 
@@ -2544,16 +2545,16 @@ bool compare_exchange_weak(
     memory_order success_order,memory_order failure_order) noexcept;
 ```
 
-**先决条件**&lt;br&gt;
+**先决条件**<br>
 failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`内存序。
 
-**效果**&lt;br&gt;
+**效果**<br>
 将存储在*this中的expected值与new_value值进行逐位对比，当相等时间new_value存储在*this中；否则，更新expected的值。
 
-**返回**&lt;br&gt;
+**返回**<br>
 当new_value的值与*this中已经存在的值相同，就返回true；否则，返回false。
 
-**抛出**&lt;br&gt;
+**抛出**<br>
 无
 
 **NOTE**:在success_order==order和failure_order==order的情况下，三个参数的重载函数与四个参数的重载函数等价。除非，order是`std::memory_order_acq_rel`时，failure_order是`std::memory_order_acquire`，且当order是`std::memory_order_release`时，failure_order是`std::memory_order_relaxed`。
@@ -2566,18 +2567,18 @@ failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`�
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_weak(
-    volatile atomic&lt;BaseType&gt;* p,BaseType * old_value,BaseType new_value)
+    volatile atomic<BaseType>* p,BaseType * old_value,BaseType new_value)
     noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_weak(
-    atomic&lt;BaseType&gt;* p,BaseType * old_value,BaseType new_value) noexcept;
+    atomic<BaseType>* p,BaseType * old_value,BaseType new_value) noexcept;
 ```
 
 **效果**
 ```c++
-return p-&gt;compare_exchange_weak(*old_value,new_value);
+return p->compare_exchange_weak(*old_value,new_value);
 ```
 
 ####std::atomic_compare_exchange_weak_explicit 非成员函数
@@ -2586,21 +2587,21 @@ return p-&gt;compare_exchange_weak(*old_value,new_value);
 
 **声明**
 ```c++
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_weak_explicit(
-    volatile atomic&lt;BaseType&gt;* p,BaseType * old_value,
+    volatile atomic<BaseType>* p,BaseType * old_value,
     BaseType new_value, memory_order success_order,
     memory_order failure_order) noexcept;
-template&lt;typename BaseType&gt;
+template<typename BaseType>
 bool atomic_compare_exchange_weak_explicit(
-    atomic&lt;BaseType&gt;* p,BaseType * old_value,
+    atomic<BaseType>* p,BaseType * old_value,
     BaseType new_value, memory_order success_order,
     memory_order failure_order) noexcept;
 ```
 
 **效果**
 ```c++
-return p-&gt;compare_exchange_weak(
+return p->compare_exchange_weak(
    *old_value,new_value,success_order,failure_order);
 ```
 
@@ -2610,46 +2611,46 @@ return p-&gt;compare_exchange_weak(
 
 特化模板提供如下整型：
 ```c++
-std::atomic&lt;bool&gt;
-std::atomic&lt;char&gt;
-std::atomic&lt;signed char&gt;
-std::atomic&lt;unsigned char&gt;
-std::atomic&lt;short&gt;
-std::atomic&lt;unsigned short&gt;
-std::atomic&lt;int&gt;
-std::atomic&lt;unsigned&gt;
-std::atomic&lt;long&gt;
-std::atomic&lt;unsigned long&gt;
-std::atomic&lt;long long&gt;
-std::atomic&lt;unsigned long long&gt;
-std::atomic&lt;wchar_t&gt;
-std::atomic&lt;char16_t&gt;
-std::atomic&lt;char32_t&gt;
+std::atomic<bool>
+std::atomic<char>
+std::atomic<signed char>
+std::atomic<unsigned char>
+std::atomic<short>
+std::atomic<unsigned short>
+std::atomic<int>
+std::atomic<unsigned>
+std::atomic<long>
+std::atomic<unsigned long>
+std::atomic<long long>
+std::atomic<unsigned long long>
+std::atomic<wchar_t>
+std::atomic<char16_t>
+std::atomic<char32_t&gt;
 ```
 
-`std::atomic&lt;T*&gt;`原子指针，可以使用以上的类型作为T。
+`std::atomic<T*>`原子指针，可以使用以上的类型作为T。
 
 ###D.3.10 特化std::atomic&lt;integral-type&gt;
 
 `std::atomic&lt;integral-type&gt;`是为每一个基础整型提供的`std::atomic`类模板，其中提供了一套完整的整型操作。
 
-下面的特化模板也适用于`std::atomic&lt;&gt;`类模板：
+下面的特化模板也适用于`std::atomic<>`类模板：
 
 ```c++
-std::atomic&lt;char&gt;
-std::atomic&lt;signed char&gt;
-std::atomic&lt;unsigned char&gt;
-std::atomic&lt;short&gt;
-std::atomic&lt;unsigned short&gt;
-std::atomic&lt;int&gt;
-std::atomic&lt;unsigned&gt;
-std::atomic&lt;long&gt;
-std::atomic&lt;unsigned long&gt;
-std::atomic&lt;long long&gt;
-std::atomic&lt;unsigned long long&gt;
-std::atomic&lt;wchar_t&gt;
-std::atomic&lt;char16_t&gt;
-std::atomic&lt;char32_t&gt;
+std::atomic<char>
+std::atomic<signed char>
+std::atomic<unsigned char>
+std::atomic<short>
+std::atomic<unsigned short>
+std::atomic<int>
+std::atomic<unsigned>
+std::atomic<long>
+std::atomic<unsigned long>
+std::atomic<long long>
+std::atomic<unsigned long long>
+std::atomic<wchar_t>
+std::atomic<char16_t>
+std::atomic<char32_t>
 ```
 
 因为原子操作只能执行其中一个，所以特化模板的实例不可`CopyConstructible`(拷贝构造)和`CopyAssignable`(拷贝赋值)。
