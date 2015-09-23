@@ -2858,77 +2858,781 @@ integral-type atomic_fetch_xor_explicit(
 
 ####std::atomic&lt;integral-type&gt;::fetch_add 成员函数
 
+原子的加载一个值，然后使用与提供i相加的结果，替换掉原值。
+
+**声明**
+```c++
+integral-type fetch_add(
+    integral-type i,memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+integral-type fetch_add(
+    integral-type i,memory_order order = memory_order_seq_cst) noexcept;
+```
+
+**效果**<br>
+原子的查询*this中的值，将old-value+i的和存回*this。
+
+**返回**<br>
+返回*this之前存储的值。
+
+**抛出**<br>
+无
+
+**NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
+
 ####std::atomic_fetch_add 非成员函数
 
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值相加，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_add(
+    volatile atomic<integral-type>* p, integral-type i) noexcept;
+integral-type atomic_fetch_add(
+    atomic<integral-type>* p, integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_add(i);
+```
+
 ####std::atomic_fetch_add_explicit 非成员函数
+
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值相加，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_add_explicit(
+    volatile atomic<integral-type>* p, integral-type i,
+    memory_order order) noexcept;
+integral-type atomic_fetch_add_explicit(
+    atomic<integral-type>* p, integral-type i, memory_order order)
+    noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_add(i,order);
+```
 
 ####std::atomic&lt;integral-type&gt;::fetch_sub 成员函数
 
+原子的加载一个值，然后使用与提供i相减的结果，替换掉原值。
+
+**声明**
+```c++
+integral-type fetch_sub(
+    integral-type i,memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+integral-type fetch_sub(
+    integral-type i,memory_order order = memory_order_seq_cst) noexcept;
+```
+
+**效果**<br>
+原子的查询*this中的值，将old-value-i的和存回*this。
+
+**返回**<br>
+返回*this之前存储的值。
+
+**抛出**<br>
+无
+
+**NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
+
 ####std::atomic_fetch_sub 非成员函数
 
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值相减，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_sub(
+    volatile atomic<integral-type>* p, integral-type i) noexcept;
+integral-type atomic_fetch_sub(
+    atomic<integral-type>* p, integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_sub(i);
+```
+
 ####std::atomic_fetch_sub_explicit 非成员函数
+
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值相减，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_sub_explicit(
+    volatile atomic<integral-type>* p, integral-type i,
+    memory_order order) noexcept;
+integral-type atomic_fetch_sub_explicit(
+    atomic<integral-type>* p, integral-type i, memory_order order)
+    noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_sub(i,order);
+```
 
 ####std::atomic&lt;integral-type&gt;::fetch_and 成员函数
 
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位与操作后，替换原值。
+
+**声明**
+```c++
+integral-type fetch_and(
+    integral-type i,memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+integral-type fetch_and(
+    integral-type i,memory_order order = memory_order_seq_cst) noexcept;
+```
+
+**效果**<br>
+原子的查询*this中的值，将old-value&i的和存回*this。
+
+**返回**<br>
+返回*this之前存储的值。
+
+**抛出**<br>
+无
+
+**NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
+
 ####std::atomic_fetch_and 非成员函数
+
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位与操作后，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_and(
+    volatile atomic<integral-type>* p, integral-type i) noexcept;
+integral-type atomic_fetch_and(
+    atomic<integral-type>* p, integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_and(i);
+```
 
 ####std::atomic_fetch_and_explicit 非成员函数
 
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位与操作后，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_and_explicit(
+    volatile atomic<integral-type>* p, integral-type i,
+    memory_order order) noexcept;
+integral-type atomic_fetch_and_explicit(
+    atomic<integral-type>* p, integral-type i, memory_order order)
+    noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_and(i,order);
+```
+
 ####std::atomic&lt;integral-type&gt;::fetch_or 成员函数
+
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位或操作后，替换原值。
+
+**声明**
+```c++
+integral-type fetch_or(
+    integral-type i,memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+integral-type fetch_or(
+    integral-type i,memory_order order = memory_order_seq_cst) noexcept;
+```
+
+**效果**<br>
+原子的查询*this中的值，将old-value|i的和存回*this。
+
+**返回**<br>
+返回*this之前存储的值。
+
+**抛出**<br>
+无
+
+**NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
 ####std::atomic_fetch_or 非成员函数
 
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位或操作后，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_or(
+    volatile atomic<integral-type>* p, integral-type i) noexcept;
+integral-type atomic_fetch_or(
+    atomic<integral-type>* p, integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_or(i);
+```
+
 ####std::atomic_fetch_or_explicit 非成员函数
+
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位或操作后，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_or_explicit(
+    volatile atomic<integral-type>* p, integral-type i,
+    memory_order order) noexcept;
+integral-type atomic_fetch_or_explicit(
+    atomic<integral-type>* p, integral-type i, memory_order order)
+    noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_or(i,order);
+```
 
 ####std::atomic&lt;integral-type&gt;::fetch_xor 成员函数
 
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位亦或操作后，替换原值。
+
+**声明**
+```c++
+integral-type fetch_xor(
+    integral-type i,memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+integral-type fetch_xor(
+    integral-type i,memory_order order = memory_order_seq_cst) noexcept;
+```
+
+**效果**<br>
+原子的查询*this中的值，将old-value^i的和存回*this。
+
+**返回**<br>
+返回*this之前存储的值。
+
+**抛出**<br>
+无
+
+**NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
+
 ####std::atomic_fetch_xor 非成员函数
+
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位异或操作后，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_xor_explicit(
+    volatile atomic<integral-type>* p, integral-type i,
+    memory_order order) noexcept;
+integral-type atomic_fetch_xor_explicit(
+    atomic<integral-type>* p, integral-type i, memory_order order)
+    noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_xor(i,order);
+```
 
 ####std::atomic_fetch_xor_explicit 非成员函数
 
+从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位异或操作后，替换原值。
+
+**声明**
+```c++
+integral-type atomic_fetch_xor_explicit(
+    volatile atomic<integral-type>* p, integral-type i,
+    memory_order order) noexcept;
+integral-type atomic_fetch_xor_explicit(
+    atomic<integral-type>* p, integral-type i, memory_order order)
+    noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_xor(i,order);
+```
+
 ####std::atomic&lt;integral-type&gt;::operator++ 前置递增操作
+
+原子的将*this中存储的值加1，并返回新值。
+
+**声明**
+```c++
+integral-type operator++() volatile noexcept;
+integral-type operator++() noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(1) + 1;
+```
 
 ####std::atomic&lt;integral-type&gt;::operator++ 后置递增操作
 
+原子的将*this中存储的值加1，并返回旧值。
+
+**声明**
+```c++
+integral-type operator++() volatile noexcept;
+integral-type operator++() noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(1);
+```
+
 ####std::atomic&lt;integral-type&gt;::operator-- 前置递减操作
+
+原子的将*this中存储的值减1，并返回新值。
+
+**声明**
+```c++
+integral-type operator--() volatile noexcept;
+integral-type operator--() noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(1) - 1;
+```
 
 ####std::atomic&lt;integral-type&gt;::operator-- 后置递减操作
 
+原子的将*this中存储的值减1，并返回旧值。
+
+**声明**
+```c++
+integral-type operator--() volatile noexcept;
+integral-type operator--() noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(1);
+```
+
 ####std::atomic&lt;integral-type&gt;::operator+= 复合赋值操作
+
+原子的将给定值与*this中的值相加，并返回新值。
+
+**声明**
+```c++
+integral-type operator+=(integral-type i) volatile noexcept;
+integral-type operator+=(integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(i) + i;
+```
 
 ####std::atomic&lt;integral-type&gt;::operator-= 复合赋值操作
 
+原子的将给定值与*this中的值相减，并返回新值。
+
+**声明**
+```c++
+integral-type operator-=(integral-type i) volatile noexcept;
+integral-type operator-=(integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_sub(i,std::memory_order_seq_cst) – i;
+```
+
 ####std::atomic&lt;integral-type&gt;::operator&= 复合赋值操作
+
+原子的将给定值与*this中的值相与，并返回新值。
+
+**声明**
+```c++
+integral-type operator&=(integral-type i) volatile noexcept;
+integral-type operator&=(integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_and(i) & i;
+```
 
 ####std::atomic&lt;integral-type&gt;::operator|= 复合赋值操作
 
+原子的将给定值与*this中的值相或，并返回新值。
+
+**声明**
+```c++
+integral-type operator|=(integral-type i) volatile noexcept;
+integral-type operator|=(integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_or(i,std::memory_order_seq_cst) | i;
+```
+
 ####std::atomic&lt;integral-type&gt;::operator^= 复合赋值操作
+
+原子的将给定值与*this中的值相亦或，并返回新值。
+
+**声明**
+```c++
+integral-type operator^=(integral-type i) volatile noexcept;
+integral-type operator^=(integral-type i) noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_xor(i,std::memory_order_seq_cst) ^ i;
+```
 
 ####std::atomic&lt;T*&gt; 局部特化
 
+`std::atomic<T*>`为`std::atomic`特化了指针类型原子变量，并提供了一系列相关操作。
+
+`std::atomic<T*>`是CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)的，因为操作是原子的，在同一时间只能执行一个操作。
+
+**类型定义**
+```c++
+template<typename T>
+struct atomic<T*>
+{
+  atomic() noexcept = default;
+  constexpr atomic(T*) noexcept;
+  bool operator=(T*) volatile;
+  bool operator=(T*);
+
+  atomic(const atomic&) = delete;
+  atomic& operator=(const atomic&) = delete;
+  atomic& operator=(const atomic&) volatile = delete;
+
+  bool is_lock_free() const volatile noexcept;
+  bool is_lock_free() const noexcept;
+  void store(T*,memory_order = memory_order_seq_cst) volatile noexcept;
+  void store(T*,memory_order = memory_order_seq_cst) noexcept;
+  T* load(memory_order = memory_order_seq_cst) const volatile noexcept;
+  T* load(memory_order = memory_order_seq_cst) const noexcept;
+  T* exchange(T*,memory_order = memory_order_seq_cst) volatile noexcept;
+  T* exchange(T*,memory_order = memory_order_seq_cst) noexcept;
+
+  bool compare_exchange_strong(
+      T* & old_value, T* new_value,
+      memory_order order = memory_order_seq_cst) volatile noexcept;
+  bool compare_exchange_strong(
+      T* & old_value, T* new_value,
+      memory_order order = memory_order_seq_cst) noexcept;
+  bool compare_exchange_strong(
+      T* & old_value, T* new_value,
+      memory_order success_order,memory_order failure_order)  
+      volatile noexcept;
+  bool compare_exchange_strong(
+      T* & old_value, T* new_value,
+      memory_order success_order,memory_order failure_order) noexcept;
+  bool compare_exchange_weak(
+      T* & old_value, T* new_value,
+      memory_order order = memory_order_seq_cst) volatile noexcept;
+  bool compare_exchange_weak(
+      T* & old_value, T* new_value,
+      memory_order order = memory_order_seq_cst) noexcept;
+  bool compare_exchange_weak(
+      T* & old_value, T* new_value,
+      memory_order success_order,memory_order failure_order)
+      volatile noexcept;
+  bool compare_exchange_weak(
+      T* & old_value, T* new_value,
+      memory_order success_order,memory_order failure_order) noexcept;
+
+  operator T*() const volatile noexcept;
+  operator T*() const noexcept;
+
+  T* fetch_add(
+      ptrdiff_t,memory_order = memory_order_seq_cst) volatile noexcept;
+  T* fetch_add(
+      ptrdiff_t,memory_order = memory_order_seq_cst) noexcept;
+  T* fetch_sub(
+      ptrdiff_t,memory_order = memory_order_seq_cst) volatile noexcept;
+  T* fetch_sub(
+      ptrdiff_t,memory_order = memory_order_seq_cst) noexcept;
+
+  T* operator++() volatile noexcept;
+  T* operator++() noexcept;
+  T* operator++(int) volatile noexcept;
+  T* operator++(int) noexcept;
+  T* operator--() volatile noexcept;
+  T* operator--() noexcept;
+  T* operator--(int) volatile noexcept;
+  T* operator--(int) noexcept;
+
+  T* operator+=(ptrdiff_t) volatile noexcept;
+  T* operator+=(ptrdiff_t) noexcept;
+  T* operator-=(ptrdiff_t) volatile noexcept;
+  T* operator-=(ptrdiff_t) noexcept;
+};
+
+bool atomic_is_lock_free(volatile const atomic<T*>*) noexcept;
+bool atomic_is_lock_free(const atomic<T*>*) noexcept;
+void atomic_init(volatile atomic<T*>*, T*) noexcept;
+void atomic_init(atomic<T*>*, T*) noexcept;
+T* atomic_exchange(volatile atomic<T*>*, T*) noexcept;
+T* atomic_exchange(atomic<T*>*, T*) noexcept;
+T* atomic_exchange_explicit(volatile atomic<T*>*, T*, memory_order)
+  noexcept;
+T* atomic_exchange_explicit(atomic<T*>*, T*, memory_order) noexcept;
+void atomic_store(volatile atomic<T*>*, T*) noexcept;
+void atomic_store(atomic<T*>*, T*) noexcept;
+void atomic_store_explicit(volatile atomic<T*>*, T*, memory_order)
+  noexcept;
+void atomic_store_explicit(atomic<T*>*, T*, memory_order) noexcept;
+T* atomic_load(volatile const atomic<T*>*) noexcept;
+T* atomic_load(const atomic<T*>*) noexcept;
+T* atomic_load_explicit(volatile const atomic<T*>*, memory_order) noexcept;
+T* atomic_load_explicit(const atomic<T*>*, memory_order) noexcept;
+bool atomic_compare_exchange_strong(
+  volatile atomic<T*>*,T* * old_value,T* new_value) noexcept;
+bool atomic_compare_exchange_strong(
+  volatile atomic<T*>*,T* * old_value,T* new_value) noexcept;
+bool atomic_compare_exchange_strong_explicit(
+  atomic<T*>*,T* * old_value,T* new_value,
+  memory_order success_order,memory_order failure_order) noexcept;
+bool atomic_compare_exchange_strong_explicit(
+  atomic<T*>*,T* * old_value,T* new_value,
+  memory_order success_order,memory_order failure_order) noexcept;
+bool atomic_compare_exchange_weak(
+  volatile atomic<T*>*,T* * old_value,T* new_value) noexcept;
+bool atomic_compare_exchange_weak(
+  atomic<T*>*,T* * old_value,T* new_value) noexcept;
+bool atomic_compare_exchange_weak_explicit(
+  volatile atomic<T*>*,T* * old_value, T* new_value,
+  memory_order success_order,memory_order failure_order) noexcept;
+bool atomic_compare_exchange_weak_explicit(
+  atomic<T*>*,T* * old_value, T* new_value,
+  memory_order success_order,memory_order failure_order) noexcept;
+
+T* atomic_fetch_add(volatile atomic<T*>*, ptrdiff_t) noexcept;
+T* atomic_fetch_add(atomic<T*>*, ptrdiff_t) noexcept;
+T* atomic_fetch_add_explicit(
+  volatile atomic<T*>*, ptrdiff_t, memory_order) noexcept;
+T* atomic_fetch_add_explicit(
+  atomic<T*>*, ptrdiff_t, memory_order) noexcept;
+T* atomic_fetch_sub(volatile atomic<T*>*, ptrdiff_t) noexcept;
+T* atomic_fetch_sub(atomic<T*>*, ptrdiff_t) noexcept;
+T* atomic_fetch_sub_explicit(
+  volatile atomic<T*>*, ptrdiff_t, memory_order) noexcept;
+T* atomic_fetch_sub_explicit(
+  atomic<T*>*, ptrdiff_t, memory_order) noexcept;
+```
+
+在主模板中也提供了一些相同的操作(可见11.3.8节)。
+
 ####std::atomic&lt;T*&gt;::fetch_add 成员函数
+
+原子的加载一个值，然后使用与提供i相加(使用标准指针运算规则)的结果，替换掉原值。
+
+**声明**
+```c++
+T* fetch_add(
+    ptrdiff_t i,memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+T* fetch_add(
+    ptrdiff_t i,memory_order order = memory_order_seq_cst) noexcept;
+```
+
+**效果**<br>
+原子的查询*this中的值，将old-value+i的和存回*this。
+
+**返回**<br>
+返回*this之前存储的值。
+
+**抛出**<br>
+无
+
+**NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
 ####std::atomic_fetch_add 非成员函数
 
+从`atomic<T*>`实例中原子的读取一个值，并且将其与给定i值进行位相加操作(使用标准指针运算规则)后，替换原值。
+
+**声明**
+```c++
+T* atomic_fetch_add(volatile atomic<T*>* p, ptrdiff_t i) noexcept;
+T* atomic_fetch_add(atomic<T*>* p, ptrdiff_t i) noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_add(i);
+```
+
 ####std::atomic_fetch_add_explicit 非成员函数
+
+从`atomic<T*>`实例中原子的读取一个值，并且将其与给定i值进行位相加操作(使用标准指针运算规则)后，替换原值。
+
+**声明**
+```c++
+T* atomic_fetch_add_explicit(
+     volatile atomic<T*>* p, ptrdiff_t i,memory_order order) noexcept;
+T* atomic_fetch_add_explicit(
+     atomic<T*>* p, ptrdiff_t i, memory_order order) noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_add(i,order);
+```
 
 ####std::atomic&lt;T*&gt;::fetch_sub 成员函数
 
+原子的加载一个值，然后使用与提供i相减(使用标准指针运算规则)的结果，替换掉原值。
+
+**声明**
+```c++
+T* fetch_sub(
+    ptrdiff_t i,memory_order order = memory_order_seq_cst)
+    volatile noexcept;
+T* fetch_sub(
+    ptrdiff_t i,memory_order order = memory_order_seq_cst) noexcept;
+```
+
+**效果**<br>
+原子的查询*this中的值，将old-value-i的和存回*this。
+
+**返回**<br>
+返回*this之前存储的值。
+
+**抛出**<br>
+无
+
+**NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
+
 ####std::atomic_fetch_sub 非成员函数
+
+从`atomic<T*>`实例中原子的读取一个值，并且将其与给定i值进行位相减操作(使用标准指针运算规则)后，替换原值。
+
+**声明**
+```c++
+T* atomic_fetch_sub(volatile atomic<T*>* p, ptrdiff_t i) noexcept;
+T* atomic_fetch_sub(atomic<T*>* p, ptrdiff_t i) noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_sub(i);
+```
 
 ####std::atomic_fetch_sub_explicit 非成员函数
 
+从`atomic<T*>`实例中原子的读取一个值，并且将其与给定i值进行位相减操作(使用标准指针运算规则)后，替换原值。
+
+**声明**
+```c++
+T* atomic_fetch_sub_explicit(
+     volatile atomic<T*>* p, ptrdiff_t i,memory_order order) noexcept;
+T* atomic_fetch_sub_explicit(
+     atomic<T*>* p, ptrdiff_t i, memory_order order) noexcept;
+```
+
+**效果**
+```c++
+return p->fetch_sub(i,order);
+```
+
 ####std::atomic&lt;T*&gt;::operator++ 前置递增操作
+
+原子的将*this中存储的值加1(使用标准指针运算规则)，并返回新值。
+
+**声明**
+```c++
+T* operator++() volatile noexcept;
+T* operator++() noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(1) + 1;
+```
 
 ####std::atomic&lt;T*&gt;::operator++ 后置递增操作
 
+原子的将*this中存储的值加1(使用标准指针运算规则)，并返回旧值。
+
+**声明**
+```c++
+T* operator++() volatile noexcept;
+T* operator++() noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(1);
+```
+
 ####std::atomic&lt;T*&gt;::operator-- 前置递减操作
+
+原子的将*this中存储的值减1(使用标准指针运算规则)，并返回新值。
+
+**声明**
+```c++
+T* operator--() volatile noexcept;
+T* operator--() noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_sub(1) - 1;
+```
 
 ####std::atomic&lt;T*&gt;::operator-- 后置递减操作
 
+原子的将*this中存储的值减1(使用标准指针运算规则)，并返回旧值。
+
+**声明**
+```c++
+T* operator--() volatile noexcept;
+T* operator--() noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_sub(1);
+```
+
 ####std::atomic&lt;T*&gt;::operator+= 复合赋值操作
 
+原子的将*this中存储的值与给定值相加(使用标准指针运算规则)，并返回新值。
+
+**声明**
+```c++
+T* operator+=(ptrdiff_t i) volatile noexcept;
+T* operator+=(ptrdiff_t i) noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(i) + i;
+```
+
 ####std::atomic&lt;T*&gt;::operator-= 复合赋值操作
+
+
+原子的将*this中存储的值与给定值相减(使用标准指针运算规则)，并返回新值。
+
+**声明**
+```c++
+T* operator+=(ptrdiff_t i) volatile noexcept;
+T* operator+=(ptrdiff_t i) noexcept;
+```
+
+**效果**
+```c++
+return this->fetch_add(i) - i;
+```
 
 ##D.4 &lt;future&gt;头文件
 
