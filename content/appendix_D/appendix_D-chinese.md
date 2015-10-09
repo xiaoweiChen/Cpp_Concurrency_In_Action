@@ -3636,7 +3636,245 @@ return this->fetch_add(i) - i;
 
 ##D.4 &lt;future&gt;头文件
 
+`<future>`头文件提供处理异步结果(在其他线程上执行额结果)的工具。
+
+**头文件内容**
+```c++
+namespace std
+{
+  enum class future_status {
+      ready, timeout, deferred };
+
+  enum class future_errc
+  {
+    broken_promise,
+    future_already_retrieved,
+    promise_already_satisfied,
+    no_state
+  };
+
+  class future_error;
+
+  const error_category& future_category();
+
+  error_code make_error_code(future_errc e);
+  error_condition make_error_condition(future_errc e);
+
+  template<typename ResultType>
+  class future;
+
+  template<typename ResultType>
+  class shared_future;
+
+  template<typename ResultType>
+  class promise;
+
+  template<typename FunctionSignature>
+  class packaged_task; // no definition provided
+
+  template<typename ResultType,typename ... Args>
+  class packaged_task<ResultType (Args...)>;
+
+  enum class launch {
+    async, deferred
+  };
+
+  template<typename FunctionType,typename ... Args>
+  future<result_of<FunctionType(Args...)>::type>
+  async(FunctionType&& func,Args&& ... args);
+
+  template<typename FunctionType,typename ... Args>
+  future<result_of<FunctionType(Args...)>::type>
+  async(std::launch policy,FunctionType&& func,Args&& ... args);
+}
+```
+
 ###D.4.1 std::future类型模板
+
+`std::future`类型模板是为了等待其他线程上的异步结果。其和`std::promise`，`std::packaged_task`类型模板，还有`std::async`函数模板，都是为异步结果准备的工具。只有`std::future`实例可以在任意时间引用异步结果。
+
+`std::future`实例是MoveConstructible(移动构造)和MoveAssignable(移动赋值)，不过不能CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
+
+**类型声明**
+```c++
+template<typename ResultType>
+class future
+{
+public:
+  future() noexcept;
+  future(future&&) noexcept;
+  future& operator=(future&&) noexcept;
+  ~future();
+  
+  future(future const&) = delete;
+  future& operator=(future const&) = delete;
+
+  shared_future<ResultType> share();
+
+  bool valid() const noexcept;
+  
+  see description get();
+ 
+  void wait();
+
+  template<typename Rep,typename Period>
+  future_status wait_for(
+      std::chrono::duration<Rep,Period> const& relative_time);
+
+  template<typename Clock,typename Duration>
+  future_status wait_until(
+      std::chrono::time_point<Clock,Duration> const& absolute_time);
+};
+```
+
+####std::future 默认构造函数
+
+不使用异步结果构造一个`std::future`对象。
+
+**声明**
+```c++
+future() noexcept;
+```
+
+**效果**<br>
+构造一个新的`std::future`实例。
+
+**后置条件**<br>
+valid()返回false。
+
+**抛出**<br>
+无
+
+####std::future 移动构造函数
+
+使用另外一个对象，构造一个`std::future`对象，将相关异步结果的所有权转移给新`std::future`对象。
+
+**声明**
+```c++
+future(future&& other) noexcept;
+```
+
+**效果**<br>
+使用已有对象构造一个新的`std::future`对象。
+
+**后置条件**<br>
+已有对象中的异步结果，将于新的对象相关联。然后，解除已有对象和异步之间的关系。`this->valid()`返回的结果与之前已有对象`other.valid()`返回的结果相同。在调用该构造函数后，`other.valid()`将返回false。
+
+**抛出**<br>
+无
+
+####std::future 移动赋值操作
+
+将已有`std::future`对象中异步结果的所有权，转移到另一对象当中。
+
+**声明**
+```c++
+future(future&& other) noexcept;
+```
+
+**效果**<br>
+在两个`std::future`实例中转移异步结果的状态。
+
+**后置条件**<br>
+当执行完赋值操作后，`*this.other`就与异步结果没有关系了。异步状态(如果有的话)在释放后与`*this`相关，并且在最后一次引用后，销毁该状态。`this->valid()`返回的结果与之前已有对象`other.valid()`返回的结果相同。在调用该构造函数后，`other.valid()`将返回false。
+
+**抛出**<br>
+无
+
+####std::future 析构函数
+
+销毁一个`std::future`对象。
+
+**声明**
+```c++
+~future();
+```
+
+**效果**<br>
+销毁`*this`。如果这是最后一次引用与`*this`相关的异步结果，之后就会将该异步结果销毁。
+
+**抛出**<br>
+无
+
+####std::future::share 成员函数
+
+构造一个新`std::shared_future`实例，并且将`*this`异步结果的所有权转移到新的`std::shared_future`实例中。
+
+**声明**
+```c++
+shared_future<ResultType> share();
+```
+
+**效果**<br>
+如同 shared_future<ResultType>(std::move(*this))。
+
+**后置条件**<br>
+当调用share()成员函数，与`*this`相关的异步结果将与新构造的`std::shared_future`实例相关。`this->valid()`将返回false。
+
+**抛出**<br>
+无
+
+####std::future::valid 成员函数
+
+检查`std::future`实例是否与一个异步结果相关联。
+
+**声明**
+```c++
+bool valid() const noexcept;
+```
+
+**返回**<br>
+当与异步结果相关时，返回true，否则返回false。
+
+**抛出**<br>
+无
+
+####std::future::wait 成员函数
+
+如果与`*this`相关的状态包含延迟函数，将调用该函数。否则，会等待`std::future`实例中的异步结果准备就绪。
+
+**声明**
+```c++
+void wait();
+```
+
+**先决条件**<br>
+`this->valid()`将会返回true。
+
+**效果**<br>
+当相关状态包含延迟函数，调用延迟函数，并保存返回的结果，或将抛出的异常保存成为异步结果。否则，会阻塞到`*this`准备就绪。
+
+**抛出**<br>
+无
+
+####std::future::wait_for 成员函数
+
+等待`std::future`实例上相关异步结果准备就绪，或超过某个给定的时间。
+
+**声明**
+```c++
+template<typename Rep,typename Period>
+future_status wait_for(
+    std::chrono::duration<Rep,Period> const& relative_time);
+```
+
+**先决条件**<br>
+`this->valid()`将会返回true。
+
+**效果**<br>
+如果与`*this`相关的异步结果包含一个`std::async`调用的延迟函数(还未执行)，那么就不阻塞立即返回。否则将阻塞实例，直到与`*this`相关异步结果准备就绪，或超过给定的relative_time时长。
+
+**返回**<br>
+当与`*this`相关的异步结果包含一个`std::async`调用的延迟函数(还未执行)，返回`std::future_status::deferred`；当与`*this`相关的异步结果准备就绪，返回`std::future_status::ready`；当给定时间超过relative_time时，返回`std::future_status::timeout`。
+
+**NOTE**:线程阻塞的时间可能超多给定的时长。时长尽可能由一个稳定的时钟决定。
+
+**抛出**<br>
+无
+
+####std::future::wait_until 成员函数
+
+####std::future::get 成员函数
 
 ###D.4.2 std::shared_future类型模板
 
