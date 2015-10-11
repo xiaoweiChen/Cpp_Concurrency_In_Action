@@ -3929,6 +3929,239 @@ this->valid()==false
 
 ###D.4.2 std::shared_future类型模板
 
+`std::shared_future`类型模板是为了等待其他线程上的异步结果。其和`std::promise`，`std::packaged_task`类型模板，还有`std::async`函数模板，都是为异步结果准备的工具。多个`std::shared_future`实例可以引用同一个异步结果。
+
+`std::shared_future`实例是CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。你也可以同ResultType的`std::future`类型对象，移动构造一个`std::shared_future`类型对象。
+
+访问给定`std::shared_future`实例是非同步的。因此，当有多个线程访问同一个`std::shared_future`实例，且无任何外围同步操作时，这样的访问是不安全的。不过访问关联状态时是同步的，所以多个线程访问多个独立的`std::shared_future`实例，且没有外围同步操作的时候，是安全的。
+
+**类型定义**
+```c++
+template<typename ResultType>
+class shared_future
+{
+public:
+  shared_future() noexcept;
+  shared_future(future<ResultType>&&) noexcept;
+  
+  shared_future(shared_future&&) noexcept;
+  shared_future(shared_future const&);
+  shared_future& operator=(shared_future const&);
+  shared_future& operator=(shared_future&&) noexcept;
+  ~shared_future();
+
+  bool valid() const noexcept;
+
+  see description get() const;
+
+  void wait() const;
+
+  template<typename Rep,typename Period>
+  future_status wait_for(
+     std::chrono::duration<Rep,Period> const& relative_time) const;
+
+  template<typename Clock,typename Duration>
+  future_status wait_until(
+     std::chrono::time_point<Clock,Duration> const& absolute_time)
+    const;
+};
+```
+
+####std::shared_future 默认构造函数
+
+不使用关联异步结果，构造一个`std::shared_future`对象。
+
+**声明**
+```c++
+shared_future() noexcept;
+```
+
+**效果**<br>
+构造一个新的`std::shared_future`实例。
+
+**后置条件**<br>
+当新实例构建完成后，调用valid()将返回false。
+
+**抛出**<br>
+无
+
+####std::shared_future 移动构造函数
+
+以一个已创建`std::shared_future`对象为准，构造`std::shared_future`实例，并将使用`std::shared_future`对象关联的异步结果的所有权转移到新的实例中。
+
+**声明**
+```c++
+shared_future(shared_future&& other) noexcept;
+```
+
+**效果**<br>
+构造一个新`std::shared_future`实例。
+
+**后置条件**<br>
+将other对象中关联异步结果的所有权转移到新对象中，这样other对象就没有与之相关联的异步结果了。
+
+**抛出**<br>
+无
+
+####std::shared_future 移动对应std::future对象的构造函数
+
+以一个已创建`std::future`对象为准，构造`std::shared_future`实例，并将使用`std::shared_future`对象关联的异步结果的所有权转移到新的实例中。
+
+**声明**
+```c++
+shared_future(std::future<ResultType>&& other) noexcept;
+```
+
+**效果**<br>
+构造一个`std::shared_future`对象。
+
+**后置条件**<br>
+将other对象中关联异步结果的所有权转移到新对象中，这样other对象就没有与之相关联的异步结果了。
+
+**抛出**<br>
+无
+
+####std::shared_future 拷贝构造函数
+
+以一个已创建`std::future`对象为准，构造`std::shared_future`实例，并将使用`std::shared_future`对象关联的异步结果(如果有的话)拷贝到新创建对象当中，两个对象共享该异步结果。
+
+**声明**
+```c++
+shared_future(shared_future const& other);
+```
+
+**效果**<br>
+构造一个`std::shared_future`对象。
+
+**后置条件**<br>
+将other对象中关联异步结果拷贝到新对象中，与other共享关联的异步结果。
+
+**抛出**<br>
+无
+
+####std::shared_future 析构函数
+
+销毁一个`std::shared_future`对象。
+
+**声明**
+```c++
+~shared_future();
+```
+
+**效果**<br>
+将`*this`销毁。如果`*this`关联的异步结果与`std::promise`或`std::packaged_task`不再有关联，那么该函数将会切断`std::shared_future`实例与异步结果的联系，并销毁异步结果。
+
+**抛出**<br>
+无
+
+####std::shared_future::valid 成员函数
+
+检查`std::shared_future`实例是否与一个异步结果相关联。
+
+**声明**
+```c++
+bool valid() const noexcept;
+```
+
+**返回**<br>
+当与异步结果相关时，返回true，否则返回false。
+
+**抛出**<br>
+无
+
+####std::shared_future::wait 成员函数
+
+当*this关联状态包含一个延期函数，那么调用这个函数。否则，等待直到与`std::shared_future`实例相关的异步结果就绪为止。
+
+**声明**
+```c++
+void wait() const;
+```
+
+**先决条件**
+this->valid()将返回true。
+
+**效果**<br>
+当有多个线程调用`std::shared_future`实例上的get()和wait()时，实例会序列化的共享同一关联状态。如果关联状态包括一个延期函数，那么第一个调用get()或wait()时就会调用延期函数，并且存储返回值，或将抛出异常以异步结果的方式保存下来。
+
+**抛出**<br>
+无
+
+####std::shared_future::wait_for 成员函数
+
+等待`std::shared_future`实例上相关异步结果准备就绪，或超过某个给定的时间。
+
+**声明**
+```c++
+template<typename Rep,typename Period>
+future_status wait_for(
+    std::chrono::duration<Rep,Period> const& relative_time) const;
+```
+
+**先决条件**<br>
+`this->valid()`将会返回true。
+
+**效果**<br>
+如果与`*this`相关的异步结果包含一个`std::async`调用的延期函数(还未执行)，那么就不阻塞立即返回。否则将阻塞实例，直到与`*this`相关异步结果准备就绪，或超过给定的relative_time时长。
+
+**返回**<br>
+当与`*this`相关的异步结果包含一个`std::async`调用的延迟函数(还未执行)，返回`std::future_status::deferred`；当与`*this`相关的异步结果准备就绪，返回`std::future_status::ready`；当给定时间超过relative_time时，返回`std::future_status::timeout`。
+
+**NOTE**:线程阻塞的时间可能超多给定的时长。时长尽可能由一个稳定的时钟决定。
+
+**抛出**<br>
+无
+
+####std::shared_future::wait_until 成员函数
+
+等待`std::future`实例上相关异步结果准备就绪，或超过某个给定的时间。
+
+**声明**
+```c++
+template<typename Clock,typename Duration>
+future_status wait_until(
+  std::chrono::time_point<Clock,Duration> const& absolute_time) const;
+```
+
+**先决条件**<br>
+this->valid()将返回true。
+
+**效果**<br>
+如果与`*this`相关的异步结果包含一个`std::async`调用的延迟函数(还未执行)，那么就不阻塞立即返回。否则将阻塞实例，直到与`*this`相关异步结果准备就绪，或`Clock::now()`返回的时间大于等于absolute_time。
+
+**返回**<br>
+当与`*this`相关的异步结果包含一个`std::async`调用的延迟函数(还未执行)，返回`std::future_status::deferred`；当与`*this`相关的异步结果准备就绪，返回`std::future_status::ready`；`Clock::now()`返回的时间大于等于absolute_time，返回`std::future_status::timeout`。
+
+**NOTE**:这里不保证调用线程会被阻塞多久，只有函数返回`std::future_status::timeout`，然后`Clock::now()`返回的时间大于等于absolute_time的时候，线程才会解除阻塞。
+
+**抛出**<br>
+无
+
+####std::shared_future::get 成员函数
+
+当相关状态包含一个`std::async`调用的延迟函数，调用该延迟函数，并返回结果；否则，等待与`std::shared_future`实例相关的异步结果准备就绪，之后返回存储的值或异常。
+
+**声明**
+```c++
+void shared_future<void>::get() const;
+R& shared_future<R&>::get() const;
+R const& shared_future<R>::get() const;
+```
+
+**先决条件**<br>
+this->valid()将返回true。
+
+**效果**<br>
+当有多个线程调用`std::shared_future`实例上的get()和wait()时，实例会序列化的共享同一关联状态。如果关联状态包括一个延期函数，那么第一个调用get()或wait()时就会调用延期函数，并且存储返回值，或将抛出异常以异步结果的方式保存下来。
+
+阻塞会知道*this关联的异步结果就绪后解除。当异步结果存储了一个一行，那么就会抛出这个异常。否则，返回存储的值。
+
+**返回**<br>
+当ResultType为void时，就会按照常规调用返回。如果ResultType是R&(R类型的引用)，存储的引用值将会被返回。否则，返回存储值的const引用。
+
+**抛出**<br>
+抛出存储的异常(如果有的话)。
+
 ###D.4.3 std::packaged_task类型模板
 
 ###D.4.4 std::promise类型模板
