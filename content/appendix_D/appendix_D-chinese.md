@@ -3874,7 +3874,58 @@ future_status wait_for(
 
 ####std::future::wait_until 成员函数
 
+等待`std::future`实例上相关异步结果准备就绪，或超过某个给定的时间。
+
+**声明**
+```c++
+template<typename Clock,typename Duration>
+future_status wait_until(
+  std::chrono::time_point<Clock,Duration> const& absolute_time);
+```
+
+**先决条件**<br>
+this->valid()将返回true。
+
+**效果**<br>
+如果与`*this`相关的异步结果包含一个`std::async`调用的延迟函数(还未执行)，那么就不阻塞立即返回。否则将阻塞实例，直到与`*this`相关异步结果准备就绪，或`Clock::now()`返回的时间大于等于absolute_time。
+
+**返回**<br>
+当与`*this`相关的异步结果包含一个`std::async`调用的延迟函数(还未执行)，返回`std::future_status::deferred`；当与`*this`相关的异步结果准备就绪，返回`std::future_status::ready`；`Clock::now()`返回的时间大于等于absolute_time，返回`std::future_status::timeout`。
+
+**NOTE**:这里不保证调用线程会被阻塞多久，只有函数返回`std::future_status::timeout`，然后`Clock::now()`返回的时间大于等于absolute_time的时候，线程才会解除阻塞。
+
+**抛出**<br>
+无
+
 ####std::future::get 成员函数
+
+当相关状态包含一个`std::async`调用的延迟函数，调用该延迟函数，并返回结果；否则，等待与`std::future`实例相关的异步结果准备就绪，之后返回存储的值或异常。
+
+**声明**
+```c++
+void future<void>::get();
+R& future<R&>::get();
+R future<R>::get();
+```
+
+**先决条件**<br>
+this->valid()将返回true。
+
+**效果**<br>
+如果*this相关状态包含一个延期函数，那么调用这个函数并返回结果，或将抛出的异常进行传播。
+
+否则，线程就要被阻塞，直到与*this相关的异步结果就绪。当结果存储了一个异常，那么就就会将存储异常抛出。否则，将会返回存储值。
+
+**返回**<br>
+当相关状态包含一个延期函数，那么这个延期函数的结果将被返回。否则，当ResultType为void时，就会按照常规调用返回。如果ResultType是R&(R类型的引用)，存储的引用值将会被返回。否则，存储的值将会返回。
+
+**抛出**<br>
+异常由延期函数，或存储在异步结果中的异常(如果有的话)抛出。
+
+**后置条件**
+```c++
+this->valid()==false
+```
 
 ###D.4.2 std::shared_future类型模板
 
