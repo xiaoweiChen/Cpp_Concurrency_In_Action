@@ -4164,6 +4164,271 @@ this->valid()将返回true。
 
 ###D.4.3 std::packaged_task类型模板
 
+`std::packaged_task`类型模板可打包一个函数或其他可调用对象，所以当函数通过`std::packaged_task`实例被调用时，结果将会作为异步结果。这个结果可以通过检索`std::future`实例来查找。
+
+`std::packaged_task`实例是可以MoveConstructible(移动构造)和MoveAssignable(移动赋值)，不过不能CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
+
+**类型定义**
+```c++
+template<typename FunctionType>
+class packaged_task; // undefined
+
+template<typename ResultType,typename... ArgTypes>
+class packaged_task<ResultType(ArgTypes...)>
+{
+public:
+  packaged_task() noexcept;
+  packaged_task(packaged_task&&) noexcept;
+  ~packaged_task();
+
+  packaged_task& operator=(packaged_task&&) noexcept;
+
+  packaged_task(packaged_task const&) = delete;
+  packaged_task& operator=(packaged_task const&) = delete;
+
+  void swap(packaged_task&) noexcept;
+
+  template<typename Callable>
+  explicit packaged_task(Callable&& func);
+
+  template<typename Callable,typename Allocator>
+  packaged_task(std::allocator_arg_t, const Allocator&,Callable&&);
+
+  bool valid() const noexcept;
+  std::future<ResultType> get_future();
+  void operator()(ArgTypes...);
+  void make_ready_at_thread_exit(ArgTypes...);
+  void reset();
+};
+```
+
+####std::packaged_task 默认构造函数
+
+构造一个`std::packaged_task`对象。
+
+**声明**
+```c++
+packaged_task() noexcept;
+```
+
+**效果**<br>
+不使用关联任务或异步结果来构造一个`std::packaged_task`对象。
+
+**抛出**<br>
+无
+
+####std::packaged_task 通过可调用对象构造
+
+使用关联任务和异步结果，构造一个`std::packaged_task`对象。
+
+**声明**
+```c++
+template<typename Callable>
+packaged_task(Callable&& func);
+```
+
+**先决条件**<br>
+表达式`func(args...)`必须是合法的，并且在`args...`中的args-i参数，必须是`ArgTypes...`中ArgTypes-i类型的一个值。且返回值必须可转换为ResultType。
+
+**效果**<br>
+使用ResultType类型的关联异步结果，构造一个`std::packaged_task`对象，异步结果是未就绪的，并且Callable类型相关的任务是对func的一个拷贝。
+
+**抛出**<br>
+当构造函数无法为异步结果分配出内存时，会抛出`std::bad_alloc`类型的异常。其他异常会在使用Callable类型的拷贝或移动构造过程中抛出。
+
+####std::packaged_task 通过有分配器的可调用对象构造
+
+使用关联任务和异步结果，构造一个`std::packaged_task`对象。使用以提供的分配器为关联任务和异步结果分配内存。
+
+**声明**
+```c++
+template<typename Allocator,typename Callable>
+packaged_task(
+    std::allocator_arg_t, Allocator const& alloc,Callable&& func);
+```
+
+**先决条件**<br>
+表达式`func(args...)`必须是合法的，并且在`args...`中的args-i参数，必须是`ArgTypes...`中ArgTypes-i类型的一个值。且返回值必须可转换为ResultType。
+
+**效果**<br>
+使用ResultType类型的关联异步结果，构造一个`std::packaged_task`对象，异步结果是未就绪的，并且Callable类型相关的任务是对func的一个拷贝。异步结果和任务的内存通过内存分配器alloc进行分配，或进行拷贝。
+
+**抛出**<br>
+当构造函数无法为异步结果分配出内存时，会抛出`std::bad_alloc`类型的异常。其他异常会在使用Callable类型的拷贝或移动构造过程中抛出。
+
+####std::packaged_task 移动构造函数
+
+通过一个`std::packaged_task`对象构建另一个，将与已存在的`std::packaged_task`相关的异步结果和任务的所有权转移到新构建的对象当中。
+
+**声明**
+```c++
+packaged_task(packaged_task&& other) noexcept;
+```
+
+**效果**<br>
+构建一个新的`std::packaged_task`实例。
+
+**后置条件**<br>
+通过other构建新的`std::packaged_task`对象。在新对象构建完成后，other与其之前相关联的异步结果就没有任何关系了。
+
+**抛出**<br>
+无
+
+####std::packaged_task 移动赋值操作
+
+将一个`std::packaged_task`对象相关的异步结果的所有权转移到另外一个。
+
+**声明**
+```c++
+packaged_task& operator=(packaged_task&& other) noexcept;
+```
+
+**效果**<br>
+将other相关异步结果和任务的所有权转移到`*this`中，并且切断异步结果和任务与other对象的关联，如同`std::packaged_task(other).swap(*this)`。
+
+**后置条件**<br>
+与other相关的异步结果与任务移动转移，使*this.other无关联的异步结果。
+
+**返回**
+```c++
+*this
+```
+
+**抛出**<br>
+无
+
+####std::packaged_task::swap 成员函数
+
+将两个`std::packaged_task`对象所关联的异步结果的所有权进行交换。
+
+**声明**
+```c++
+void swap(packaged_task& other) noexcept;
+```
+
+**效果**<br>
+将other和*this关联的异步结果与任务进行交换。
+
+**后置条件**<br>
+将与other关联的异步结果和任务，通过调用swap的方式，与*this相交换。
+
+**抛出**<br>
+无
+
+####std::packaged_task 析构函数
+
+销毁一个`std::packaged_task`对象。
+
+**声明**
+```c++
+~packaged_task();
+```
+
+**效果**<br>
+将`*this`销毁。如果`*this`有关联的异步结果，并且结果不是一个已存储的任务或异常，那么异步结果状态将会变为就绪，伴随就绪的是一个`std::future_error`异常和错误码`std::future_errc::broken_promise`。
+
+**抛出**<br>
+无
+
+####std::packaged_task::get_future 成员函数
+
+在*this相关异步结果中，检索一个`std::future`实例。
+
+**声明**
+```c++
+std::future<ResultType> get_future();
+```
+
+**先决条件**<br>
+*this具有关联异步结果。
+
+**返回**<br>
+一个与*this关联异构结果相关的一个`std::future`实例。
+
+**抛出**<br>
+如果一个`std::future`已经通过get_future()获取了异步结果，在抛出`std::future_error`异常时，错误码是`std::future_errc::future_already_retrieved`
+
+####std::packaged_task::reset 成员函数
+
+将一个`std::packaged_task`对实例与一个新的异步结果相关联。
+
+**声明**
+```c++
+void reset();
+```
+
+**先决条件**<br>
+*this具有关联的异步任务。
+
+**效果**<br>
+如同`*this=packaged_task(std::move(f))`，f是*this中已存储的关联任务。
+
+**抛出**<br>
+如果内存不足以分配给新的异构结果，那么将会抛出`std::bad_alloc`类异常。
+
+####std::packaged_task::valid 成员函数
+
+检查*this中是都具有关联任务和异步结果。
+
+**声明**
+```c++
+bool valid() const noexcept;
+```
+
+**返回**<br>
+当*this具有相关任务和异步结构，返回true；否则，返回false。
+
+**抛出**<br>
+无
+
+####std::packaged_task::operator() 函数调用操作
+
+调用一个`std::packaged_task`实例中的相关任务，并且存储返回值，或将异常存储到异常结果当中。
+
+**声明**
+```c++
+void operator()(ArgTypes... args);
+```
+
+**先决条件**<br>
+*this具有相关任务。
+
+**效果**<br>
+像`INVOKE(func,args...)`那要调用相关的函数func。如果返回征程，那么将会存储到*this相关的异步结果中。当返回结果是一个异常，将这个异常存储到*this相关的异步结果中。
+
+**后置条件**<br>
+*this相关联的异步结果状态为就绪，并且存储了一个值或异常。所有阻塞线程，在等待到异步结果的时候被解除阻塞。
+
+**抛出**<br>
+当异步结果已经存储了一个值或异常，那么将抛出一个`std::future_error`异常，错误码为`std::future_errc::promise_already_satisfied`。
+
+**同步**<br>
+`std::future<ResultType>::get()`或`std::shared_future<ResultType>::get()`的成功调用，代表同步操作的成功，函数将会检索异步结果中的值或异常。
+
+####std::packaged_task::make_ready_at_thread_exit 成员函数
+
+调用一个`std::packaged_task`实例中的相关任务，并且存储返回值，或将异常存储到异常结果当中，直到线程退出都不会将相关异步结果的状态置为就绪。
+
+**声明**
+```c++
+void make_ready_at_thread_exit(ArgTypes... args);
+```
+
+**先决条件**<br>
+*this具有相关任务。
+
+**效果**<br>
+像`INVOKE(func,args...)`那要调用相关的函数func。如果返回征程，那么将会存储到*this相关的异步结果中。当返回结果是一个异常，将这个异常存储到*this相关的异步结果中。当当前线程退出的时候，可调配相关异步状态为就绪。
+
+**后置条件**<br>
+*this的异步结果中已经存储了一个值或一个异常，不过在当前线程退出的时候，这个结果都是非就绪的。当当前线程退出时，阻塞等待异步结果的线程将会被解除阻塞。
+
+**抛出**<br>
+当异步结果已经存储了一个值或异常，那么将抛出一个`std::future_error`异常，错误码为`std::future_errc::promise_already_satisfied`。当无关联异步状态时，抛出`std::future_error`异常，错误码为`std::future_errc::no_state`。
+
+**同步**<br>
+`std::future<ResultType>::get()`或`std::shared_future<ResultType>::get()`在线程上的成功调用，代表同步操作的成功，函数将会检索异步结果中的值或异常。
+
 ###D.4.4 std::promise类型模板
 
 ###D.4.5 std::async函数模板
