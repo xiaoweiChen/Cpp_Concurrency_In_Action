@@ -4688,6 +4688,7 @@ void set_exception_at_thread_exit(std::exception_ptr e);
 当异步结果已经存有一个值或一个异常，那么将抛出`std::future_error`型异常，伴随错误码为`std::future_errc::promise_already_satisfied`。
 
 **同步**<br>
+并发调用set_value(), set_value_at_thread_exit(), set_exception()和set_exception_at_thread_exit()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
 
 ###D.4.5 std::async函数模板
 
