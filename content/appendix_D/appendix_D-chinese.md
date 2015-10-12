@@ -4431,6 +4431,264 @@ void make_ready_at_thread_exit(ArgTypes... args);
 
 ###D.4.4 std::promise类型模板
 
+`std::promise`类型模板提供设置异步结果的方法，这样其他线程就可以通过`std::future`实例来索引该结果。
+
+ResultType模板参数，该类型可以存储异步结果。
+
+`std::promise`实例中的异步结果与某个`srd::future`实例相关联，并且可以通过调用get_future()成员函数来获取这个`srd::future`实例。ResultType类型的异步结果，可以通过set_value()成员函数对存储值进行设置，或者使用set_exception()将对应异常设置进异步结果中。
+
+`std::promise`实例是可以MoveConstructible(移动构造)和MoveAssignable(移动赋值)，但是不能CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
+
+**类型定义**
+```c++
+template<typename ResultType>
+class promise
+{
+public:
+  promise();
+  promise(promise&&) noexcept;
+  ~promise();
+  promise& operator=(promise&&) noexcept;
+
+  template<typename Allocator>
+  promise(std::allocator_arg_t, Allocator const&);
+
+  promise(promise const&) = delete;
+  promise& operator=(promise const&) = delete;
+
+  void swap(promise& ) noexcept;
+  
+  std::future<ResultType> get_future();
+
+  void set_value(see description);
+  void set_exception(std::exception_ptr p);
+};
+```
+
+####std::promise 默认构造函数
+
+构造一个`std::promise`对象。
+
+**声明**
+```c++
+promise();
+```
+
+**效果**<br>
+使用ResultType类型的相关异步结果来构造`std::promise`实例，不过异步结果并未就绪。
+
+**抛出**<br>
+当没有足够内存为异步结果进行分配，那么将抛出`std::bad_alloc`型异常。
+
+####std::promise 带分配器的构造函数
+
+构造一个`std::promise`对象，使用提供的分配器来为相关异步结果分配内存。
+
+**声明**
+```c++
+template<typename Allocator>
+promise(std::allocator_arg_t, Allocator const& alloc);
+```
+
+**效果**<br>
+使用ResultType类型的相关异步结果来构造`std::promise`实例，不过异步结果并未就绪。异步结果的内存由alloc分配器来分配。
+
+**抛出**<br>
+当分配器为异步结果分配内存时，如有抛出异常，就为该函数抛出的异常。
+
+####std::promise 移动构造函数
+
+通过另一个已存在对象，构造一个`std::promise`对象。将已存在对象中的相关异步结果的所有权转移到新创建的`std::promise`对象当中。
+
+**声明**
+```c++
+promise(promise&& other) noexcept;
+```
+
+**效果**<br>
+构造一个`std::promise`实例。
+
+**后置条件**<br>
+当使用other来构造一个新的实例，那么other中相关异构结果的所有权将转移到新创建的对象上。之后，other将无关联异步结果。
+
+**抛出**<br>
+无
+
+####std::promise 移动赋值操作符
+
+在两个`std::promise`实例中转移异步结果的所有权。
+
+**声明**
+```c++
+promise& operator=(promise&& other) noexcept;
+```
+
+**效果**<br>
+在other和`*this`之间进行异步结果所有权的转移。当`*this`已经有关联的异步结果，那么该异步结果的状态将会为就绪态，且伴随一个`std::future_error`类型异常，错误码为`std::future_errc::broken_promise`。
+
+**后置条件**<br>
+将other中关联的异步结果转移到*this当中。other中将无关联异步结果。
+
+**返回**<br>
+```c++
+*this
+```
+
+**抛出**<br>
+无
+
+####std::promise::swap 成员函数
+
+将两个`std::promise`实例中的关联异步结果进行交换。
+
+**声明**
+```c++
+void swap(promise& other);
+```
+
+**效果**<br>
+交换other和*this当中的关联异步结果。
+
+**后置条件**<br>
+当swap使用other时，other中的异步结果就会与*this中关联异步结果相交换。二者返回来亦然。
+
+**抛出**<br>
+无
+
+####std::promise 析构函数
+
+销毁`std::promise`对象。
+
+**声明**
+```c++
+~promise();
+```
+
+**效果**<br>
+销毁`*this`。当`*this`具有关联的异步结果，并且结果中没有存储值或异常，那么结果将会置为就绪，伴随一个`std::future_error`异常，错误码为`std::future_errc::broken_promise`。
+
+**抛出**<br>
+无
+
+####std::promise::get_future 成员函数
+
+通过*this关联的异步结果，检索出所要的`std::future`实例。
+
+**声明**
+```c++
+std::future<ResultType> get_future();
+```
+
+**先决条件**<br>
+*this具有关联异步结果。
+
+**返回**<br>
+与*this关联异步结果关联的`std::future`实例。
+
+**抛出**<br>
+当`std::future`已经通过get_future()获取过了，将会抛出一个`std::future_error`类型异常，伴随的错误码为`std::future_errc::future_already_retrieved`。
+
+####std::promise::set_value 成员函数
+
+存储一个值到与*this关联的异步结果中。
+
+**声明**
+```c++
+void promise<void>::set_value();
+void promise<R&>::set_value(R& r);
+void promise<R>::set_value(R const& r);
+void promise<R>::set_value(R&& r);
+```
+
+**先决条件**<br>
+*this具有关联异步结果。
+
+**效果**<br>
+当ResultType不是void型，就存储r到*this相关的异步结果当中。
+
+**后置条件**<br>
+*this相关的异步结果的状态为就绪，且将值存入。任意等待异步结果的阻塞线程将解除阻塞。
+
+**抛出**<br>
+当异步结果已经存有一个值或一个异常，那么将抛出`std::future_error`型异常，伴随错误码为`std::future_errc::promise_already_satisfied`。r的拷贝构造或移动构造抛出的异常，即为本函数抛出的异常。
+
+**同步**<br>
+并发调用set_value()和set_exception()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
+
+####std::promise::set_value_at_thread_exit 成员函数
+
+存储一个值到与*this关联的异步结果中，到线程退出时，异步结果的状态会被设置为就绪。
+
+**声明**
+```c++
+void promise<void>::set_value_at_thread_exit();
+void promise<R&>::set_value_at_thread_exit(R& r);
+void promise<R>::set_value_at_thread_exit(R const& r);
+void promise<R>::set_value_at_thread_exit(R&& r);
+```
+
+**先决条件**<br>
+*this具有关联异步结果。
+
+**效果**<br>
+当ResultType不是void型，就存储r到*this相关的异步结果当中。标记异步结果为“已存储值”。当前线程退出时，会安排相关异步结果的状态为就绪。
+
+**后置条件**<br>
+将值存入*this相关的异步结果，且直到当前线程退出时，异步结果状态被置为就绪。任何等待异步结果的阻塞线程将解除阻塞。
+
+**抛出**<br>
+当异步结果已经存有一个值或一个异常，那么将抛出`std::future_error`型异常，伴随错误码为`std::future_errc::promise_already_satisfied`。r的拷贝构造或移动构造抛出的异常，即为本函数抛出的异常。
+
+**同步**<br>
+并发调用set_value(), set_value_at_thread_exit(), set_exception()和set_exception_at_thread_exit()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
+
+####std::promise::set_exception 成员函数
+
+存储一个异常到与*this关联的异步结果中。
+
+**声明**
+```c++
+void set_exception(std::exception_ptr e);
+```
+
+**先决条件**<br>
+*this具有关联异步结果。(bool)e为true。
+
+**效果**<br>
+将e存储到*this相关的异步结果中。
+
+**后置条件**<br>
+在存储异常后，*this相关的异步结果的状态将置为继续。任何等待异步结果的阻塞线程将解除阻塞。
+
+**抛出**<br>
+当异步结果已经存有一个值或一个异常，那么将抛出`std::future_error`型异常，伴随错误码为`std::future_errc::promise_already_satisfied`。
+
+**同步**<br>
+并发调用set_value()和set_exception()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
+
+####std::promise::set_exception_at_thread_exit 成员函数
+
+存储一个异常到与*this关联的异步结果中，知道当前线程退出，异步结果被置为就绪。
+
+**声明**
+```c++
+void set_exception_at_thread_exit(std::exception_ptr e);
+```
+
+**先决条件**<br>
+*this具有关联异步结果。(bool)e为true。
+
+**效果**<br>
+将e存储到*this相关的异步结果中。标记异步结果为“已存储值”。当前线程退出时，会安排相关异步结果的状态为就绪。
+
+**后置条件**<br>
+将值存入*this相关的异步结果，且直到当前线程退出时，异步结果状态被置为就绪。任何等待异步结果的阻塞线程将解除阻塞。
+
+**抛出**<br>
+当异步结果已经存有一个值或一个异常，那么将抛出`std::future_error`型异常，伴随错误码为`std::future_errc::promise_already_satisfied`。
+
+**同步**<br>
+
 ###D.4.5 std::async函数模板
 
 ##D.5 &lt;mutex&gt;头文件
