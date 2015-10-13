@@ -4734,6 +4734,44 @@ async(launch policy,Callable&& func,Args&& ... args);
 
 ##D.5 &lt;mutex&gt;头文件
 
+`<mutex>`头文件提供互斥工具：互斥类型，锁类型和函数，还有确保操作只执行一次的机制。
+
+**头文件内容**
+```c++
+namespace std
+{
+  class mutex;
+  class recursive_mutex;
+  class timed_mutex;
+  class recursive_timed_mutex;
+
+  struct adopt_lock_t;
+  struct defer_lock_t;
+  struct try_to_lock_t;
+
+  constexpr adopt_lock_t adopt_lock{};
+  constexpr defer_lock_t defer_lock{};
+  constexpr try_to_lock_t try_to_lock{};
+
+  template<typename LockableType>
+  class lock_guard;
+
+  template<typename LockableType>
+  class unique_lock;
+
+  template<typename LockableType1,typename... LockableType2>
+  void lock(LockableType1& m1,LockableType2& m2...);
+
+  template<typename LockableType1,typename... LockableType2>
+  int try_lock(LockableType1& m1,LockableType2& m2...);
+
+  struct once_flag;
+
+  template<typename Callable,typename... Args>
+  void call_once(once_flag& flag,Callable func,Args args...);
+}
+```
+
 ###D.5.1 std::mutex类
 
 ###D.5.2 std::recursive_mutex类

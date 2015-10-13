@@ -15,6 +15,4 @@
 * [附录B 并发库简要对比](content/appendix_B/appendix_B-chinese.md)
 * [附录C 消息传递框架与完整的ATM示例](content/appendix_C/appendix_C-chinese.md)
 * [附录D C++线程类库参考](content/appendix_D/appendix_D-chinese.md)
-* [资源]()
-* [印刷资源]()
-* [在线资源]()
+* [资源](content/resources/resource.md)
