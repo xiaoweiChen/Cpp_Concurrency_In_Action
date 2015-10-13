@@ -4407,7 +4407,7 @@ void operator()(ArgTypes... args);
 
 ####std::packaged_task::make_ready_at_thread_exit 成员函数
 
-调用一个`std::packaged_task`实例中的相关任务，并且存储返回值，或将异常存储到异常结果当中，直到线程退出都不会将相关异步结果的状态置为就绪。
+调用一个`std::packaged_task`实例中的相关任务，并且存储返回值，或将异常存储到异常结果当中，直到线程退出时，将相关异步结果的状态置为就绪。
 
 **声明**
 ```c++
@@ -4418,7 +4418,7 @@ void make_ready_at_thread_exit(ArgTypes... args);
 *this具有相关任务。
 
 **效果**<br>
-像`INVOKE(func,args...)`那要调用相关的函数func。如果返回征程，那么将会存储到*this相关的异步结果中。当返回结果是一个异常，将这个异常存储到*this相关的异步结果中。当当前线程退出的时候，可调配相关异步状态为就绪。
+像`INVOKE(func,args...)`那要调用相关的函数func。如果返回征程，那么将会存储到`*this`相关的异步结果中。当返回结果是一个异常，将这个异常存储到`*this`相关的异步结果中。当当前线程退出的时候，可调配相关异步状态为就绪。
 
 **后置条件**<br>
 *this的异步结果中已经存储了一个值或一个异常，不过在当前线程退出的时候，这个结果都是非就绪的。当当前线程退出时，阻塞等待异步结果的线程将会被解除阻塞。
@@ -4691,6 +4691,46 @@ void set_exception_at_thread_exit(std::exception_ptr e);
 并发调用set_value(), set_value_at_thread_exit(), set_exception()和set_exception_at_thread_exit()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
 
 ###D.4.5 std::async函数模板
+
+`std::async`能够简单的使用可用的硬件并行来运行自身包含的异步任务。当调用`std::async`返回一个包含任务结果的`std::future`对象。根据投放策略，任务在其所在线程上是异步运行的，当有线程调用了这个future对象的wait()和get()成员函数，则该任务会同步运行。
+
+**声明**
+```c++
+enum class launch
+{
+  async,deferred
+};
+
+template<typename Callable,typename ... Args>
+future<result_of<Callable(Args...)>::type>
+async(Callable&& func,Args&& ... args);
+
+template<typename Callable,typename ... Args>
+future<result_of<Callable(Args...)>::type>
+async(launch policy,Callable&& func,Args&& ... args);
+```
+
+**先决条件**<br>
+表达式`INVOKE(func,args)`能都为func提供合法的值和args。Callable和Args的所有成员都可MoveConstructible(可移动构造)。
+
+**效果**<br>
+在内部存储中拷贝构造`func`和`arg...`(分别使用fff和xyz...进行表示)。
+
+当policy是`std::launch::async`,运行`INVOKE(fff,xyz...)`在所在线程上。当这个线程完成时，返回的`std::future`状态将会为就绪态，并且之后会返回对应的值或异常(由调用函数抛出)。析构函数会等待返回的`std::future`相关异步状态为就绪时，才解除阻塞。
+
+当policy是`std::launch::deferred`，fff和xyx...都会作为延期函数调用，存储在返回的`std::future`。首次调用future的wait()或get()成员函数，将会共享相关状态，之后执行的`INVOKE(fff,xyz...)`与调用wait()或get()函数的线程同步执行。
+
+执行`INVOKE(fff,xyz...)`后，在调用`std::future`的成员函数get()时，就会有值返回或有异常抛出。
+
+当policy是`std::launch::async | std::launch::deferred`或是policy参数被省略，其行为如同已指定的`std::launch::async`或`std::launch::deferred`。具体实现将会通过逐渐递增的方式(call-by-call basis)最大化利用可用的硬件并行，并避免超限分配的问题。
+
+在所有的情况下，`std::async`调用都会直接返回。
+
+**同步**<br>
+完成函数调用的先行条件是，需要通过调用`std::future`和`std::shared_future`实例的wait(),get(),wait_for()或wait_until()，返回的对象与`std::async`返回的`std::future`对象关联的状态相同才算成功。就`std::launch::async`这个policy来说，在完成线程上的函数前，也需要先行对上面的函数调用后，成功的返回才行。
+
+**抛出**<br>
+当内部存储无法分配所需的空间，将抛出`std::bad_alloc`类型异常；否则，当效果没有达到，或任何异常在构造fff和xyz...发生时，抛出`std::future_error`异常。
 
 ##D.5 &lt;mutex&gt;头文件
 
