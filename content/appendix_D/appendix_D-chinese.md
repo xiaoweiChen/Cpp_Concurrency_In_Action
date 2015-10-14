@@ -4774,7 +4774,130 @@ namespace std
 
 ###D.5.1 std::mutex类
 
-`std::mutex`类型为线程提供基本的互斥和同步工具，这些工具可以用来保护共享数据。互斥量可以用来保护数据，互斥量上锁必须要调用lok()或try_lock()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，具体酌情而定。当线程完成对共享数据的访问，之后就必须调用unlock()
+`std::mutex`类型为线程提供基本的互斥和同步工具，这些工具可以用来保护共享数据。互斥量可以用来保护数据，互斥量上锁必须要调用lok()或try_lock()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，具体酌情而定。当线程完成对共享数据的访问，之后就必须调用unlock()对锁进行释放，并且允许其他线程来访问这个共享数据。
+
+可见Lockable需要`std::mutex`。
+
+**类型定义**
+```c++
+class mutex
+{
+public:
+  mutex(mutex const&)=delete;
+  mutex& operator=(mutex const&)=delete;
+
+  constexpr mutex() noexcept;
+  ~mutex();
+
+  void lock();
+  void unlock();
+  bool try_lock();
+};
+```
+
+####std::mutex 默认构造函数
+
+构造一个`std::mutex`对象。
+
+**声明**
+```c++
+constexpr mutex() noexcept;
+```
+
+**效果**<br>
+构造一个`std::mutex`实例。
+
+**后置条件**<br>
+新构造的`std::mutex`对象是未锁的。
+
+**抛出**<br>
+无
+
+####std::mutex 析构函数
+
+销毁一个`std::mutex`对象。
+
+**声明**
+```c++
+~mutex();
+```
+
+**先决条件**<br>
+*this必须是未锁的。
+
+**效果**<br>
+销毁*this。
+
+**抛出**<br>
+无
+
+####std::mutex::lock 成员函数
+
+为当前线程获取`std::mutex`上的锁。
+
+**声明**
+```c++
+void lock();
+```
+
+**先决条件**<br>
+*this上必须没有持有一个锁。
+
+**效果**<br>
+阻塞当前线程，知道*this获取锁。
+
+**后置条件**<br>
+*this被调用线程锁住。
+
+**抛出**<br>
+当有错误产生，抛出`std::system_error`类型异常。
+
+####std::mutex::try_lock 成员函数
+
+尝试为当前线程获取`std::mutex`上的锁。
+
+**声明**
+```c++
+bool try_lock();
+```
+
+**先决条件**<br>
+*this上必须没有持有一个锁。
+
+**效果**<br>
+尝试为当前线程*this获取上的锁，失败时当前线程不会被阻塞。
+
+**返回**<br>
+当调用线程获取锁时，返回true。
+
+**后置条件**<br>
+当*this被调用线程锁住，则返回true。
+
+**抛出**
+无
+
+**NOTE** 该函数在获取锁时，可能失败(并返回false)，即使没有其他线程持有*this上的锁。
+
+####std::mutex::unlock 成员函数
+
+释放当前线程获取的`std::mutex`锁。
+
+**声明**
+```c++
+void unlock();
+```
+
+**先决条件**<br>
+*this上必须持有一个锁。
+
+**效果**<be>
+释放当前线程获取到`*this`上的锁。任意等待获取`*this`上的线程，会在该函数调用后解除阻塞。
+
+**后置条件**<br>
+调用线程不在拥有*this上的锁。
+
+**抛出**<br>
+无
 
 ###D.5.2 std::recursive_mutex类
 
