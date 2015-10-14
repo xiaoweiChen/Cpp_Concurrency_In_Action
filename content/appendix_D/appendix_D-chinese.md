@@ -4774,7 +4774,7 @@ namespace std
 
 ###D.5.1 std::mutex类
 
-`std::mutex`
+`std::mutex`类型提供
 
 ###D.5.2 std::recursive_mutex类
 
