@@ -4774,7 +4774,7 @@ namespace std
 
 ###D.5.1 std::mutex类
 
-`std::mutex`类型为线程提供基本的互斥和同步工具，这些工具可以用来保护共享数据。
+`std::mutex`类型为线程提供基本的互斥和同步工具，这些工具可以用来保护共享数据。使用互斥量
 
 ###D.5.2 std::recursive_mutex类
 
