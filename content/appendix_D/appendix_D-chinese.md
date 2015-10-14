@@ -4776,7 +4776,7 @@ namespace std
 
 `std::mutex`类型为线程提供基本的互斥和同步工具，这些工具可以用来保护共享数据。互斥量可以用来保护数据，互斥量上锁必须要调用lok()或try_lock()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，具体酌情而定。当线程完成对共享数据的访问，之后就必须调用unlock()对锁进行释放，并且允许其他线程来访问这个共享数据。
 
-可见Lockable需要`std::mutex`。
+Lockable需要`std::mutex`。
 
 **类型定义**
 ```c++
@@ -4900,6 +4900,127 @@ void unlock();
 无
 
 ###D.5.2 std::recursive_mutex类
+
+`std::recursive_mutex`类型为线程提供基本的互斥和同步工具，可以用来保护共享数据。互斥量可以用来保护数据，互斥量上锁必须要调用lok()或try_lock()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，具体酌情而定。当线程完成对共享数据的访问，之后就必须调用unlock()对锁进行释放，并且允许其他线程来访问这个共享数据。
+
+这个互斥量是可递归的，所以一个线程获取`std::recursive_mutex`后可以在之后继续使用lock()或try_lock()来增加锁的计数。只有当线程调用unlock释放锁，其他线程才可能用lock()或try_lock()获取锁。
+
+Lockable需要`std::recursive_mutex`。
+
+**类型定义**
+```c++
+class recursive_mutex
+{
+public:
+  recursive_mutex(recursive_mutex const&)=delete;
+  recursive_mutex& operator=(recursive_mutex const&)=delete;
+
+  recursive_mutex() noexcept;
+ ~recursive_mutex();
+
+  void lock();
+  void unlock();
+  bool try_lock() noexcept;
+};
+```
+
+####std::recursive_mutex 默认构造函数
+
+构造一个`std::recursive_mutex`对象。
+
+**声明**
+```c++
+recursive_mutex() noexcept;
+```
+
+**效果**<br>
+构造一个`std::recursive_mutex`实例。
+
+**后置条件**<br>
+新构造的`std::recursive_mutex`对象是未锁的。
+
+**抛出**<br>
+当无法创建一个新的`std::recursive_mutex`时，抛出`std::system_error`异常。
+
+####std::recursive_mutex 析构函数
+
+销毁一个`std::recursive_mutex`对象。
+
+**声明**
+```c++
+~recursive_mutex();
+```
+
+**先决条件**<br>
+*this必须是未锁的。
+
+**效果**<br>
+销毁*this。
+
+**抛出**<br>
+无
+
+####std::recursive_mutex::lock 成员函数
+
+为当前线程获取`std::recursive_mutex`上的锁。
+
+**声明**
+```c++
+void lock();
+```
+
+**效果**<br>
+阻塞线程，直到获取*this上的锁。
+
+**先决条件**<br>
+调用线程锁住*this上的锁。当调用已经持有一个*this的锁时，锁的计数会增加1。
+
+**抛出**<br>
+当有错误产生，将抛出`std::system_error`异常。
+
+####std::recursive_mutex::try_lock 成员函数
+
+尝试为当前线程获取`std::recursive_mutex`上的锁。
+
+**声明**
+```c++
+bool try_lock() noexcept;
+```
+
+**效果**<br>
+尝试为当前线程*this获取上的锁，失败时当前线程不会被阻塞。
+
+**返回**<br>
+当调用线程获取锁时，返回true；否则，返回false。
+
+**后置条件**<br>
+当*this被调用线程锁住，则返回true。
+
+**抛出**
+无
+
+**NOTE** 该函数在获取锁时，当函数返回true是，`*this`上对锁的计数会加一。如果当前线程还未获取`*this`上的锁，那么该函数在获取锁时，可能失败(并返回false)，即使没有其他线程持有`*this`上的锁。
+
+####std::recursive_mutex::unlock 成员函数
+
+释放当前线程获取的`std::recursive_mutex`锁。
+
+**声明**
+```c++
+void unlock();
+```
+
+**先决条件**<br>
+*this上必须持有一个锁。
+
+**效果**<be>
+释放当前线程获取到`*this`上的锁。如果这是`*this`在当前线程上最后一个锁，那么任意等待获取`*this`上的线程，会在该函数调用后解除其中一个线程的阻塞。
+
+**后置条件**<br>
+`*this`上锁的计数会在该函数调用后减一。
+
+**抛出**<br>
+无
 
 ###D.5.3 std::timed_mutex类
 
