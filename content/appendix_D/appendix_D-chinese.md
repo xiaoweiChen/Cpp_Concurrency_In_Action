@@ -4774,7 +4774,7 @@ namespace std
 
 ###D.5.1 std::mutex类
 
-`std::mutex`类型提供基本的互斥和
+`std::mutex`类型提供基本的互斥和同步工具
 
 ###D.5.2 std::recursive_mutex类
 
