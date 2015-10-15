@@ -4776,7 +4776,7 @@ namespace std
 
 `std::mutex`类型为线程提供基本的互斥和同步工具，这些工具可以用来保护共享数据。互斥量可以用来保护数据，互斥量上锁必须要调用lok()或try_lock()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，具体酌情而定。当线程完成对共享数据的访问，之后就必须调用unlock()对锁进行释放，并且允许其他线程来访问这个共享数据。
 
-Lockable需要`std::mutex`。
+`std::mutex`符合Lockable的需求。
 
 **类型定义**
 ```c++
@@ -4905,7 +4905,7 @@ void unlock();
 
 这个互斥量是可递归的，所以一个线程获取`std::recursive_mutex`后可以在之后继续使用lock()或try_lock()来增加锁的计数。只有当线程调用unlock释放锁，其他线程才可能用lock()或try_lock()获取锁。
 
-Lockable需要`std::recursive_mutex`。
+`std::recursive_mutex`符合Lockable的需求。
 
 **类型定义**
 ```c++
@@ -5023,6 +5023,195 @@ void unlock();
 无
 
 ###D.5.3 std::timed_mutex类
+
+`std::timed_mutex`类型在`std::mutex`基本互斥和同步工具的基础上，让锁支持超时。互斥量可以用来保护数据，互斥量上锁必须要调用lok(),try_lock_for(),或try_lock_until()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，或直到想要获取锁可以获取，亦或想要获取的锁超时(调用try_lock_for()或try_lock_until())。在线程调用unlock()对锁进行释放，其他线程才能获取这个锁被获取(不管是调用的哪个函数)。
+
+`std::timed_mutex`符合TimedLockable的需求。
+
+**类型定义**
+```c++
+class timed_mutex
+{
+public:
+  timed_mutex(timed_mutex const&)=delete;
+  timed_mutex& operator=(timed_mutex const&)=delete;
+
+  timed_mutex();
+  ~timed_mutex();
+
+  void lock();
+  void unlock();
+  bool try_lock();
+
+  template<typename Rep,typename Period>
+  bool try_lock_for(
+      std::chrono::duration<Rep,Period> const& relative_time);
+
+  template<typename Clock,typename Duration>
+  bool try_lock_until(
+      std::chrono::time_point<Clock,Duration> const& absolute_time);
+};
+```
+
+####std::timed_mutex 默认构造函数
+
+构造一个`std::timed_mutex`对象。
+
+**声明**
+```c++
+timed_mutex();
+```
+
+**效果**<br>
+构造一个`std::timed_mutex`实例。
+
+**后置条件**<br>
+新构造一个未上锁的`std::timed_mutex`对象。
+
+**抛出**<br>
+当无法创建出新的`std::timed_mutex`实例时，抛出`std::system_error`类型异常。
+
+####std::timed_mutex 析构函数
+
+销毁一个`std::timed_mutex`对象。
+
+**声明**
+```c++
+~timed_mutex();
+```
+
+**先决条件**<br>
+*this必须没有上锁。
+
+**效果**<br>
+销毁*this。
+
+**抛出**<br>
+无
+
+####std::timed_mutex::lock 成员函数
+
+为当前线程获取`std::timed_mutex`上的锁。
+
+**声明**
+```c++
+void lock();
+```
+
+**先决条件**<br>
+调用线程不能已经持有*this上的锁。
+
+**效果**<br>
+阻塞当前线程，直到获取到*this上的锁。
+
+**后置条件**<br>
+*this被调用线程锁住。
+
+**抛出**<br>
+当有错误产生，抛出`std::system_error`类型异常。
+
+####std::timed_mutex::try_lock 成员函数
+
+尝试获取为当前线程获取`std::timed_mutex`上的锁。
+
+**声明**
+```c++
+bool try_lock();
+```
+
+**先决条件**<br>
+调用线程不能已经持有*this上的锁。
+
+**效果**<br>
+尝试获取*this上的锁，当获取失败时，不阻塞调用线程。
+
+**返回**<br>
+当锁被调用线程获取，返回true；反之，返回false。
+
+**后置条件**<br>
+当函数返回为true，*this则被当前线程锁住。
+
+**抛出**<br>
+无
+
+**NOTE** 即使没有线程已获取*this上的锁，函数还是有可能获取不到锁(并返回false)。
+
+####std::timed_mutex::try_lock_for 成员函数
+
+尝试获取为当前线程获取`std::timed_mutex`上的锁。
+
+**声明**
+```c++
+template<typename Rep,typename Period>
+bool try_lock_for(
+    std::chrono::duration<Rep,Period> const& relative_time);
+```
+
+**先决条件**<br>
+调用线程不能已经持有*this上的锁。
+
+**效果**<br>
+在指定的relative_time时间内，尝试获取*this上的锁。当relative_time.count()为0或负数，将会立即返回，就像调用try_lock()一样。否则，将会阻塞，直到获取锁或超过给定的relative_time的时间。
+
+**返回**<br>
+当锁被调用线程获取，返回true；反之，返回false。
+
+**后置条件**<br>
+当函数返回为true，*this则被当前线程锁住。
+
+**抛出**<br>
+无
+
+**NOTE** 即使没有线程已获取*this上的锁，函数还是有可能获取不到锁(并返回false)。线程阻塞的时长可能会长于给定的时间。逝去的时间可能是由一个稳定时钟所决定。
+
+####std::timed_mutex::try_lock_until 成员函数
+
+尝试获取为当前线程获取`std::timed_mutex`上的锁。
+
+**声明**
+```c++
+template<typename Clock,typename Duration>
+bool try_lock_until(
+    std::chrono::time_point<Clock,Duration> const& absolute_time);
+```
+
+**先决条件**<br>
+调用线程不能已经持有*this上的锁。
+
+**效果**<br>
+在指定的absolute_time时间内，尝试获取*this上的锁。当`absolute_time<=Clock::now()`时，将会立即返回，就像调用try_lock()一样。否则，将会阻塞，直到获取锁或Clock::now()返回的时间等于或超过给定的absolute_time的时间。
+
+**返回**<br>
+当锁被调用线程获取，返回true；反之，返回false。
+
+**后置条件**<br>
+当函数返回为true，*this则被当前线程锁住。
+
+**抛出**<br>
+无
+
+**NOTE** 即使没有线程已获取*this上的锁，函数还是有可能获取不到锁(并返回false)。这里不保证调用函数要阻塞多久，只有在函数返回false后，在Clock::now()返回的时间大于或等于absolute_time时，线程才会接触阻塞。
+
+####std::timed_mutex::unlock 成员函数
+
+将当前线程持有`std::timed_mutex`对象上的锁进行释放。
+
+**声明**
+```c++
+void unlock();
+```
+
+**先决条件**<br>
+调用线程已经持有*this上的锁。
+
+**效果**<br>
+当前线程释放`*this`上的锁。任一阻塞等待获取`*this`上的线程，将被解除阻塞。
+
+**后置条件**<br>
+*this未被调用线程上锁。
+
+**抛出**<br>
+无
 
 ###D.5.4 std::recursive_timed_mutex类
 
