@@ -5943,7 +5943,54 @@ this->mutex()==NULL, this->owns_lock()==false。
 
 ###D.5.7 std::lock函数模板
 
+`std::lock`函数模板提供同时锁住多个互斥量的功能，且不会有因改变锁的一致性而导致的死锁。
+
+**声明**
+```c++
+template<typename LockableType1,typename... LockableType2>
+void lock(LockableType1& m1,LockableType2& m2...);
+```
+
+**先决条件**<br>
+提供的可锁对象LockableType1, LockableType2...，需要满足Lockable的需求。
+
+**效果**<br>
+使用未指定顺序调用lock(),try_lock()获取每个可锁对象(m1, m2...)上的锁，还有unlock()成员来避免这个类型陷入死锁。
+
+**后置条件**<br>
+当前线程拥有提供的所有可锁对象上的锁。
+
+**抛出**<br>
+任何lock(), try_lock()和unlock()抛出的异常。
+
+**NOTE** 如果一个异常由`std::lock`所传播开来，当可锁对象上有锁被lock()或try_lock()获取，那么unlock()会使用在这些可锁对象上。
+
 ###D.5.8 std::try_lock函数模板
+
+`std::try_lock`函数模板允许尝试获取一组可锁对象上的锁，所以要不全部获取，要不一个都不获取。
+
+**声明**
+```c++
+template<typename LockableType1,typename... LockableType2>
+int try_lock(LockableType1& m1,LockableType2& m2...);
+```
+
+**先决条件**<br>
+提供的可锁对象LockableType1, LockableType2...，需要满足Lockable的需求。
+
+**效果**<br>
+使用try_lock()尝试从提供的可锁对象m1,m2...上逐个获取锁。当锁在之前获取过，但被当前线程使用unlock()对相关可锁对象进行了释放后，try_lock()会返回false或抛出一个异常。
+
+**返回**<br>
+当所有锁都已获取(每个互斥量调用try_lock()返回true)，则返回-1，否则返回以0为基数的数字，其值为调用try_lock()返回false的个数。
+
+**后置条件**<br>
+当函数返回-1，当前线程获取从每个可锁对象上都获取一个锁。否则，通过该调用获取的任何锁都将被释放。
+
+**抛出**<br>
+try_lock()抛出的任何异常。
+
+**NOTE** 如果一个异常由`std::try_lock`所传播开来，则通过try_lock()获取锁对象，将会调用unlock()解除对锁的持有。
 
 ###D.5.9 std::once_flag类
 
