@@ -5994,7 +5994,54 @@ try_lock()抛出的任何异常。
 
 ###D.5.9 std::once_flag类
 
+`std::once_flag`和`std::call_once`一起使用，为了保证某特定函数只执行一次(即使有多个线程在并发的调用该函数)。
+
+`std::once_flag`实例是不能CopyConstructible(拷贝构造)，CopyAssignable(拷贝赋值)，MoveConstructible(移动构造)，以及MoveAssignable(移动赋值)。
+
+**类型定义**
+```c++
+struct once_flag
+{
+  constexpr once_flag() noexcept;
+
+  once_flag(once_flag const& ) = delete;
+  once_flag& operator=(once_flag const& ) = delete;
+};
+```
+
+####std::once_flag 默认构造函数
+
+`std::once_flag`默认构造函数创建了一个新的`std::once_flag`实例(并包含一个状态，这个状态表示相关函数没有被调用)。
+
+**声明**
+```c++
+constexpr once_flag() noexcept;
+```
+
+**效果**<br>
+`std::once_flag`默认构造函数创建了一个新的`std::once_flag`实例(并包含一个状态，这个状态表示相关函数没有被调用)。因为这是一个constexpr构造函数，在构造的静态初始部分，实例是静态存储的，这样就避免了条件竞争和初始化顺序的问题。
+
 ###D.5.10 std::call_once函数模板
+
+`std::call_once`和`std::once_flag`一起使用，为了保证某特定函数只执行一次(即使有多个线程在并发的调用该函数)。
+
+**声明**
+```c++
+template<typename Callable,typename... Args>
+void call_once(std::once_flag& flag,Callable func,Args args...);
+```
+
+**先决条件**<br>
+表达式`INVOKE(func,args)`提供的func和args必须是合法的。Callable和每个Args的成员都是可MoveConstructible(移动构造)。
+
+**效果**<br>
+在同一个`std::once_flag`对象上调用`std::call_once`是串行的。如果之前没有在同一个`std::once_flag`对象上调用过`std::call_once`，参数func(或副本)被调用，就像INVOKE(func, args),并且只有可调用的func不抛出任何异常时，调用`std::call_once`才是有效的。当有异常抛出，异常会被调用函数进行传播。如果之前在`std::once_flag`上的`std::call_once`是有效的，那么再次调用`std::call_once`将不会在调用func。
+
+**同步**<br>
+在`std::once_flag`上完成对`std::call_once`的调用的先决条件是，后续所有对`std::call_once`调用都在同一`std::once_flag`对象。
+
+**抛出**<br>
+当效果没有达到，或任何异常由调用func而传播，则抛出`std::system_error`。
 
 ##D.6 &lt;ratio&gt;头文件
 
