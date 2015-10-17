@@ -5396,6 +5396,81 @@ void unlock();
 
 ###D.5.5 std::lock_guard类型模板
 
+`std::lock_guard`类型模板为基础锁包装所有权。所要上锁的互斥量类型，由模板参数Mutex来决定，并且必须符合Lockable的需求。指定的互斥量在构造函数中上锁，在析构函数中解锁。这就为互斥量锁部分代码提供了一个简单的方式；当程序运行完成时，阻塞解除，互斥量解锁(无论是执行到最后，还是通过控制流语句break或return，亦或是抛出异常)。
+
+`std::lock_guard`是不可MoveConstructible(移动构造), CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
+
+**类型定义**
+```c++
+template <class Mutex>
+class lock_guard
+{
+public:
+  typedef Mutex mutex_type;
+
+  explicit lock_guard(mutex_type& m);
+  lock_guard(mutex_type& m, adopt_lock_t);
+  ~lock_guard();
+
+  lock_guard(lock_guard const& ) = delete;
+  lock_guard& operator=(lock_guard const& ) = delete;
+};
+```
+
+####std::lock_guard 上锁的构造函数
+
+使用互斥量构造一个`std::lock_guard`实例。
+
+**声明**
+```c++
+explicit lock_guard(mutex_type& m);
+```
+
+**效果**<br>
+通过引用提供的互斥量，构造一个新的`std::lock_guard`实例，并调用m.lock()。
+
+**抛出**<br>
+m.lock()抛出的任何异常。
+
+**后置条件**<br>
+*this拥有m上的锁。
+
+####std::lock_guard 获取锁的构造函数
+
+使用已提供互斥量上的锁，构造一个`std::lock_guard`实例。
+
+**声明**
+```c++
+lock_guard(mutex_type& m,std::adopt_lock_t);
+```
+
+**先决条件**<br>
+调用线程必须拥有m上的锁。
+
+**效果**<br>
+调用线程通过引用提供的互斥量，以及获取m上锁的所有权，来构造一个新的`std::lock_guard`实例。
+
+**抛出**<br>
+无
+
+**后置条件**<br>
+*this拥有m上的锁。
+
+####std::lock_guard 析构函数
+
+销毁一个`std::lock_guard`实例，并且解锁相关互斥量。
+
+**声明**
+```c++
+~lock_guard();
+```
+
+**效果**<br>
+当*this被创建后，调用m.unlock()。
+
+**抛出**<br>
+无
+
 ###D.5.6 std::unique_lock类型模板
 
 ###D.5.7 std::lock函数模板
