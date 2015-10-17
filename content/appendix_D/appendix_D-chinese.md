@@ -5417,7 +5417,7 @@ public:
 };
 ```
 
-####std::lock_guard 上锁的构造函数
+####std::lock_guard 自动上锁的构造函数
 
 使用互斥量构造一个`std::lock_guard`实例。
 
@@ -5472,6 +5472,474 @@ lock_guard(mutex_type& m,std::adopt_lock_t);
 无
 
 ###D.5.6 std::unique_lock类型模板
+
+`std::unique_lock`类型模板相较`std::loc_guard`提供了更通用的所有权包装器。上锁的互斥量可由模板参数Mutex提供，这个类型必须满足BasicLockable的需求。虽然，通常情况下，制定的互斥量会在构造的时候上锁，析构的时候解锁，但是附加的构造函数和成员函数提供灵活的功能。互斥量上锁，意味着对操作同一段代码的线程进行阻塞；当互斥量解锁，就意味着阻塞解除(不论是裕兴到最后，还是使用控制语句break和return，亦或是抛出异常)。`std::condition_variable`的邓丹函数是需要`std::unique_lock<std::mutex>`实例的，并且所有`std::unique_lock`实例都适用于`std::conditin_variable_any`等待函数的Lockable参数。
+
+当提供的Mutex类型符合Lockable的需求，那么`std::unique_lock<Mutex>`也是符合Lockable的需求。此外，如果提供的Mutex类型符合TimedLockable的需求，那么`std::unique_lock<Mutex>`也符合TimedLockable的需求。
+
+`std::unique_lock`实例是MoveConstructible(移动构造)和MoveAssignable(移动赋值)，但是不能CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
+
+**类型定义**
+```c++
+template <class Mutex>
+class unique_lock
+{
+public:
+  typedef Mutex mutex_type;
+
+  unique_lock() noexcept;
+  explicit unique_lock(mutex_type& m);
+  unique_lock(mutex_type& m, adopt_lock_t);
+  unique_lock(mutex_type& m, defer_lock_t) noexcept;
+  unique_lock(mutex_type& m, try_to_lock_t);
+
+  template<typename Clock,typename Duration>
+  unique_lock(
+      mutex_type& m,
+      std::chrono::time_point<Clock,Duration> const& absolute_time);
+
+  template<typename Rep,typename Period>
+      unique_lock(
+      mutex_type& m,
+      std::chrono::duration<Rep,Period> const& relative_time);
+
+  ~unique_lock();
+
+  unique_lock(unique_lock const& ) = delete;
+  unique_lock& operator=(unique_lock const& ) = delete;
+
+  unique_lock(unique_lock&& );
+  unique_lock& operator=(unique_lock&& );
+
+  void swap(unique_lock& other) noexcept;
+
+  void lock();
+  bool try_lock();
+  template<typename Rep, typename Period>
+  bool try_lock_for(
+      std::chrono::duration<Rep,Period> const& relative_time);
+  template<typename Clock, typename Duration>
+  bool try_lock_until(
+      std::chrono::time_point<Clock,Duration> const& absolute_time);
+  void unlock();
+
+  explicit operator bool() const noexcept;
+  bool owns_lock() const noexcept;
+  Mutex* mutex() const noexcept;
+  Mutex* release() noexcept;
+};
+```
+
+####std::unique_lock 默认构造函数
+
+不使用相关互斥量，构造一个`std::unique_lock`实例。
+
+**声明**
+```c++
+unique_lock() noexcept;
+```
+
+**效果**<br>
+构造一个`std::unique_lock`实例，这个新构造的实例没有相关互斥量。
+
+**后置条件**<br>
+this->mutex()==NULL, this->owns_lock()==false.
+
+####std::unique_lock 自动上锁的构造函数
+
+使用相关互斥量，构造一个`std::unique_lock`实例。
+
+**声明**
+```c++
+explicit unique_lock(mutex_type& m);
+```
+
+**效果**<br>
+通过提供的互斥量，构造一个`std::unique_lock`实例，且调用m.lock()。
+
+**抛出**<br>
+m.lock()抛出的任何异常。
+
+**后置条件**<br>
+this->owns_lock()==true, this->mutex()==&m.
+
+####std::unique_lock 获取锁的构造函数
+
+使用相关互斥量和持有的锁，构造一个`std::unique_lock`实例。
+
+**声明**
+```c++
+unique_lock(mutex_type& m,std::adopt_lock_t);
+```
+
+**先决条件**<br>
+调用线程必须持有m上的锁。
+
+**效果**<br>
+通过提供的互斥量和已经拥有m上的锁，构造一个`std::unique_lock`实例。
+
+**抛出**<br>
+无
+
+**后置条件**<br>
+this->owns_lock()==true, this->mutex()==&m.
+
+####std::unique_lock 递延锁的构造函数
+
+使用相关互斥量和非持有的锁，构造一个`std::unique_lock`实例。
+
+**声明**
+```c++
+unique_lock(mutex_type& m,std::defer_lock_t) noexcept;
+```
+
+**效果**<br>
+构造的`std::unique_lock`实例引用了提供的互斥量。
+
+**抛出**<br>
+无
+
+**后置条件**<br>
+this->owns_lock()==false, this->mutex()==&m.
+
+####std::unique_lock 尝试获取锁的构造函数
+
+使用提供的互斥量，并尝试从互斥量上获取锁，从而构造一个`std::unique_lock`实例。
+
+**声明**
+```c++
+unique_lock(mutex_type& m,std::try_to_lock_t);
+```
+
+**先决条件**<br>
+使`std::unique_lock`实例化的Mutex类型，必须符合Loackable的需求。
+
+**效果**<br>
+构造的`std::unique_lock`实例引用了提供的互斥量，且调用m.try_lock()。
+
+**抛出**<br>
+无
+
+**后置条件**<br>
+this->owns_lock()将返回m.try_lock()的结果，且this->mutex()==&m。
+
+####std::unique_lock 在给定时长内尝试获取锁的构造函数
+
+使用提供的互斥量，并尝试从互斥量上获取锁，从而构造一个`std::unique_lock`实例。
+
+**声明**
+```c++
+template<typename Rep,typename Period>
+unique_lock(
+    mutex_type& m,
+    std::chrono::duration<Rep,Period> const& relative_time);
+```
+
+**先决条件**<br>
+使`std::unique_lock`实例化的Mutex类型，必须符合TimedLockable的需求。
+
+**效果**<br>
+构造的`std::unique_lock`实例引用了提供的互斥量，且调用m.try_lock_for(relative_time)。
+
+**抛出**<br>
+无
+
+**后置条件**<br>
+this->owns_lock()将返回m.try_lock_for()的结果，且this->mutex()==&m。
+
+####std::unique_lock 在给定时间点内尝试获取锁的构造函数
+
+使用提供的互斥量，并尝试从互斥量上获取锁，从而构造一个`std::unique_lock`实例。
+
+**声明**
+```c++
+template<typename Clock,typename Duration>
+unique_lock(
+    mutex_type& m,
+    std::chrono::time_point<Clock,Duration> const& absolute_time);
+```
+
+**先决条件**<br>
+使`std::unique_lock`实例化的Mutex类型，必须符合TimedLockable的需求。
+
+**效果**<br>
+构造的`std::unique_lock`实例引用了提供的互斥量，且调用m.try_lock_until(absolute_time)。
+
+**抛出**<br>
+无
+
+**后置条件**<br>
+this->owns_lock()将返回m.try_lock_until()的结果，且this->mutex()==&m。
+
+####std::unique_lock 移动构造函数
+
+将一个已经构造`std::unique_lock`实例的所有权，转移到新的`std::unique_lock`实例上去。
+
+**声明**
+```c++
+unique_lock(unique_lock&& other) noexcept;
+```
+
+**先决条件**<br>
+使`std::unique_lock`实例化的Mutex类型，必须符合TimedLockable的需求。
+
+**效果**<br>
+构造的`std::unique_lock`实例。当other在函数调用的时候拥有互斥量上的锁，那么该锁的所有权将被转移到新构建的`std::unique_lock`对象当中去。
+
+**后置条件**<br>
+对于新构建的`std::unique_lock`对象x，x.mutex等价与在构造函数调用前的other.mutex()，并且x.owns_lock()等价于函数调用前的other.owns_lock()。在调用函数后，other.mutex()==NULL，other.owns_lock()=false。
+
+**抛出**<br>
+无
+
+**NOTE** `std::unique_lock`对象是不可CopyConstructible(拷贝构造)，所以这里没有拷贝构造函数，只有移动构造函数。
+
+####std::unique_lock 移动赋值操作
+
+将一个已经构造`std::unique_lock`实例的所有权，转移到新的`std::unique_lock`实例上去。
+
+**声明**
+```c++
+unique_lock& operator=(unique_lock&& other) noexcept;
+```
+
+**效果**<br>
+当this->owns_lock()返回true时，调用this->unlock()。如果other拥有mutex上的锁，那么这个所将归*this所有。
+
+**后置条件**<br>
+this->mutex()等于在为进行赋值前的other.mutex()，并且this->owns_lock()的值与进行赋值操作前的other.owns_lock()相等。other.mutex()==NULL, other.owns_lock()==false。
+
+**抛出**<br>
+无
+
+**NOTE** `std::unique_lock`对象是不可CopyAssignable(拷贝赋值)，所以这里没有拷贝赋值函数，只有移动赋值函数。
+
+####std::unique_lock 析构函数
+
+销毁一个`std::unique_lock`实例，如果该实例拥有锁，那么会将相关互斥量进行解锁。
+
+**声明**
+```c++
+~unique_lock();
+```
+
+**效果**<br>
+当this->owns_lock()返回true时，调用this->mutex()->unlock()。
+
+**抛出**<br>
+无
+
+####std::unique_lock::swap 成员函数
+
+交换`std::unique_lock`实例中相关的所有权。
+
+**声明**
+```c++
+void swap(unique_lock& other) noexcept;
+```
+
+**效果**<br>
+如果other在调用该函数前拥有互斥量上的锁，那么这个锁将归`*this`所有。如果`*this`在调用哎函数前拥有互斥量上的锁，那么这个锁将归other所有。
+
+**抛出**<br>
+无
+
+####std::unique_lock 上非成员函数swap
+
+交换`std::unique_lock`实例中相关的所有权。
+
+**声明**
+```c++
+void swap(unique_lock& lhs,unique_lock& rhs) noexcept;
+```
+
+**效果**<br>
+lhs.swap(rhs)
+
+**抛出**<br>
+无
+
+####std::unique_lock::lock 成员函数
+
+获取与*this相关互斥量上的锁。
+
+**声明**
+```c++
+void lock();
+```
+
+**先决条件**<br>
+this->mutex()!=NULL, this->owns_lock()==false.
+
+**效果**<br>
+调用this->mutex()->lock()。
+
+**抛出**<br>
+抛出任何this->mutex()->lock()所抛出的异常。当this->mutex()==NULL，抛出`std::sytem_error`类型异常，错误码为`std::errc::operation_not_permitted`。当this->owns_lock()==true时，抛出`std::system_error`，错误码为`std::errc::resource_deadlock_would_occur`。
+
+**后置条件**<br>
+this->owns_lock()==true。
+
+####std::unique_lock::try_lock 成员函数
+
+尝试获取与*this相关互斥量上的锁。
+
+**声明**
+```c++
+bool try_lock();
+```
+
+**先决条件**<br>
+`std::unique_lock`实例化说是用的Mutex类型，必须满足Lockable需求。this->mutex()!=NULL, this->owns_lock()==false。
+
+**效果**<br>
+调用this->mutex()->try_lock()。
+
+**抛出**<br>
+抛出任何this->mutex()->try_lock()所抛出的异常。当this->mutex()==NULL，抛出`std::sytem_error`类型异常，错误码为`std::errc::operation_not_permitted`。当this->owns_lock()==true时，抛出`std::system_error`，错误码为`std::errc::resource_deadlock_would_occur`。
+
+**后置条件**<br>
+当函数返回true时，this->ows_lock()==true，否则this->owns_lock()==false。
+
+####std::unique_lock::unlock 成员函数
+
+释放与*this相关互斥量上的锁。
+
+**声明**
+```c++
+void unlock();
+```
+
+**先决条件**<br>
+this->mutex()!=NULL, this->owns_lock()==true。
+
+**抛出**<br>
+抛出任何this->mutex()->unlock()所抛出的异常。当this->owns_lock()==false时，抛出`std::system_error`，错误码为`std::errc::operation_not_permitted`。
+
+**后置条件**<br>
+this->owns_lock()==false。
+
+####std::unique_lock::try_lock_for 成员函数
+
+在指定时间内尝试获取与*this相关互斥量上的锁。
+
+**声明**
+```c++
+template<typename Rep, typename Period>
+bool try_lock_for(
+    std::chrono::duration<Rep,Period> const& relative_time);
+```
+
+**先决条件**<br>
+`std::unique_lock`实例化说是用的Mutex类型，必须满足TimedLockable需求。this->mutex()!=NULL, this->owns_lock()==false。
+
+**效果**<br>
+调用this->mutex()->try_lock_for(relative_time)。
+
+**返回**<br>
+当this->mutex()->try_lock_for()返回true，返回true，否则返回false。
+
+**抛出**<br>
+抛出任何this->mutex()->try_lock_for()所抛出的异常。当this->mutex()==NULL，抛出`std::sytem_error`类型异常，错误码为`std::errc::operation_not_permitted`。当this->owns_lock()==true时，抛出`std::system_error`，错误码为`std::errc::resource_deadlock_would_occur`。
+
+**后置条件**<br>
+当函数返回true时，this->ows_lock()==true，否则this->owns_lock()==false。
+
+####std::unique_lock::try_lock_until 成员函数
+
+在指定时间点尝试获取与*this相关互斥量上的锁。
+
+**声明**
+```c++
+template<typename Clock, typename Duration>
+bool try_lock_until(
+    std::chrono::time_point<Clock,Duration> const& absolute_time);
+```
+
+**先决条件**<br>
+`std::unique_lock`实例化说是用的Mutex类型，必须满足TimedLockable需求。this->mutex()!=NULL, this->owns_lock()==false。
+
+**效果**<br>
+调用this->mutex()->try_lock_until(absolute_time)。
+
+**返回**<br>
+当this->mutex()->try_lock_for()返回true，返回true，否则返回false。
+
+**抛出**<br>
+抛出任何this->mutex()->try_lock_for()所抛出的异常。当this->mutex()==NULL，抛出`std::sytem_error`类型异常，错误码为`std::errc::operation_not_permitted`。当this->owns_lock()==true时，抛出`std::system_error`，错误码为`std::errc::resource_deadlock_would_occur`。
+
+**后置条件**<br>
+当函数返回true时，this->ows_lock()==true，否则this->owns_lock()==false。
+
+####std::unique_lock::operator bool成员函数
+
+检查*this是否拥有一个互斥量上的锁。
+
+**声明**
+```c++
+explicit operator bool() const noexcept;
+```
+
+**返回**<br>
+this->owns_lock()
+
+**抛出**<br>
+无
+
+**NOTE** 这是一个explicit转换操作，所以当这样的操作在上下文中只能被隐式的调用，所返回的结果需要被当做一个布尔量进行使用，而非仅仅作为整型数0或1。
+
+####std::unique_lock::owns_lock 成员函数
+
+检查*this是否拥有一个互斥量上的锁。
+
+**声明**
+```c++
+bool owns_lock() const noexcept;
+```
+
+**返回**<br>
+当*this持有一个互斥量的锁，返回true；否则，返回false。
+
+**抛出**<br>
+无
+
+####std::unique_lock::mutex 成员函数
+
+当*this具有相关互斥量时，返回这个互斥量
+
+**声明**
+```c++
+mutex_type* mutex() const noexcept;
+```
+
+**返回**<br>
+当*this有相关互斥量，则返回该互斥量；否则，返回NULL。
+
+**抛出**<br>
+无
+
+####std::unique_lock::release 成员函数
+
+当*this具有相关互斥量时，返回这个互斥量，并将这个互斥量进行释放。
+
+**声明**
+```c++
+mutex_type* release() noexcept;
+```
+
+**效果**<br>
+将*this与相关的互斥量之间的关系解除，同时解除所有持有锁的所有权。
+
+**返回**<br>
+返回与*this相关的互斥量指针，如果没有相关的互斥量，则返回NULL。
+
+**后置条件**<br>
+this->mutex()==NULL, this->owns_lock()==false。
+
+**抛出**<br>
+无
+
+**NOTE** 如果this->owns_lock()在调用该函数前返回true，那么调用者则有责任里解除互斥量上的锁。
 
 ###D.5.7 std::lock函数模板
 
