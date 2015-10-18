@@ -6386,4 +6386,115 @@ namespace std
 
 ###D.7.1 std::thread类
 
+`std::thread`用来管理线程的执行。其提供让新的线程执行或执行，也提供对线程的识别，以及提供其他函数用于管理线程的执行。
+
+```c++
+class thread
+{
+public:
+  // Types
+  class id;
+  typedef implementation-defined native_handle_type; // optional
+
+  // Construction and Destruction
+  thread() noexcept;
+  ~thread();
+
+  template<typename Callable,typename Args...>
+  explicit thread(Callable&& func,Args&&... args);
+
+  // Copying and Moving
+  thread(thread const& other) = delete;
+  thread(thread&& other) noexcept;
+
+  thread& operator=(thread const& other) = delete;
+  thread& operator=(thread&& other) noexcept;
+
+  void swap(thread& other) noexcept;
+
+  void join();
+  void detach();
+  bool joinable() const noexcept;
+
+  id get_id() const noexcept;
+  native_handle_type native_handle();
+  static unsigned hardware_concurrency() noexcept;
+};
+
+void swap(thread& lhs,thread& rhs);
+```
+
+####std::thread::id 类
+
+可以通过`std::thread::id`实例对执行线程进行识别。
+
+**类型定义**
+```c++
+class thread::id
+{
+public:
+  id() noexcept;
+};
+
+bool operator==(thread::id x, thread::id y) noexcept;
+bool operator!=(thread::id x, thread::id y) noexcept;
+bool operator<(thread::id x, thread::id y) noexcept;
+bool operator<=(thread::id x, thread::id y) noexcept;
+bool operator>(thread::id x, thread::id y) noexcept;
+bool operator>=(thread::id x, thread::id y) noexcept;
+
+template<typename charT, typename traits>
+basic_ostream<charT, traits>&
+operator<< (basic_ostream<charT, traits>&& out, thread::id id);
+```
+
+**Notes**<br>
+`std::thread::id`的值可以识别不同的执行，每个`std::thread::id`默认构造出来的值都不一样，不同值代表不同的执行线程。
+
+`std::thread::id`的值是不可预测的，在同一程序中的不同线程的id也不同。
+
+`std::thread::id`是可以CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)，所以对于`std::thread::id`的拷贝和赋值是没有限制的。
+
+#####std::thread::id 默认构造函数
+
+#####std::thread::id 相等比较操作
+
+#####std::thread::id 不相等比较操作
+
+#####std::thread::id 小于比较操作
+
+#####std::thread::id 小于等于比较操作
+
+#####std::thread::id 大于比较操作
+
+#####std::thread::id 大于等于比较操作
+
+#####std::thread::id 插入流操作
+
+####std::thread::native_handler 成员函数
+
+####std::thread 默认构造函数
+
+####std::thread 构造函数
+
+####std::thread 移动构造函数
+
+####std::thread 析构函数
+
+####std::thread 移动赋值操作
+
+####std::thread::swap 成员函数
+
+####std::thread的非成员函数swap
+
+####std::thread::joinable 成员函数
+
+####std::thread::join 成员函数
+
+####std::thread::detach 成员函数
+
+####std::thread::get_id 成员函数
+
+####std::thread::hardware_concurrency 静态成员函数
+
 ###D.7.2 this_thread命名空间
