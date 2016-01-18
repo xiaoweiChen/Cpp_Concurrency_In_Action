@@ -147,7 +147,7 @@ void foo()
 
 ###3.2.3 发现接口内在的条件竞争
 
-因为使用了互斥量或其他机制保护了共享数据，就不必再为条件竞争所担忧吗？并不，你依旧需要确定特定的数据受到了保护。考虑之前双链表的例子，为了能让线程安全地删除一个节点，需要确保防止对这三个节点(待删除的节点及其前后相邻的节点)的并发访问。如果只对指向每个节点的指针进行访问保护，那就和没有使用互斥量一样，条件竞争仍会发生——整个数据结构和整个删除操作需要保护，但指针不需要保护。这种情况下最简单的解决方案就是使用互斥量来保护整个链表，如清单3.1所示。
+因为使用了互斥量或其他机制保护了共享数据，就不必再为条件竞争所担忧吗？并不是这样，你依旧需要确定特定的数据受到了保护。回想之前双链表的例子，为了能让线程安全地删除一个节点，需要确保防止对这三个节点(待删除的节点及其前后相邻的节点)的并发访问。如果只对指向每个节点的指针进行访问保护，那就和没有使用互斥量一样，条件竞争仍会发生——整个数据结构和整个删除操作需要保护，但指针不需要保护。这种情况下最简单的解决方案就是使用互斥量来保护整个链表，如清单3.1所示。
 
 尽管对链表的个别操作是安全的，但不意味着你就能走出困境；即使在一个很简单的接口中，依旧可能遇到条件竞争。例如，构建一个类似于`std::stack`结构的栈(清单3.3)，除了构造函数和swap()以外，需要对`std::stack`提供五个操作：push()一个新元素进栈，pop()一个元素出栈，top()查看栈顶元素，empty()判断栈是否是空栈，size()了解栈中有多少个元素。即使修改了top()，使其返回一个拷贝而非引用(即遵循了3.2.2节的准则)，对内部数据使用一个互斥量进行保护，不过这个接口仍存在条件竞争。这个问题不仅存在于基于互斥量实现的接口中，在无锁实现的接口中，条件竞争依旧会产生。这是接口的问题，与其实现方式无关。
 
@@ -452,9 +452,9 @@ void thread_b() // 9
 }
 ```
 
-thread_a() ⑥ 遵守规则，所以它运行的没问题。另一方面，thread_b() ⑨ 无视规则，因此在运行的时候肯定会失败。thread_a()调用high_level_func()，让high_level_mutex④上锁(其层级值为10000①)，在这互斥量上锁是为了获取high_level_stuff()的参数，之后调用low_level_func()⑤。low_level_func()会对low_level_mutex上锁，这就没有问题了，因为这个互斥量有一个低层值5000②。
+thread_a()⑥遵守规则，所以它运行的没问题。另一方面，thread_b()⑨无视规则，因此在运行的时候肯定会失败。thread_a()调用high_level_func()，让high_level_mutex④上锁(其层级值为10000①)，为了获取high_level_stuff()的参数对互斥量上锁，之后调用low_level_func()⑤。low_level_func()会对low_level_mutex上锁，这就没有问题了，因为这个互斥量有一个低层值5000②。
 
-thread_b()运行就不会顺利了。首先，它锁住了other_mutex⑩，这个互斥量的层级值只有100⑦。这就意味着，超低层级的数据(*ultra-low-level data*)已被保护。当other_stuff()调用high_level_func()⑧时，就违反了层级结构：high_level_func()试图获取high_level_mutex，这个互斥量的层级值是10000，要比当前层级值100大很多。因此hierarchical_mutex将会产生一个错误，可能会是抛出一个异常，或直接终止程序。在层级互斥量上产生死锁，是不可能的，因为互斥量本身会严格遵循约定顺序，进行上锁。这也意味，当多个互斥量在是在同一级上时，这你不能同时持有多个锁，所以“手递手”锁的方案需要每个互斥量在一条链上，并且每个互斥量都比其前一个有更低的层级值，这在某些情况下，就有些不切实际了。
+thread_b()运行就不会顺利了。首先，它锁住了other_mutex⑩，这个互斥量的层级值只有100⑦。这就意味着，超低层级的数据(*ultra-low-level data*)已被保护。当other_stuff()调用high_level_func()⑧时，就违反了层级结构：high_level_func()试图获取high_level_mutex，这个互斥量的层级值是10000，要比当前层级值100大很多。因此hierarchical_mutex将会产生一个错误，可能会是抛出一个异常，或直接终止程序。在层级互斥量上产生死锁，是不可能的，因为互斥量本身会严格遵循约定顺序，进行上锁。这也意味，当多个互斥量在是在同一级上时，不能同时持有多个锁，所以“手递手”锁的方案需要每个互斥量在一条链上，并且每个互斥量都比其前一个有更低的层级值，这在某些情况下无法实现。
 
 例子也展示了另一点，`std::lock_guard<>`模板与用户定义的互斥量类型一起使用。虽然hierarchical_mutex不是C++标准的一部分，但是它写起来很容易；一个简单的实现在列表3.8中展示出来。尽管它是一个用户定义类型，它可以用于`std::lock_guard<>`模板中，因为它的实现有三个成员函数为了满足互斥量操作：lock(), unlock() 和 try_lock()。虽然你还没见过try_lock()怎么使用，但是其使用起来很简单：当互斥量上的锁被一个线程持有，它将返回false，而不是等待调用的线程，直到能够获取互斥量上的锁为止。在`std::lock()`的内部实现中，try_lock()会作为避免死锁算法的一部分。
 
@@ -463,9 +463,12 @@ thread_b()运行就不会顺利了。首先，它锁住了other_mutex⑩，这�
 class hierarchical_mutex
 {
   std::mutex internal_mutex;
+  
   unsigned long const hierarchy_value;
   unsigned long previous_hierarchy_value;
+  
   static thread_local unsigned long this_thread_hierarchy_value;  // 1
+  
   void check_for_hierarchy_violation()
   {
     if(this_thread_hierarchy_value <= hierarchy_value)  // 2
@@ -473,27 +476,32 @@ class hierarchical_mutex
       throw std::logic_error(“mutex hierarchy violated”);
     }
   }
+  
   void update_hierarchy_value()
   {
     previous_hierarchy_value=this_thread_hierarchy_value;  // 3
     this_thread_hierarchy_value=hierarchy_value;
   }
+  
 public:
   explicit hierarchical_mutex(unsigned long value):
       hierarchy_value(value),
       previous_hierarchy_value(0)
   {}
+  
   void lock()
   {
     check_for_hierarchy_violation();
     internal_mutex.lock();  // 4
     update_hierarchy_value();  // 5
   }
+  
   void unlock()
   {
     this_thread_hierarchy_value=previous_hierarchy_value;  // 6
     internal_mutex.unlock();
   }
+  
   bool try_lock()
   {
     check_for_hierarchy_violation();
@@ -507,23 +515,23 @@ thread_local unsigned long
      hierarchical_mutex::this_thread_hierarchy_value(ULONG_MAX);  // 7
 ```
 
-这里重点是使用了thread_local的值来代表当前线程的层级值：this_thread_hierarchy_value①。它被初始话为最大值⑧，所以最初所有线程都能被锁住。因为其声明中有thread_local，所以每个线程都有其拷贝副本，这样在线程中变量的状态就完全独立了，当从另一个线程进行读取时，变量的状态也是完全独立的。参见附录A，A.8节，有更多与thread_local相关的内容。
+这里重点是使用了thread_local的值来代表当前线程的层级值：this_thread_hierarchy_value①。它被初始化为最大值⑧，所以最初所有线程都能被锁住。因为其声明中有thread_local，所以每个线程都有其拷贝副本，这样线程中变量状态完全独立，当从另一个线程进行读取时，变量的状态也完全独立。参见附录A，A.8节，有更多与thread_local相关的内容。
 
 所以，第一次线程锁住一个hierarchical_mutex时，this_thread_hierarchy_value的值是ULONG_MAX。由于其本身的性质，这个值会大于其他任何值，所以会通过check_for_hierarchy_vilation()②的检查。在这种检查方式下，lock()代表内部互斥锁已被锁住④。一旦成功锁住，你可以更新层级值了⑤。
 
 当你现在锁住另一个hierarchical_mutex时，还持有第一个锁，this_thread_hierarchy_value的值将会显示第一个互斥量的层级值。第二个互斥量的层级值必须小于已经持有互斥量检查函数②才能通过。
 
-现在，最重要的是为当前线程存储之前的层级值，所以你可以调用unlock()⑥对层级值进行保存；否则，你就锁不住任何互斥量(第二个互斥量的层级数高于第一个互斥量)，即使线程没有持有任何锁。因为你保存了之前的层级值，只有当你持有internal_mutex③，并且在解锁内部互斥量⑥之前存储它的层级值，你才能安全的将hierarchical_mutex自身进行存储。这是因为hierarchical_mutex被内部互斥量的锁所保护着。
+现在，最重要的是为当前线程存储之前的层级值，所以你可以调用unlock()⑥对层级值进行保存；否则，就锁不住任何互斥量(第二个互斥量的层级数高于第一个互斥量)，即使线程没有持有任何锁。因为保存了之前的层级值，只有当持有internal_mutex③，且在解锁内部互斥量⑥之前存储它的层级值，才能安全的将hierarchical_mutex自身进行存储。这是因为hierarchical_mutex被内部互斥量的锁所保护着。
 
-try_lock()与lock()的功能相似，除非在调用internal_mutex的try_lock()⑦失败时，然后你就不能持有对应锁了，所以不必更新层级值，并直接返回false就好。
+try_lock()与lock()的功能相似，除了在调用internal_mutex的try_lock()⑦失败时，不能持有对应锁，所以不必更新层级值，并直接返回false。
 
-虽然是运行时检测，但是它至少没有时间依赖性——你不必去等待那些导致死锁出现的罕见条件。同时，设计过程需要去拆分应用，互斥量在这样的情况下可以帮助消除很多可能导致死锁的情况。这是很值得去做的设计练习，即使你之后没有去做，代码也会在运行时进行检查。
+虽然是运行时检测，但是它没有时间依赖性——不必去等待那些导致死锁出现的罕见条件。同时，设计过程需要去拆分应用，互斥量在这样的情况下可以消除可能导致死锁的可能性。这样的设计练习很有必要去做一下，即使你之后没有去做，代码也会在运行时进行检查。
 
 **超越锁的延伸扩展**
 
-如我在本节开头提到的那样，死锁不仅仅会发生在锁之间；死锁也会发生在任何同步构造中(可能会产生一个等待循环)。因此也需要有指导意见能覆盖到这个层面上。例如，正如你要去避免获取嵌套锁，等待一个持有锁的线程是一个很糟糕的决定，因为线程为了能继续运行可能需要获取对应的锁。类似的，如果去等待一个线程结束，它应该可以确定一个线程的层级，这样的话，一个线程只需要等待比起层级低的线程结束即可。可以用一个简单的办法去确定，以添加的线程是否在同一函数中被启动，如同在3.1.2节和3.3节中描述的那样。
+如我在本节开头提到的那样，死锁不仅仅会发生在锁之间；死锁也会发生在任何同步构造中(可能会产生一个等待循环)，因此这方面也需要有指导意见，例如：要去避免获取嵌套锁等待一个持有锁的线程是一个很糟糕的决定，因为线程为了能继续运行可能需要获取对应的锁。类似的，如果去等待一个线程结束，它应该可以确定这个线程的层级，这样一个线程只需要等待比起层级低的线程结束即可。可以用一个简单的办法去确定，以添加的线程是否在同一函数中被启动，如同在3.1.2节和3.3节中描述的那样。
 
-当你已经将你的代码设计成避免死锁的，`std::lock()`和`std::lack_guard`能组成简单的锁覆盖大多数需要锁情况，但是有时需要更多的灵活性。在这些情况，可以使用标准库提供的`std::unique_lock`模板。如` std::lock_guard`，这是一个参数化的互斥量模板类，并且它提供很多RAII类型锁用来管理`std::lock_guard`类型，这样就有更加的灵活了。
+当代码已经能规避死锁，`std::lock()`和`std::lack_guard`能组成简单的锁覆盖大多数情况，但是有时需要更多的灵活性。在这些情况，可以使用标准库提供的`std::unique_lock`模板。如` std::lock_guard`，这是一个参数化的互斥量模板类，并且它提供很多RAII类型锁用来管理`std::lock_guard`类型，可以让代码更加灵活。
 
 ###3.2.6 std::unique_lock——灵活的锁
 
