@@ -312,6 +312,7 @@ public:
   {
     std::lock_guard<std::mutex> lock(m);
     if(data.empty()) throw empty_stack(); // 在调用pop前，检查栈是否为空
+	
     std::shared_ptr<T> const res(std::make_shared<T>(data.top())); // 在修改堆栈前，分配出返回值
     data.pop();
     return res;
@@ -321,7 +322,8 @@ public:
   {
     std::lock_guard<std::mutex> lock(m);
     if(data.empty()) throw empty_stack();
-      value=data.top();
+	
+    value=data.top();
     data.pop();
   }
   
