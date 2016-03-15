@@ -1,4 +1,4 @@
-#消息传递框架与完整的ATM示例
+# 消息传递框架与完整的ATM示例
 
 ATM：自动取款机。
 
@@ -7,6 +7,7 @@ ATM：自动取款机。
 清单C.1实现了一个消息队列。其可以将消息以指针(指向基类)的方式存储在列表中；指定消息类型会由基类派生模板进行处理。推送包装类的构造实例，以及存储指向这个实例的指针；弹出实例的时候，将会返回指向其的指针。因为message_base类没有任何成员函数，在访问存储消息之前，弹出线程就需要将指针转为wrapped_message<T>指针。
 
 清单C.1 简单的消息队列
+
 ```c++
 #include <mutex>
 #include <condition_variable>
@@ -61,6 +62,7 @@ namespace messaging
 发送通过sender类(见清单C.2)实例处理过的消息。只能对已推送到队列中的消息进行包装。对sender实例的拷贝，只是拷贝了指向队列的指针，而非队列本身。
 
 清单C.2 sender类
+
 ```c++
 namespace messaging
 {
@@ -91,6 +93,7 @@ namespace messaging
 接收信息部分有些麻烦。不仅要等待队列中的消息，还要检查消息类型是否与所等待的消息类型匹配，并调用处理函数进行处理。那么就从receiver类的实现开始吧。
 
 清单C.3 receiver类
+
 ```c++
 namespace messaging
 {
@@ -113,6 +116,7 @@ namespace messaging
 sender只是引用一个消息队列，而receiver是拥有一个队列。可以使用隐式转换的方式获取sender引用的类。难点在于wait()中的调度。这里创建了一个dispatcher对象引用receiver中的队列。dispatcher类实现会在下一个清单中看到；如你所见，任务是在析构函数中完成的。在这个例子中，所要做的工作是对消息进行等待，以及对其进行调度。
 
 清单C.4 dispatcher类
+
 ```c++
 namespace messaging
 {
@@ -186,6 +190,7 @@ namespace messaging
 虽然，不会经常的去调用wait()函数，不过，在大多数时间里，你都希望对一条消息进行处理。这时就需要handle()成员函数③的加入。这个函数是一个模板，并且消息类型不可推断，所以你需要指定需要处理的消息类型，并且传入函数(或可调用对象)进行处理，并将队列传入当前dispatcher对象的handle()函数。这将在清单C.5中展示。这就是为什么，在测试析构函数中的chained值前，要等待消息耳朵原因；不仅是避免“移动”类型的对象对消息进行等待，而且允许将等待状态转移到新的TemplateDispatcher实例中。
 
 清单C.5 TemplateDispatcher类模板
+
 ```c++
 namespace messaging
 {
@@ -268,6 +273,7 @@ TemplateDispatcher<>类模板仿照了dispatcher类，二者几乎相同。特�
 为了完成第4章的例子，消息的组成将在清单C.6中给出，各种状态机将在清单C.7,C.8和C.9中给出。最后，驱动代码将在C.10给出。
 
 清单C.6 ATM消息
+
 ```c++
 struct withdraw
 {
@@ -417,6 +423,7 @@ struct balance_pressed
 ```
 
 清单C.7 ATM状态机
+
 ```c++
 class atm
 {
@@ -615,6 +622,7 @@ public:
 ```
 
 清单C.8 银行状态机
+
 ```c++
 class bank_machine
 {
@@ -691,6 +699,7 @@ public:
 ```
 
 清单C.9 用户状态机
+
 ```c++
 class interface_machine
 {
@@ -803,6 +812,7 @@ public:
 ```
 
 清单C.10 驱动代码
+
 ```c++
 int main()
 {

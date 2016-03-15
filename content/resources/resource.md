@@ -1,6 +1,6 @@
-#资源
+# 资源
 
-##打印资源
+## 打印资源
 
 Cargill, Tom, “Exception Handling: A False Sense of Security,” in C++ Report 6, no. 9,(November-December 1994). Also available at http://www.informit.com/content/images/020163371x/supplements/Exception_Handling_Article.html.
 
@@ -14,7 +14,7 @@ Sutter, Herb, Exceptional C++: 47 Engineering Puzzles, Programming Problems, and
 
 > ———. “The Free Lunch Is Over: A Fundamental Turn Toward Concurrency in Software,” in Dr. Dobb’s Journal 30, no. 3 (March 2005). Also available at http://www.gotw.ca/publications/concurrency-ddj.htm.
 
-##在线资源
+## 在线资源
 
 Atomic Ptr Plus Project Home, http://atomic-ptr-plus.sourceforge.net/
 
