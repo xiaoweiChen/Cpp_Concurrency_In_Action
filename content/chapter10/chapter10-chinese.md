@@ -256,7 +256,7 @@ C++标准库实现中，某些测试工具已经存在于标准库中，没有�
 下面的代码，构建了这样的测试。
 
 清单10.1 对一个队列并发调用push()和pop()的测试用例
-```c++
+```
 void test_concurrent_push_and_pop_on_empty_queue()
 {
   threadsafe_queue<int> q;  // 1

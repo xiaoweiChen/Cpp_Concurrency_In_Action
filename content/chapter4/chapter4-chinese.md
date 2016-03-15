@@ -19,7 +19,7 @@
 
 第二个选择是在等待线程在检查间隙，使用`std::this_thread::sleep_for()`进行周期性的间歇(详见4.3节)：
 
-```c++
+```
 bool flag;
 std::mutex m;
 
@@ -49,7 +49,7 @@ C++标准库对条件变量有两套实现：`std::condition_variable`和`std::c
 
 清单4.1 使用`std::condition_variable`处理数据等待
 
-```c++
+```
 std::mutex mut;
 std::queue<data_chunk> data_queue;  // 1
 std::condition_variable data_cond;
@@ -100,7 +100,7 @@ wait()会去检查这些条件(通过调用所提供的lambda函数)，当条件
 
 清单4.2 `std::queue`接口
 
-```c++
+```
 template <class T, class Container = std::deque<T> >
 class queue {
 public:
@@ -132,7 +132,7 @@ public:
 
 清单4.3 线程安全队列的接口
 
-```c++
+```
 #include <memory> // 为了使用std::shared_ptr
 
 template<typename T>
@@ -162,7 +162,7 @@ public:
 
 清单4.4 从清单4.1中提取push()和wait_and_pop()
 
-```c++
+```
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -220,7 +220,7 @@ void data_processing_thread()
 
 清单4.5 使用条件变量的线程安全队列(完整版)
 
-```c++
+```
 #include <queue>
 #include <memory>
 #include <mutex>
@@ -320,7 +320,7 @@ C++标准库模型将这种一次性事件称为“期望” (*future*)。当一
 
 清单4.6 使用`std::future`从异步任务中获取返回值
 
-```c++
+```
 #include <future>
 #include <iostream>
 
@@ -338,7 +338,7 @@ int main()
 
  清单4.7 使用`std::async`向函数传递参数
  
-```c++
+```
 #include <string>
 #include <future>
 struct X
@@ -374,7 +374,7 @@ auto f5=std::async(move_only());  // 调用tmp()，tmp是通过std::move(move_on
 
 在默认情况下，这取决于`std::async`是否启动一个线程，或是否在期望等待时同步任务。在大多数情况下(估计这就是你想要的结果)，但是你也可以在函数调用之前，向`std::async`传递一个额外参数。这个参数的类型是`std::launch`，还可以是`std::launch::defered`，用来表明函数调用被延迟到wait()或get()函数调用时才执行，`std::launch::async` 表明函数必须在其所在的独立线程上执行，`std::launch::deferred | std::launch::async`表明实现可以选择这两种方式的一种。最后一个选项是默认的。当函数调用被延迟，它可能不会在运行了。如下所示：
 
-```c++
+```
 auto f6=std::async(std::launch::async,Y(),1.2);  // 在新线程上执行
 auto f7=std::async(std::launch::deferred,baz,std::ref(x));  // 在wait()或get()调用时执行
 auto f8=std::async(
@@ -396,7 +396,7 @@ f7.wait();  //  调用延迟函数
 
 清单4.8 `std::packaged_task<>`的特化——局部类定义
 
-```c++
+```
 template<>
 class packaged_task<std::string(std::vector<char>*,int)>
 {
@@ -418,7 +418,7 @@ public:
 
 清单4.9 使用`std::packaged_task`执行一个图形界面线程
 
-```c++
+```
 #include <deque>
 #include <mutex>
 #include <future>
@@ -483,7 +483,7 @@ std::future<void> post_task_for_gui_thread(Func f)
 
 清单4.10 使用“承诺”解决单线程多连接问题
 
-```c++
+```
 #include <future>
 
 void process_connections(connection_set& connections)
@@ -522,7 +522,7 @@ void process_connections(connection_set& connections)
 
 看完下面短小的代码段，思考一下，当你传递-1到square_root()中时，它将抛出一个异常，并且这个异常将会被调用者看到：
 
-```c++
+```
 double square_root(double x)
 {
   if(x<0)
@@ -535,13 +535,13 @@ double square_root(double x)
 
 假设调用square_root()函数不是当前线程，
 
-```c++
+```
 double y=square_root(-1);
 ```
 
 你将这样的调用改为异步调用：
 
-```c++
+```
 std::future<double> f=std::async(square_root,-1);
 double y=f.get();
 ```
@@ -552,7 +552,7 @@ double y=f.get();
 
 当然，通过函数的显式调用，`std::promise`也能提供同样的功能。当你希望存入的是一个异常而非一个数值时，你就需要调用set_exception()成员函数，而非set_value()。这通常是用在一个catch块中，并作为算法的一部分，为了捕获异常，使用异常填充“承诺”：
 
-```c++
+```
 extern std::promise<double> some_promise;
 try
 {
@@ -566,7 +566,7 @@ catch(...)
 
 这里使用了`std::current_exception()`来检索抛出的异常；可用`std::copy_exception()`作为一个替换方案，`std::copy_exception()`会直接存储一个新的异常而不抛出：
 
-```c++
+```
 some_promise.set_exception(std::copy_exception(std::logic_error("foo ")));
 ```
 
@@ -592,7 +592,7 @@ some_promise.set_exception(std::copy_exception(std::logic_error("foo ")));
 
 `std::shared_future`的实例同步`std::future`实例的状态。当`std::future`对象没有与其他对象共享同步状态所有权，那么所有权必须使用`std::move`将所有权传递到`std::shared_future`，其默认构造函数如下：
 
-```c++
+```
 std::promise<int> p;
 std::future<int> f(p.get_future());
 assert(f.valid());  // 1 "期望" f 是合法的
@@ -605,7 +605,7 @@ assert(sf.valid());  // 3 sf 现在是合法的
 
 如其他可移动对象一样，转移所有权是对右值的隐式操作，所以你可以通过`std::promise`对象的成员函数get_future()的返回值，直接构造一个`std::shared_future`对象，例如：
 
-```c++
+```
 std::promise<std::string> p;
 std::shared_future<std::string> sf(p.get_future());  // 1 隐式转移所有权
 ```
@@ -662,7 +662,7 @@ auto sf=p.get_future().share();
 
 当不要求截断值的情况下(时转换成秒是没问题，但是秒转换成时就不行)时延的转换是隐式的。显示转换可以由`std::chrono::duration_cast<>`来完成。
 
-```c++
+```
 std::chrono::milliseconds ms(54802);
 std::chrono::seconds s=
        std::chrono::duration_cast<std::chrono::seconds>(ms);
@@ -674,7 +674,7 @@ std::chrono::seconds s=
 
 基于时延的等待可由`std::chrono::duration<>`来完成。例如，你等待一个“期望”状态变为就绪已经35毫秒：
 
-```c++
+```
 std::future<int> f=std::async(some_task);
 if(f.wait_for(std::chrono::milliseconds(35))==std::future_status::ready)
   do_something_with(f.get());
@@ -694,7 +694,7 @@ if(f.wait_for(std::chrono::milliseconds(35))==std::future_status::ready)
 
 你也可以减去一个时间点(二者需要共享同一个时钟)。结果是两个时间点的时间差。这对于代码块的计时是很有用的，例如：
 
-```c++
+```
 auto start=std::chrono::high_resolution_clock::now();
 do_something();
 auto stop=std::chrono::high_resolution_clock::now();
@@ -709,7 +709,7 @@ std::cout<<”do_something() took “
 
 清单4.11 等待一个条件变量——有超时功能
 
-```c++
+```
 #include <condition_variable>
 #include <mutex>
 #include <chrono>
@@ -838,7 +838,7 @@ bool wait_loop()
 
 清单4.12 快速排序——顺序实现版
 
-```c++
+```
 template<typename T>
 std::list<T> sequential_quick_sort(std::list<T> input)
 {
@@ -879,7 +879,7 @@ std::list<T> sequential_quick_sort(std::list<T> input)
 
 清单4.13 快速排序——“期望”并行版
 
-```c++
+```
 template<typename T>
 std::list<T> parallel_quick_sort(std::list<T> input)
 {
@@ -916,7 +916,7 @@ std::list<T> parallel_quick_sort(std::list<T> input)
 
 清单4.14 spawn_task的简单实现
 
-```c++
+```
 template<typename F,typename A>
 std::future<std::result_of<F(A&&)>::type>
    spawn_task(F&& f,A&& a)
@@ -959,7 +959,7 @@ CSP的概念十分简单：当没有共享数据，每个线程就可以进行�
 
 清单4.15 ATM逻辑类的简单实现
 
-```c++
+```
 struct card_inserted
 {
   std::string account;
@@ -1018,7 +1018,7 @@ lambda函数自身，只是将用户的账号信息缓存到一个成员变量�
 
 清单4.16 简单ATM实现中的getting_pin状态函数
 
-```c++
+```
 void atm::getting_pin()
 {
   incoming.wait()

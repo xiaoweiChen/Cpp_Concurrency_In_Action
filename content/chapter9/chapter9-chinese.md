@@ -31,7 +31,7 @@
 
 清单9.1 简单的线程池
 
-```c++
+```
 class thread_pool
 {
   std::atomic_bool done;
@@ -113,7 +113,7 @@ worker_thread函数很简单：从任务队列上获取任务⑤，以及同时�
 
 清单9.2 可等待任务的线程池
 
-```c++
+```
 class function_wrapper
 {
   struct impl_base {
@@ -198,7 +198,7 @@ public:
 
 清单9.3 parallel_accumulate使用一个可等待任务的线程池
 
-```c++
+```
 template<typename Iterator,typename T>
 T parallel_accumulate(Iterator first,Iterator last,T init)
 {
@@ -256,7 +256,7 @@ T parallel_accumulate(Iterator first,Iterator last,T init)
 
 清单9.4 run_pending_task()函数实现
 
-```c++
+```
 void thread_pool::run_pending_task()
 {
   function_wrapper task;
@@ -277,7 +277,7 @@ run_pending_task()的实现去掉了在worker_thread()函数的主循环。函�
 
 清单9.5 基于线程池的快速排序实现
 
-```c++
+```
 template<typename T>
 struct sorter  // 1
 {
@@ -350,7 +350,7 @@ std::list<T> parallel_quick_sort(std::list<T> input)
 
 清单9.6 线程池——线程具有本地任务队列
 
-```c++
+```
 class thread_pool
 {
   thread_safe_queue<function_wrapper> pool_work_queue;
@@ -428,7 +428,7 @@ run_pending_task()⑥中的检查和之前类似，只是要对是否存在本�
 
 清单9.7 基于锁的任务窃取队列
 
-```c++
+```
 class work_stealing_queue
 {
 private:
@@ -492,7 +492,7 @@ OK，现在拥有了一个很不错的任务队列，并且支持窃取；那这
 
 清单9.8 使用任务窃取的线程池
 
-```c++
+```
 class thread_pool
 {
   typedef function_wrapper task_type;
@@ -624,7 +624,7 @@ pop_task_from_other_thread_queue()④会遍历池中所有线程的任务队列�
 
 先看一下外部接口，需要从可中断线程上获取些什么？最起码需要和`std::thread`相同的接口，还要多加一个interrupt()函数：
 
-```c++
+```
 class interruptible_thread
 {
 public:
@@ -643,7 +643,7 @@ thread_local标志是不能使用普通的`std::thread`管理线程的主要原�
 
 清单9.9 interruptible_thread的基本实现
 
-```c++
+```
 class interrupt_flag
 {
 public:
@@ -685,7 +685,7 @@ interrupt()函数相对简单：需要一个线程去做中断时，需要一个
 
 现在就可以设置中断标志了，不过不检查线程是否被中断，这样的意义就不大了。使用interruption_point()函数最简单的情况；可以在一个安全的地方调用这个函数，如果标志已经设置，就可以抛出一个thread_interrupted异常：
 
-```c++
+```
 void interruption_point()
 {
   if(this_thread_interrupt_flag.is_set())
@@ -697,7 +697,7 @@ void interruption_point()
 
 代码中可以在适当的地方使用这个函数：
 
-```c++
+```
 void foo()
 {
   while(!done)
@@ -716,7 +716,7 @@ OK，需要仔细选择中断的位置，并通过显式调用interruption_point
 
 清单9.10 为`std::condition_variable`实现的interruptible_wait有问题版
 
-```c++
+```
 void interruptible_wait(std::condition_variable& cv,
 std::unique_lock<std::mutex>& lk)
 {
@@ -734,7 +734,7 @@ std::unique_lock<std::mutex>& lk)
 
 清单9.11 为`std::condition_variable`在interruptible_wait中使用超时
 
-```c++
+```
 class interrupt_flag
 {
   std::atomic<bool> flag;
@@ -796,7 +796,7 @@ void interruptible_wait(std::condition_variable& cv,
 
 如果有谓词(相关函数)进行等待，1ms的超时将会完全在谓词循环中完全隐藏：
 
-```c++
+```
 template<typename Predicate>
 void interruptible_wait(std::condition_variable& cv,
                         std::unique_lock<std::mutex>& lk,
@@ -821,7 +821,7 @@ void interruptible_wait(std::condition_variable& cv,
 
 清单9.12 为`std::condition_variable_any`设计的interruptible_wait
 
-```c++
+```
 class interrupt_flag
 {
   std::atomic<bool> flag;
@@ -904,7 +904,7 @@ void interruptible_wait(std::condition_variable_any& cv,
 
 这次轮到中断条件变量的等待了，不过其他阻塞情况，比如：互斥锁，等待future等等，该怎么办呢？通常情况下，可以使用`std::condition_variable`的超时选项，因为在实际运行中不可能很快的将条件变量的等待终止(不访问内部互斥量或future的话)。不过，在某些情况下，你知道知道你在等待什么，这样就可以让循环在interruptible_wait()函数中运行。作为一个例子，这里为`std::future<>`重载了interruptible_wait()的实现：
 
-```c++
+```
 template<typename T>
 void interruptible_wait(std::future<T>& uf)
 {
@@ -930,7 +930,7 @@ OK，我们已经了解如何使用interruption_point()和interruptible_wait()�
 
 特别是使用标准catch块对其进行捕获：
 
-```c++
+```
 try
 {
   do_something();
@@ -945,7 +945,7 @@ catch(thread_interrupted&)
 
 因为thread_interrupted是一个异常，在能够被中断的代码中，之前线程安全的注意事项都是适用的，就是为了确保资源不会泄露，并在数据结构中留下对应的退出状态。通常，让线程中断是可行的，所以只需要让异常传播即可。不过，当异常传入`std::thread`的析构函数时，`std::terminate()`将会调用，并且整个程序将会终止。为了避免这种情况，需要在每个将interruptible_thread变量作为参数传入的函数中放置catch(thread_interrupted)处理块，可以将catch块包装进interrupt_flag的初始化过程中。因为异常将会终止独立进程，就能保证未处理的中断是异常安全的。interruptible_thread构造函数中对线程的初始化，实现如下：
 
-```c++
+```
 internal_thread=std::thread([f,&p]{
         p.set_value(&this_thread_interrupt_flag);
         
@@ -968,7 +968,7 @@ internal_thread=std::thread([f,&p]{
 
 清单9.13 在后台监视文件系统
 
-```c++
+```
 std::mutex config_mutex;
 std::vector<interruptible_thread> background_threads;
 

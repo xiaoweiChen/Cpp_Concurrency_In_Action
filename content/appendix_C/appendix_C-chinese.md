@@ -8,7 +8,7 @@ ATM：自动取款机。
 
 清单C.1 简单的消息队列
 
-```c++
+```
 #include <mutex>
 #include <condition_variable>
 #include <queue>
@@ -63,7 +63,7 @@ namespace messaging
 
 清单C.2 sender类
 
-```c++
+```
 namespace messaging
 {
   class sender
@@ -94,7 +94,7 @@ namespace messaging
 
 清单C.3 receiver类
 
-```c++
+```
 namespace messaging
 {
   class receiver
@@ -117,7 +117,7 @@ sender只是引用一个消息队列，而receiver是拥有一个队列。可以
 
 清单C.4 dispatcher类
 
-```c++
+```
 namespace messaging
 {
   class close_queue  // 用于关闭队列的消息
@@ -191,7 +191,7 @@ namespace messaging
 
 清单C.5 TemplateDispatcher类模板
 
-```c++
+```
 namespace messaging
 {
   template<typename PreviousDispatcher,typename Msg,typename Func>
@@ -274,7 +274,7 @@ TemplateDispatcher<>类模板仿照了dispatcher类，二者几乎相同。特�
 
 清单C.6 ATM消息
 
-```c++
+```
 struct withdraw
 {
   std::string account;
@@ -424,7 +424,7 @@ struct balance_pressed
 
 清单C.7 ATM状态机
 
-```c++
+```
 class atm
 {
   messaging::receiver incoming;
@@ -623,7 +623,7 @@ public:
 
 清单C.8 银行状态机
 
-```c++
+```
 class bank_machine
 {
   messaging::receiver incoming;
@@ -700,7 +700,7 @@ public:
 
 清单C.9 用户状态机
 
-```c++
+```
 class interface_machine
 {
   messaging::receiver incoming;
@@ -813,7 +813,7 @@ public:
 
 清单C.10 驱动代码
 
-```c++
+```
 int main()
 {
   bank_machine bank;

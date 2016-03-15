@@ -70,7 +70,7 @@
 
 清单6.1 线程安全栈的类定义
 
-```c++
+```
 #include <exception>
 
 struct empty_stack: std::exception
@@ -151,7 +151,7 @@ public:
 
 清单6.2 使用条件变量实现的线程安全队列
 
-```c++
+```
 template<typename T>
 class threadsafe_queue
 {
@@ -226,7 +226,7 @@ wiat_and_pop()函数是等待队列向栈进行输入的一个解决方案；比
 
 清单6.3 持有`std::shared_ptr<>`实例的线程安全队列
 
-```c++
+```
 template<typename T>
 class threadsafe_queue
 {
@@ -314,7 +314,7 @@ public:
 
 清单6.4 队列实现——单线程版
 
-```c++
+```
 template<typename T>
 class queue
 {
@@ -379,7 +379,7 @@ public:
 
 清单6.5 带有虚拟节点的队列
 
-```c++
+```
 template<typename T>
 class queue
 {
@@ -435,7 +435,7 @@ try_pop()就不简单了。首先，你需要使用互斥量锁住head，一直�
 
 清单6.6 线程安全队列——细粒度锁版
 
-```c++
+```
 template<typename T>
 class threadsafe_queue
 {
@@ -514,7 +514,7 @@ public:
 
 当get_tail()调用前，head_mutex已经上锁，这一步也是很重要的哦。如果不这样，调用pop_head()时就会被get_tail()和head_mutex所卡住，因为其他线程调用try_pop()(以及pop_head())时，都需要先获取锁，然后阻止从下面的过程中初始化线程：
 
-```c++
+```
 std::unique_ptr<node> pop_head() // 这是个有缺陷的实现
 {
   node* const old_tail=get_tail();  // ① 在head_mutex范围外获取旧尾节点的值
@@ -560,7 +560,7 @@ wait_and_pop()就有些复杂了，因为需要确定在哪里等待，也就是
 
 清单6.7 可上锁和等待的线程安全队列——内部机构及接口
 
-```c++
+```
 template<typename T>
 class threadsafe_queue
 {
@@ -596,7 +596,7 @@ public:
 
 清单6.8 可上锁和等待的线程安全队列——推入新节点
 
-```c++
+```
 template<typename T>
 void threadsafe_queue<T>::push(T new_value)
 {
@@ -618,7 +618,7 @@ void threadsafe_queue<T>::push(T new_value)
 
 清单6.9 可上锁和等待的线程安全队列——wait_and_pop()
 
-```c++
+```
 template<typename T>
 class threadsafe_queue
 {
@@ -673,7 +673,7 @@ public:
 
 清单6.10 可上锁和等待的线程安全队列——try_pop()和empty()
 
-```c++
+```
 template<typename T>
 class threadsafe_queue
 {
@@ -753,7 +753,7 @@ public:
 
 从接口角度看，有一个问题很是有趣，那就是任意(*if any*)部分获取相关数据。一种选择是允许用户提供一个“默认”值，在键值没有对应值的时候进行返回：
 
-```c++
+```
 mapped_type get_value(key_type const& key, mapped_type default_value);
 ```
 
@@ -781,7 +781,7 @@ mapped_type get_value(key_type const& key, mapped_type default_value);
 
 清单6.11 线程安全的查询表
 
-```c++
+```
 template<typename Key,typename Value,typename Hash=std::hash<Key> >
 class threadsafe_lookup_table
 {
@@ -894,7 +894,7 @@ public:
 
 清单6.12 获取整个threadsafe_lookup_table作为一个`std::map<>`
 
-```c++
+```
 std::map<Key,Value> threadsafe_lookup_table::get_map() const
 {
   std::vector<std::unique_lock<boost::shared_mutex> > locks;
@@ -947,7 +947,7 @@ std::map<Key,Value> threadsafe_lookup_table::get_map() const
 
 清单6.13 线程安全链表——支持迭代器
 
-```c++
+```
 template<typename T>
 class threadsafe_list
 {

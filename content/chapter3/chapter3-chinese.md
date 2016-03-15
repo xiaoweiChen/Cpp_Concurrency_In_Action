@@ -71,7 +71,7 @@ C++中通过实例化`srd::mutex`创建互斥量，通过调用成员函数lock(
 
 清单3.1 使用互斥量保护列表
 
-```c++
+```
 #include <list>
 #include <mutex>
 #include <algorithm>
@@ -104,7 +104,7 @@ bool list_contains(int value_to_find)
 
 清单3.2 无意中传递了保护数据的引用
 
-```c++
+```
 class some_data
 {
   int a;
@@ -156,7 +156,7 @@ void foo()
 
 清单3.3 `std::stack`容器的实现
 
-```c++
+```
 template<typename T,typename Container=std::deque<T> >
 class stack
 {
@@ -183,7 +183,7 @@ public:
 
 特别地，当栈实例是非共享的，如果栈非空，使用empty()检查再调用top()访问栈顶部的元素是安全的。如下代码所示：
 
-```c++
+```
 stack<int> s;
 if (! s.empty()){    // 1
   int const value = s.top();    // 2
@@ -224,7 +224,7 @@ if (! s.empty()){    // 1
 
 第一个选项是将变量的引用作为参数，传入pop()函数中获取想要的“弹出值”：
 
-```c++
+```
 std::vector<int> result;
 some_stack.pop(result);
 ```
@@ -251,7 +251,7 @@ some_stack.pop(result);
 
 清单3.4 线程安全的堆栈类定义(概述)
 
-```c++
+```
 #include <exception>
 #include <memory>  // For std::shared_ptr<>
 
@@ -279,7 +279,7 @@ public:
 
 清单3.5 扩充(线程安全)堆栈
 
-```c++
+```
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -361,7 +361,7 @@ public:
 
 清单3.6 交换操作中使用`std::lock()`和`std::lock_guard`
 
-```c++
+```
 // 这里的std::lock()需要包含<mutex>头文件
 class some_big_object;
 void swap(some_big_object& lhs,some_big_object& rhs);
@@ -421,7 +421,7 @@ public:
 
 清单3.7 使用层次锁来避免死锁
 
-```c++
+```
 hierarchical_mutex high_level_mutex(10000); // 1
 hierarchical_mutex low_level_mutex(5000);  // 2
 
@@ -470,7 +470,7 @@ thread_b()运行就不会顺利了。首先，它锁住了other_mutex⑩，这�
 
 列表3.8 简单的层级互斥量实现
 
-```c++
+```
 class hierarchical_mutex
 {
   std::mutex internal_mutex;
@@ -550,7 +550,7 @@ try_lock()与lock()的功能相似，除了在调用internal_mutex的try_lock()�
 
 清单3.9 交换操作中`std::lock()`和`std::unique_lock`的使用
 
-```c++
+```
 class some_big_object;
 void swap(some_big_object& lhs,some_big_object& rhs);
 class X
@@ -584,7 +584,7 @@ public:
 
 下面的程序片段展示了：函数get_lock()锁住了互斥量，然后准备数据，返回锁的调用函数：
 
-```c++
+```
 std::unique_lock<std::mutex> get_lock()
 {
   extern std::mutex some_mutex;
@@ -613,7 +613,7 @@ lk在函数中被声明为自动变量，它不需要调用`std::move()`，可�
 
 `std::unique_lock`在这种情况下工作正常，在调用unlock()时，代码不需要再访问共享数据；而后当再次需要对共享数据进行访问时，就可以再调用lock()了。下面代码就是这样的一种情况：
 
-```c++
+```
 void get_and_process_data()
 {
   std::unique_lock<std::mutex> my_lock(the_mutex);
@@ -635,7 +635,7 @@ void get_and_process_data()
 
 列表3.10 比较操作符中一次锁住一个互斥量
 
-```c++
+```
 class Y
 {
 private:
@@ -676,7 +676,7 @@ public:
 
 延迟初始化(*Lazy initialization*)在单线程代码很常见——每一个操作都需要先对源进行检查，为了了解数据是否被初始化，然后在其使用前决定，数据是否需要初始化：
 
-```c++
+```
 std::shared_ptr<some_resource> resource_ptr;
 void foo()
 {
@@ -692,7 +692,7 @@ void foo()
 
 清单 3.11 使用一个互斥量的延迟初始化(线程安全)过程
 
-```c++
+```
 std::shared_ptr<some_resource> resource_ptr;
 std::mutex resource_mutex;
 void foo()
@@ -709,7 +709,7 @@ void foo()
 
 这段代码相当常见了，也足够表现出没必要的线程话问题，很多人能想出更好的一些的办法来做这件事，包括声名狼藉的双重检查锁(*Double-Checked Locking*)模式：
 
-```c++
+```
 void undefined_behaviour_with_double_checked_locking()
 {
   if(!resource_ptr)  // 1
@@ -730,7 +730,7 @@ void undefined_behaviour_with_double_checked_locking()
 
 C++标准委员会也认为条件竞争的处理很重要，所以C++标准库提供了`std::once_flag`和`std::call_once`来处理这种情况。比起锁住互斥量，并显式的检查指针，每个线程只需要使用`std::call_once`，在`std::call_once`的结束时，就能安全的知道指针已经被其他的线程初始化了。使用`std::call_once`比显式使用互斥量消耗的资源更少，特别是当初始化完成后。下面的例子展示了与清单3.11中的同样的操作，这里使用了`std::call_once`。在这种情况下，初始化通过调用函数完成，同样这样操作使用类中的函数操作符来实现同样很简单。如同大多数在标准库中的函数一样，或作为函数被调用，或作为参数被传递，`std::call_once`可以和任何函数或可调用对象一起使用。
 
-```c++
+```
 std::shared_ptr<some_resource> resource_ptr;
 std::once_flag resource_flag;  // 1
 
@@ -750,7 +750,7 @@ void foo()
 
 清单3.12 使用`std::call_once`作为类成员的延迟初始化(线程安全)
 
-```c++
+```
 class X
 {
 private:
@@ -785,7 +785,7 @@ public:
 
 还有一种情形的初始化过程中潜存着条件竞争：其中一个局部变量被声明为static类型。这种变量的在声明后就已经完成初始化；对于多线程调用的函数，这就意味着这里有条件竞争——抢着去定义这个变量。在很多在前C++11编译器(译者：不支持C++11标准的编译器)，在实践过程中，这样的条件竞争是确实存在的，因为在多线程中，每个线程都认为他们是第一个初始化这个变量线程；或一个线程对变量进行初始化，而另外一个线程要使用这个变量时，初始化过程还没完成。在C++11标准中，这些问题都被解决了：初始化及定义完全在一个线程中发生，并且没有其他线程可在初始化完成前对其进行处理，条件竞争终止于初始化阶段，这样比在之后再去处理好的多。在只需要一个全局实例情况下，这里提供一个`std::call_once`的替代方案
 
-```c++
+```
 class my_class;
 my_class& get_my_class_instance()
 {
@@ -814,7 +814,7 @@ my_class& get_my_class_instance()
 
 清单3.13 使用`boost::shared_mutex`对数据结构进行保护
 
-```c++
+```
 #include <map>
 #include <string>
 #include <mutex>

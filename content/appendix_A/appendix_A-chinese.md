@@ -10,7 +10,7 @@
 
 例如：
 
-```c++
+```
 int var=42;
 int& ref=var;  // 创建一个var的引用
 ref=99;
@@ -21,13 +21,13 @@ assert(var==99);  // 原型的值被改变了，因为引用被赋值了
 
 不能这样写：
 
-```c++
+```
 int& i=42;  // 编译失败
 ```
 
 例如，因为42是一个右值。好吧，这有些假；你可能通常使用下面的方式讲一个右值绑定到一个const左值引用上：
 
-```c++
+```
 int const& i = 42;
 ```
 
@@ -35,14 +35,14 @@ int const& i = 42;
 
 其允许隐式转换，所以你可这样写：
 
-```c++
+```
 void print(std::string const& s);
 print("hello");  //创建了临时std::string对象
 ```
 
 C++11标准介绍了右值引用(*rvalue reference*)，这种方式只能绑定右值，不能绑定左值，其通过两个`&&`来进行声明：
 
-```c++
+```
 int&& i=42;
 int j=42;
 int&& k=j;  // 编译失败
@@ -56,7 +56,7 @@ int&& k=j;  // 编译失败
 
 右值通常都是临时的，所以可以随意修改；如果知道函数的某个参数是一个右值，就可以将其看作为一个临时存储或“窃取”内容，也不影响程序的正确性。这就意味着，比起拷贝右值参数的内容，不如移动其内容。动态数组比较大的时候，这样能节省很多内存分配，提供更多的优化空间。试想，一个函数以`std::vector<int>`作为一个参数，就需要将其拷贝进来，而不对原始的数据做任何操作。C++03/98的办法是，将这个参数作为一个左值的const引用传入，然后做内部拷贝：
 
-```c++
+```
 void process_copy(std::vector<int> const& vec_)
 {
   std::vector<int> vec(vec_);
@@ -66,7 +66,7 @@ void process_copy(std::vector<int> const& vec_)
 
 这就允许函数能以左值或右值的形式进行传递，不过任何情况下都是通过拷贝来完成的。如果使用右值引用版本的函数来重载这个函数，就能避免在传入右值的时候，函数会进行内部拷贝的过程，因为可以任意的对原始值进行修改：
 
-```c++
+```
 void process_copy(std::vector<int> && vec)
 {
   vec.push_back(42);
@@ -77,7 +77,7 @@ void process_copy(std::vector<int> && vec)
 
 清单A.1 使用移动构造函数的类
 
-```c++
+```
 class X
 {
 private:
@@ -113,7 +113,7 @@ X类(清单A.1)中的移动构造函数，仅作为一次优化；在其他例�
 
 如果你已经知道，某个变量在之后就不会在用到了，这时候可以选择显式的移动，你可以使用`static_cast<X&&>`将对应变量转换为右值，或者通过调用`std::move()`函数来做这件事：
 
-```c++
+```
 X x1;
 X x2=std::move(x1);
 X x3=static_cast<X&&>(x2);
@@ -121,7 +121,7 @@ X x3=static_cast<X&&>(x2);
 
 想要将参数值不通过拷贝，转化为本地变量或成员变量时，就可以使用这个办法；虽然右值引用参数绑定了右值，不过在函数内部，会当做左值来进行处理：
 
-```c++
+```
 void do_stuff(X&& x_)
 {
   X a(x_);  // 拷贝
@@ -144,7 +144,7 @@ C++标准库不会将一个对象显式的转移到另一个对象中，除非�
 
 考虑一下下面的函数模板：
 
-```c++
+```
 template<typename T>
 void foo(T&& t)
 {}
@@ -152,7 +152,7 @@ void foo(T&& t)
 
 随后传入一个右值，T的类型将被推导为：
 
-```c++
+```
 foo(42);  // foo<int>(42)
 foo(3.14159);  // foo<double><3.14159>
 foo(std::string());  // foo<std::string>(std::string())
@@ -160,14 +160,14 @@ foo(std::string());  // foo<std::string>(std::string())
 
 不过，向foo传入左值的时候，T会比推导为一个左值引用：
 
-```c++
+```
 int i = 42;
 foo(i);  // foo<int&>(i)
 ```
 
 因为函数参数声明为`T&&`，所以就是引用的引用，可以视为是原始的引用类型。那么foo<int&>()就相当于：
 
-```c++
+```
 foo<int&>(); // void foo<int&>(int& t);
 ```
 
@@ -179,7 +179,7 @@ foo<int&>(); // void foo<int&>(int& t);
 
 通常为了避免进行拷贝操作，会将拷贝构造函数和拷贝赋值操作符声明为私有成员，并且不进行实现。如果对实例进行拷贝，将会引起编译错误；如果有其他成员函数或友元函数想要拷贝一个实例，那将会引起链接错误(因为缺少实现)：
 
-```c++
+```
 class no_copies
 {
 public:
@@ -197,7 +197,7 @@ no_copies b(a);  // 编译错误
 
 no_copise类就可以写为：
 
-```c++
+```
 class no_copies
 {
 public:
@@ -215,7 +215,7 @@ public:
 
 清单A.2 只移动类
 
-```c++
+```
 class move_only
 {
   std::unique_ptr<my_class> data;
@@ -241,14 +241,14 @@ move_only m3(std::move(m1));  // OK，找到移动构造函数
 
 可以为任意函数添加`= delete`说明符，添加后就说明这些函数是不能使用的。当然，还可以用于很多的地方；删除函数可以以正常的方式参与重载解析，并且如果被使用只会引起编译错误。这种方式可以用来删除特定的重载。比如，当函数以short作为参数，为了避免扩展为int类型，可以写出重载函数(以int为参数)的声明，然后添加删除说明符：
 
-```c++
+```
 void foo(short);
 void foo(int) = delete;
 ```
 
 现在，任何向foo函数传递int类型参数都会产生一个编译错误，不过调用者可以显式的将其他类型转化为short：
 
-```c++
+```
 foo(42);  // 错误，int重载声明已经删除
 foo((short)42);  // OK
 ```
@@ -273,7 +273,7 @@ foo((short)42);  // OK
 
 就像删除函数是在函数后面添加`= delete`一样，默认函数需要在函数后面添加`= default`，例如：
 
-```c++
+```
 class Y
 {
 private:
@@ -302,7 +302,7 @@ protected:
 
 第二个区别，编译器生成函数和用户提供的函数等价，也就是类中无用户提供的构造函数可以看作为一个aggregate，并且可以通过聚合初始化函数进行初始化：
 
-```c++
+```
 struct aggregate
 {
   aggregate() = default;
@@ -317,7 +317,7 @@ aggregate x={42,3.141};
 
 第三个区别，编译器生成的函数只适用于构造函数；换句话说，只适用于符合某些标准的默认构造函数。
 
-```c++
+```
 struct X
 {
   int a;
@@ -328,13 +328,13 @@ struct X
 
 如果对象有静态存储过程，那么a将会被初始化为0；另外，当a没赋值的时候，其不定值可能会触发未定义行为：
 
-```c++
+```
 X x1;  // x1.a的值不明确
 ```
 
 另外，当使用显示调用构造函数的方式对X进行初始化，a就会被初始化为0：
 
-```c++
+```
 X x2 = X();  // x2.a == 0
 ```
 
@@ -342,7 +342,7 @@ X x2 = X();  // x2.a == 0
 
 虽然这条规则令人困惑，并且容易造成错误，不过也很有用；当你编写构造函数的时候，就不会用到这个特性；数据成员，通常都可以被初始化(指定了一个值或调用了显式构造函数)，或不会被初始化(因为不需要)：
 
-```c++
+```
 X::X():a(){}  // a == 0
 X::X():a(42){}  // a == 2
 X::X(){}  // 1
@@ -352,7 +352,7 @@ X::X(){}  // 1
 
 通常的情况下，如果写了其他构造函数，编译器就不会生成默认构造函数。所以，想要自己写一个的时候，就意味着你放弃了这种奇怪的初始化特性。不过，将构造函数显示声明成默认，就能强制编译器为你生成一个默认构造函数，并且刚才说的那种特性会保留：
 
-```c++
+```
 X::X() = default;  // 应用默认初始化规则
 ```
 
@@ -362,7 +362,7 @@ X::X() = default;  // 应用默认初始化规则
 
 整型字面值，例如42，就是常量表达式。所以，简单的数学表达式，例如，23x2-4。可以使用其来初始化const整型变量，然后将const整型变量作为新表达的一部分：
 
-```c++
+```
 const int i=23;
 const int two_i=i*2;
 const int four=4;
@@ -373,7 +373,7 @@ const int forty_two=two_i-four;
 
 - 指定数组长度：
 
-```c++
+```
 int bounds=99;
 int array[bounds];  // 错误，bounds不是一个常量表达式
 const int bounds2=99;
@@ -382,7 +382,7 @@ int array2[bounds2];  // 正确，bounds2是一个常量表达式
 
 - 指定非类型模板参数的值：
 
-```c++
+```
 template<unsigned size>
 struct test
 {};
@@ -392,7 +392,7 @@ test<bounds2> ia2;  // 正确，bounds2是一个常量表达式
 
 - 对类中static const整型成员变量进行初始化：
 
-```c++
+```
 class X
 {
   static const int the_answer=forty_two;
@@ -401,7 +401,7 @@ class X
 
 - 对内置类型进行初始化或可用于静态初始化集合：
 
-```c++
+```
 struct my_aggregate
 {
   int a;
@@ -418,7 +418,7 @@ static my_aggregate ma2={dummy,dummy};  // 动态初始化
 
 `constexpr`会对功能进行修改，当参数和函数返回类型符合要求，并且实现很简单，那么这样的函数就能够被声明为`constexpr`，这样函数可以当做常数表达式来使用：
 
-```c++
+```
 constexpr int square(int x)
 {
   return x*x;
@@ -428,7 +428,7 @@ int array[square(5)];
 
 在这个例子中，array有25个元素，因为square函数的声明为`constexpr`。当然，这种方式可以当做常数表达式来使用，不意味着什么情况下都是能够自动转换为常数表达式：
 
-```c++
+```
 int dummy=4;
 int array[square(dummy)];  // 错误，dummy不是常数表达式
 ```
@@ -455,7 +455,7 @@ dummy不是常数表达式，所以square(dummy)也不是——就是一个普�
 
 清单A.3（一般)默认构造函数的类
 
-```c++
+```
 class CX
 {
 private:
@@ -485,7 +485,7 @@ public:
 
 可以提供一个constexpr函数来创建一个实例，例如：
 
-```c++
+```
 constexpr CX create_cx()
 {
   return CX();
@@ -503,7 +503,7 @@ constexpr CX clone(CX val)
 
 不过，constexpr函数只有其他constexpr函数可以进行调用。CX类中声明成员函数和构造函数为constexpr：
 
-```c++
+```
 class CX
 {
 private:
@@ -533,7 +533,7 @@ public:
 
 这就允许更多复杂的constexpr函数存在：
 
-```c++
+```
 constexpr CX make_cx(int a)
 {
   return CX(a,1);
@@ -551,7 +551,7 @@ int array[foo_squared(half_double(make_cx(10)))];  // 49个元素
 
 函数都很有趣，如果想要计算数组的长度或一个整型常量，就需要使用这种方式。最大的好处是常量表达式和constexpr函数会设计到用户定义类型的对象，可以使用这些函数对这些对象进行初始化。因为常量表达式的初始化过程是静态初始化，所以就能避免条件竞争和初始化顺序的问题：
 
-```c++
+```
 CX si=half_double(CX(42,19));  // 静态初始化
 ```
 
@@ -565,7 +565,7 @@ CX si=half_double(CX(42,19));  // 静态初始化
 
 且这个对象需要声明为const：
 
-```c++
+```
 constexpr int i=45;  // ok
 constexpr std::string s(“hello”);  // 错误，std::string不是字面类型
 
@@ -617,7 +617,7 @@ constexpr构造函数的规则也有些不同：
 
 将constexpr应用于函数模板，或一个类模板的成员函数；根据参数，如果模板的返回类型不是字面类，编译器会忽略其常量表达式的声明。当模板参数类型合适，且为一般inline函数，就可以将类型写成constexpr类型的函数模板。
 
-```c++
+```
 template<typename T>
 constexpr T sum(T a,T b)
 {
@@ -637,7 +637,7 @@ lambda函数在C++11中的加入很是令人兴奋，因为lambda函数能够大
 
 最简单的情况下，lambda表达式就一个自给自足的函数，不需要传入函数仅依赖管局变量和函数，甚至都可以不用返回一个值。这样的lambda表达式的一系列语义都需要封闭在括号中，还要以方括号作为前缀：
 
-```c++
+```
 []{  // lambda表达式以[]开始
   do_stuff();
   do_more_stuff();
@@ -646,7 +646,7 @@ lambda函数在C++11中的加入很是令人兴奋，因为lambda函数能够大
 
 例子中，lambda表达式通过后面的括号调用，不过这种方式不常用。一方面，如果想要直接调用，可以在写完对应的语句后，就对函数进行调用。对于函数模板，传递一个参数进去时很常见的事情，甚至可以将可调用对象作为其参数传入；可调用对象通常也需要一些参数，或返回一个值，亦或两者都有。如果想给lambda函数传递参数，可以参考下面的lambda函数，其使用起来就像是一个普通函数。例如，下面代码是将vector中的元素使用`std::cout`进行打印：
 
-```c++
+```
 std::vector<int> data=make_data();
 std::for_each(data.begin(),data.end(),[](int i){std::cout<<i<<"\n";});
 ```
@@ -655,7 +655,7 @@ std::for_each(data.begin(),data.end(),[](int i){std::cout<<i<<"\n";});
 
 清单A.4 lambda函数推导返回类型
 
-```c++
+```
 std::condition_variable cond;
 bool data_ready;
 std::mutex m;
@@ -670,13 +670,13 @@ lambda的返回值传递给cond.wait()①，函数就能推断出data_ready的�
 
 当lambda函数体中有多个return语句，就需要显式的指定返回类型。只有一个返回语句的时候，也可以这样做，不过这样可能会让你的lambda函数体看起来更复杂。返回类型可以使用跟在参数列表后面的箭头(->)进行设置。如果lambda函数没有任何参数，还需要包含(空)的参数列表，这样做是为了能显式的对返回类型进行指定。对条件变量的预测可以写成下面这种方式：
 
-```c++
+```
 cond.wait(lk,[]()->bool{return data_ready;});
 ```
 
 还可以对lambda函数进行扩展，比如：加上log信息的打印，或做更加复杂的操作：
 
-```c++
+```
 cond.wait(lk,[]()->bool{
   if(data_ready)
   {
@@ -699,7 +699,7 @@ lambda函数使用空的`[]`(lambda introducer)就不能引用当前范围内的
 
 实践一下，看一下下面的例子：
 
-```c++
+```
 std::function<int(int)> make_offseter(int offset)
 {
   return [=](int j){return offset+j;};
@@ -710,7 +710,7 @@ std::function<int(int)> make_offseter(int offset)
 
 这个带有返回的函数添加了对参数的偏移功能。例如：
 
-```c++
+```
 int main()
 {
   std::function<int(int)> offset_42=make_offseter(42);
@@ -726,7 +726,7 @@ int main()
 
 下面的例子，就介绍一下怎么使用`[&]`对所有本地变量进行引用：
 
-```c++
+```
 int main()
 {
   int offset=42;  // 1
@@ -745,7 +745,7 @@ int main()
 
 尘归尘，土归土，C++还是C++；这些选项不会让你感觉到特别困惑，你可以选择以引用或拷贝的方式对变量进行捕获，并且你还可以通过调整中括号中的表达式，来对特定的变量进行显式捕获。如果想要拷贝所有变量，而非一两个，可以使用`[=]`，通过参考中括号中的符号，对变量进行捕获。下面的例子将会打印出1239，因为i是拷贝进lambda函数中的，而j和k是通过引用的方式进行捕获的：
 
-```c++
+```
 int main()
 {
   int i=1234,j=5678,k=9;
@@ -760,7 +760,7 @@ int main()
 或者，也可以通过默认引用方式对一些变量做引用，而对一些特别的变量进行拷贝。这种情况下，就要使用`[&]`与拷贝符号相结合的方式对列表中的变量进行拷贝捕获。下面的例子将打印出5688，因为i通过引用捕获，但j和k
 通过拷贝捕获：
 
-```c++
+```
 int main()
 {
   int i=1234,j=5678,k=9;
@@ -774,7 +774,7 @@ int main()
 
 如果你只想捕获某些变量，那么你可以忽略=或&，仅使用变量名进行捕获就行；加上&前缀，是将对应变量以引用的方式进行捕获，而非拷贝的方式。下面的例子将打印出5682，因为i和k是通过引用的范式获取的，而j是通过拷贝的方式：
 
-```c++
+```
 int main()
 {
   int i=1234,j=5678,k=9;
@@ -788,7 +788,7 @@ int main()
 
 最后一种方式，是为了确保预期的变量能被捕获，在捕获列表中引用任何不存在的变量都会引起编译错误。当选择这种方式，就要小心类成员的访问方式，确定类中是否包含一个lambda函数的成员变量。类成员变量不能直接捕获，如果想通过lambda方式访问类中的成员，需要在捕获列表中添加this指针，以便捕获。下面的例子中，lambda捕获this后，就能访问到some_data类中的成员：
 
-```c++
+```
 struct X
 {
   int some_data;
@@ -808,7 +808,7 @@ struct X
 
 和变参函数一样，变参部分可以在参数列表章使用省略号`...`代表，变参模板需要在参数列表中使用省略号：
 
-```c++
+```
 template<typename ... ParameterPack>
 class my_template
 {};
@@ -816,14 +816,14 @@ class my_template
 
 即使主模板不是变参模板，模板进行部分特化的类中，也可以使用可变参数模板。例如，`std::packaged_task<>`(见4.2.1节)的主模板就是一个简单的模板，这个简单的模板只有一个参数：
 
-```c++
+```
 template<typename FunctionType>
 class packaged_task;
 ```
 
 不过，并不是所有地方都这样定义；对于部分特化模板来说，其就像是一个“占位符”：
 
-```c++
+```
 template<typename ReturnType,typename ... Args>
 class packaged_task<ReturnType(Args...)>;
 ```
@@ -838,7 +838,7 @@ class packaged_task<ReturnType(Args...)>;
 
 变参模板主要依靠包括扩展功能，因为不能限制有更多的类型添加到模板参数中。首先，列表中的参数类型使用到的时候，可以使用包扩展，比如：需要给其他模板提供类型参数。
 
-```c++
+```
 template<typename ... Params>
 struct dummy
 {
@@ -850,7 +850,7 @@ struct dummy
 
 可以将包扩展和普通类型相结合：
 
-```c++
+```
 template<typename ... Params>
 struct dummy2
 {
@@ -862,7 +862,7 @@ struct dummy2
 
 例如，创建使用参数包来创建元组中所有的元素，不如在元组中创建指针，或使用`std::unique_ptr<>`指针，指向对应元素：
 
-```c++
+```
 template<typename ... Params>
 struct dummy3
 {
@@ -873,7 +873,7 @@ struct dummy3
 
 类型表达式会比较复杂，提供的参数包是在类型表达式中产生，并且表达式中使用`...`作为扩展。当参数包已经扩展 ，包中的每一项都会代替对应的类型表达式，在结果列表中产生相应的数据项。因此，当参数包Params包含int，int，char类型，那么`std::tuple<std::pair<std::unique_ptr<Params>,double> ... >`将扩展为`std::tuple<std::pair<std::unique_ptr<int>,double>`,`std::pair<std::unique_ptr<int>,double>`,`std::pair<std::unique_ptr<char>, double> >`。如果包扩展被当做模板参数列表使用，那么模板就不需要变长的参数了；如果不需要了，参数包就要对模板参数的要求进行准确的匹配：
 
-```c++
+```
 template<typename ... Types>
 struct dummy4
 {
@@ -886,14 +886,14 @@ dummy4<int,int,int> c;  // 3 错误，类型太多
 
 可以使用包扩展的方式，对函数的参数进行声明：
 
-```c++
+```
 template<typename ... Args>
 void foo(Args ... args);
 ```
 
 这将会创建一个新参数包args，其是一组函数参数，而非一组类型，并且这里`...`也能像之前一样进行扩展。例如，可以在`std::thread`的构造函数中使用，使用右值引用的方式获取函数所有的参数(见A.1节)：
 
-```c++
+```
 template<typename CallableType,typename ... Args>
 thread::thread(CallableType&& func,Args&& ... args);
 ```
@@ -902,7 +902,7 @@ thread::thread(CallableType&& func,Args&& ... args);
 
 例如，使用`std::forward()`以右值引用的方式来保存提供给函数的参数：
 
-```c++
+```
 template<typename ... ArgTypes>
 void bar(ArgTypes&& ... args)
 {
@@ -914,14 +914,14 @@ void bar(ArgTypes&& ... args)
 
 当这样调用bar函数：
 
-```c++
+```
 int i;
 bar(i,3.141,std::string("hello "));
 ```
 
 将会扩展为
 
-```c++
+```
 template<>
 void bar<int&,double,std::string>(
          int& args_1,
@@ -940,7 +940,7 @@ void bar<int&,double,std::string>(
 
 下面的函数会返回参数的数量：
 
-```c++
+```
 template<typename ... Args>
 unsigned count_args(Args ... args)
 {
@@ -956,7 +956,7 @@ c++是静态语言：所有变量的类型，都会在编译时被准确指定�
 
 有些时候就需要使用一些繁琐类型定义，比如：
 
-```c++
+```
 std::map<std::string,std::unique_ptr<some_data>> m;
 std::map<std::string,std::unique_ptr<some_data>>::iterator
       iter=m.find("my key");
@@ -964,13 +964,13 @@ std::map<std::string,std::unique_ptr<some_data>>::iterator
 
 常规的解决办法是使用typedef来缩短类型名的长度。这种方式在C++11中仍然可行，不过这里要介绍一种新的解决办法：如果一个变量需要通过一个已初始化的变量类型来为其做声明，那么就可以直接使用`auto`关键字。这样，编译器就会通过已初始化的变量，去自动推断变量的类型。
 
-```c++
+```
 auto iter=m.find("my key");
 ```
 
 当然，`auto`还有很多种用法：可以使用它来声明const、指针或引用变量。这里使用`auto`对相关类型进行了声明：
 
-```c++
+```
 auto i=42; // int
 auto& j=i; // int&
 auto const k=i; // int const
@@ -979,13 +979,13 @@ auto* const p=&i; // int * const
 
 变量类型的推导规则是建立一些语言规则基础上：函数模板参数。其声明形式如下：
 
-```c++
+```
 some-type-expression-involving-auto var=some-expression;
 ```
 
 var变量的类型与声明函数模板的参数的类型相同。要想替换`auto`，需要使用完整的类型参数：
 
-```c++
+```
 template<typename T>
 void f(type-expression var);
 f(some-expression);
@@ -993,7 +993,7 @@ f(some-expression);
 
 在使用`auto`的时候，数组类型将衰变为指针，引用将会被删除(除非将类型进行显式为引用)，比如：
 
-```c++
+```
 int some_array[45];
 auto p=some_array; // int*
 int& r=*p;
@@ -1007,7 +1007,7 @@ auto& y=r; // int&
 
 线程本地变量允许程序中的每个线程都有一个独立的实例拷贝。可以使用`thread_local`关键字来对这样的变量进行声明。命名空间内的变量，静态成员变量，以及本地变量都可以声明成线程本地变量，为了在线程运行前对这些数据进行存储操作：
 
-```c++
+```
 thread_local int x;  // 命名空间内的线程本地变量
 
 class X

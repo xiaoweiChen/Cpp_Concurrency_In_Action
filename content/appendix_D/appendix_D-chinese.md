@@ -6,7 +6,7 @@
 
 头文件正文
 
-```c++
+```
 namespace std
 {
   namespace chrono
@@ -30,7 +30,7 @@ namespace std
 
 #### 类的定义
 
-```c++
+```
 template <class Rep, class Period=ratio<1> >
 class duration
 {
@@ -117,7 +117,7 @@ template <class ToDuration, class Rep, class Period>
 
 **声明**<br>
 
-```c++
+```
 typedef Rep rep;
 ```
 
@@ -129,7 +129,7 @@ typedef Rep rep;
 
 **声明**
 
-```c++
+```
 typedef Period period;
 ```
 
@@ -139,7 +139,7 @@ typedef Period period;
 
 **声明**
 
-```c++
+```
 constexpr duration() = default;
 ```
 
@@ -152,7 +152,7 @@ constexpr duration() = default;
 
 **声明**
 
-```c++
+```
 template <class Rep2>;
 constexpr explicit duration(const Rep2& r);
 ```
@@ -165,7 +165,7 @@ constexpr explicit duration(const Rep2& r);
 
 **后验条件**
 
-```c++
+```
 this->count()==static_cast<rep>(r)
 ```
 
@@ -175,7 +175,7 @@ this->count()==static_cast<rep>(r)
 
 **声明**
 
-```c++
+```
 template <class Rep2, class Period>
 constexpr duration(const duration<Rep2,Period2>& d);
 ```
@@ -191,7 +191,7 @@ duration对象的内部值通过`duration_cast<duration<Rep,Period>>(d).count()`
 
 **例子**
 
-```c++
+```
 duration<int, ratio<1, 1000>> ms(5);  // 5毫秒
 duration<int, ratio<1, 1>> s(ms);  // 错误：不能将ms当做s进行存储
 duration<double, ratio<1,1>> s2(ms);  // 合法：s2.count() == 0.005
@@ -204,7 +204,7 @@ duration<int, ration<1, 1000000>> us<ms>;  // 合法:us.count() == 5000
 
 **声明**
 
-```c++
+```
 constexpr rep count() const;
 ```
 
@@ -217,7 +217,7 @@ constexpr rep count() const;
 
 **声明**
 
-```c++
+```
 constexpr duration operator+() const;
 ```
 
@@ -230,7 +230,7 @@ constexpr duration operator+() const;
 
 **声明**
 
-```c++
+```
 constexpr duration operator-() const;
 ```
 
@@ -243,13 +243,13 @@ constexpr duration operator-() const;
 
 **声明**
 
-```c++
+```
 duration& operator++();
 ```
 
 **结果**
 
-```c++
+```
 ++this->internal_count;
 ```
 
@@ -262,13 +262,13 @@ duration& operator++();
 
 **声明**
 
-```c++
+```
 duration operator++(int);
 ```
 
 **结果**
 
-```c++
+```
 duration temp(*this);
 ++(*this);
 return temp;
@@ -280,13 +280,13 @@ return temp;
 
 **声明**
 
-```c++
+```
 duration& operator--();
 ```
 
 **结果**
 
-```c++
+```
 --this->internal_count;
 ```
 
@@ -299,13 +299,13 @@ duration& operator--();
 
 **声明**
 
-```c++
+```
 duration operator--(int);
 ```
 
 **结果**
 
-```c++
+```
 duration temp(*this);
 --(*this);
 return temp;
@@ -317,13 +317,13 @@ return temp;
 
 **声明**
 
-```c++
+```
 duration& operator+=(duration const& other);
 ```
 
 **结果**
 
-```c++
+```
 internal_count+=other.count();
 ```
 
@@ -336,13 +336,13 @@ internal_count+=other.count();
 
 **声明**
 
-```c++
+```
 duration& operator-=(duration const& other);
 ```
 
 **结果**
 
-```c++
+```
 internal_count-=other.count();
 ```
 
@@ -355,13 +355,13 @@ internal_count-=other.count();
 
 **声明**
 
-```c++
+```
 duration& operator*=(rep const& rhs);
 ```
 
 **结果**
 
-```c++
+```
 internal_count*=rhs;
 ```
 
@@ -374,13 +374,13 @@ internal_count*=rhs;
 
 **声明**
 
-```c++
+```
 duration& operator/=(rep const& rhs);
 ```
 
 **结果**
 
-```c++
+```
 internal_count/=rhs;
 ```
 
@@ -393,13 +393,13 @@ internal_count/=rhs;
 
 **声明**
 
-```c++
+```
 duration& operator%=(rep const& rhs);
 ```
 
 **结果**
 
-```c++
+```
 internal_count%=rhs;
 ```
 
@@ -412,13 +412,13 @@ internal_count%=rhs;
 
 **声明**
 
-```c++
+```
 duration& operator%=(duration const& rhs);
 ```
 
 **结果**
 
-```c++
+```
 internal_count%=rhs.count();
 ```
 
@@ -431,13 +431,13 @@ internal_count%=rhs.count();
 
 **声明**
 
-```c++
+```
 constexpr duration zero();
 ```
 
 **返回**
 
-```c++
+```
 duration(duration_values<rep>::zero());
 ```
 
@@ -447,13 +447,13 @@ duration(duration_values<rep>::zero());
 
 **声明**
 
-```c++
+```
 constexpr duration min();
 ```
 
 **返回**
 
-```c++
+```
 duration(duration_values<rep>::min());
 ```
 
@@ -463,13 +463,13 @@ duration(duration_values<rep>::min());
 
 **声明**
 
-```c++
+```
 constexpr duration max();
 ```
 
 **返回**
 
-```c++
+```
 duration(duration_values<rep>::max());
 ```
 
@@ -479,7 +479,7 @@ duration(duration_values<rep>::max());
 
 **声明**
 
-```c++
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator==(
 const duration<Rep1, Period1>& lhs,
@@ -498,7 +498,7 @@ const duration<Rep2, Period2>& rhs);
 
 **声明**
 
-```c++
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator!=(
    const duration<Rep1, Period1>& lhs,
@@ -517,7 +517,7 @@ constexpr bool operator!=(
 
 **声明**
 
-```c++
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator<(
    const duration<Rep1, Period1>& lhs,
@@ -536,7 +536,7 @@ constexpr bool operator<(
 
 **声明**
 
-```c++
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator>(
    const duration<Rep1, Period1>& lhs,
@@ -555,7 +555,7 @@ constexpr bool operator>(
 
 **声明**
 
-```c++
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator<=(
    const duration<Rep1, Period1>& lhs,
@@ -574,7 +574,7 @@ constexpr bool operator<=(
 
 **声明**
 
-```c++
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator>=(
    const duration<Rep1, Period1>& lhs,
@@ -593,7 +593,7 @@ constexpr bool operator>=(
 
 **声明**
 
-```c++
+```
 template <class ToDuration, class Rep, class Period>
 constexpr ToDuration duration_cast(const duration<Rep, Period>& d);
 ```
@@ -610,7 +610,7 @@ duration类d转换为指定类型ToDuration。这种方式可以在不同尺寸�
 
 #### 类型定义
 
-```c++
+```
 template <class Clock,class Duration = typename Clock::duration>
 class time_point
 {
@@ -642,7 +642,7 @@ public:
 
 **声明**
 
-```c++
+```
 time_point();
 ```
 
@@ -655,7 +655,7 @@ time_point();
 
 **声明**
 
-```c++
+```
 explicit time_point(const duration& d);
 ```
 
@@ -668,7 +668,7 @@ explicit time_point(const duration& d);
 
 **声明**
 
-```c++
+```
 template <class Duration2>
 time_point(const time_point<clock, Duration2>& t);
 ```
@@ -688,7 +688,7 @@ Duration2必须呢个隐式转换为Duration。
 
 **声明**
 
-```c++
+```
 duration time_since_epoch() const;
 ```
 
@@ -701,7 +701,7 @@ duration的值存储在*this中。
 
 **声明**
 
-```c++
+```
 time_point& operator+=(const duration& d);
 ```
 
@@ -717,7 +717,7 @@ time_point& operator+=(const duration& d);
 
 **声明**
 
-```c++
+```
 time_point& operator-=(const duration& d);
 ```
 
@@ -733,13 +733,13 @@ time_point& operator-=(const duration& d);
 
 **声明**
 
-```c++
+```
 static constexpr time_point min();
 ```
 
 **返回**
 
-```c++
+```
 time_point(time_point::duration::min()) (see 11.1.1.15)
 ```
 
@@ -749,13 +749,13 @@ time_point(time_point::duration::min()) (see 11.1.1.15)
 
 **声明**
 
-```c++
+```
 static constexpr time_point max();
 ```
 
 **返回**
 
-```c++
+```
 time_point(time_point::duration::max()) (see 11.1.1.16)
 ```
 
@@ -765,7 +765,7 @@ time_point(time_point::duration::max()) (see 11.1.1.16)
 
 ####类型定义
 
-```c++
+```
 class system_clock
 {
 public:
@@ -788,7 +788,7 @@ public:
 
 **声明**
 
-```c++
+```
 typedef unspecified-integral-type rep;
 ```
 
@@ -798,7 +798,7 @@ typedef unspecified-integral-type rep;
 
 **声明**
 
-```c++
+```
 typedef std::ratio<unspecified,unspecified> period;
 ```
 
@@ -808,7 +808,7 @@ typedef std::ratio<unspecified,unspecified> period;
 
 **声明**
 
-```c++
+```
 typedef std::chrono::duration<
    std::chrono::system_clock::rep,
    std::chrono::system_clock::period> duration;
@@ -820,7 +820,7 @@ typedef std::chrono::duration<
 
 **声明**<br>
 
-```c++
+```
 typedef std::chrono::time_point&lt;std::chrono::system_clock&gt; time_point;
 ```
 
@@ -830,7 +830,7 @@ typedef std::chrono::time_point&lt;std::chrono::system_clock&gt; time_point;
 
 **声明**
 
-```c++
+```
 time_point now() noexcept;
 ```
 
@@ -846,7 +846,7 @@ time_point类型变量来代表当前系统实时时钟的时间。
 
 **声明**
 
-```c++
+```
 time_t to_time_t(time_point const& t) noexcept;
 ```
 
@@ -860,7 +860,7 @@ time_t to_time_t(time_point const& t) noexcept;
 
 **声明**
 
-```c++
+```
 time_point from_time_t(time_t const& t) noexcept;
 ```
 
@@ -876,7 +876,7 @@ time_point中的值与t中的值一样。
 
 #### 类型定义
 
-```c++
+```
 class steady_clock
 {
 public:
@@ -898,7 +898,7 @@ public:
 
 **声明**
 
-```c++
+```
 typedef unspecified-integral-type rep;
 ```
 
@@ -908,7 +908,7 @@ typedef unspecified-integral-type rep;
 
 **声明**
 
-```c++
+```
 typedef std::ratio<unspecified,unspecified> period;
 ```
 
@@ -918,7 +918,7 @@ typedef std::ratio<unspecified,unspecified> period;
 
 **声明**
 
-```c++
+```
 typedef std::chrono::duration<
    std::chrono::system_clock::rep,
    std::chrono::system_clock::period> duration;
@@ -930,7 +930,7 @@ typedef std::chrono::duration<
 
 **声明**
 
-```c++
+```
 typedef std::chrono::time_point<std::chrono::steady_clock> time_point;
 ```
 
@@ -940,7 +940,7 @@ typedef std::chrono::time_point<std::chrono::steady_clock> time_point;
 
 **声明**
 
-```c++
+```
 time_point now() noexcept;
 ```
 
@@ -962,7 +962,7 @@ time_point表示当前系统稳定时钟的时间。
 
 #### 类型定义
 
-```c++
+```
 class high_resolution_clock
 {
 public:
@@ -984,7 +984,7 @@ public:
 
 #### 头文件内容
 
-```c++
+```
 namespace std
 {
   enum class cv_status { timeout, no_timeout };
@@ -1002,7 +1002,7 @@ namespace std
 
 #### 类型定义
 
-```c++
+```
 class condition_variable
 {
 public:
@@ -1052,7 +1052,7 @@ void notify_all_at_thread_exit(condition_variable&,unique_lock<mutex>);
 
 **声明**
 
-```c++
+```
 condition_variable();
 ```
 
@@ -1068,7 +1068,7 @@ condition_variable();
 
 **声明**
 
-```c++
+```
 ~condition_variable();
 ```
 
@@ -1087,7 +1087,7 @@ condition_variable();
 
 **声明**
 
-```c++
+```
 void notify_one() noexcept;
 ```
 
@@ -1106,7 +1106,7 @@ void notify_one() noexcept;
 
 **声明**
 
-```c++
+```
 void notify_all() noexcept;
 ```
 
@@ -1125,7 +1125,7 @@ void notify_all() noexcept;
 
 **等待**
 
-```c++
+```
 void wait(std::unique_lock<std::mutex>& lock);
 ```
 
@@ -1149,7 +1149,7 @@ void wait(std::unique_lock<std::mutex>& lock);
 
 **声明**
 
-```c++
+```
 template<typename Predicate>
 void wait(std::unique_lock<std::mutex>& lock,Predicate pred);
 ```
@@ -1160,7 +1160,7 @@ pred()谓词必须是合法的，并且需要返回一个值，这个值可以�
 **效果**<br>
 正如
 
-```c++
+```
 while(!pred())
 {
   wait(lock);
@@ -1181,7 +1181,7 @@ pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`
 
 **声明**
 
-```c++
+```
 template<typename Rep,typename Period>
 cv_status wait_for(
     std::unique_lock<std::mutex>& lock,
@@ -1211,7 +1211,7 @@ cv_status wait_for(
 
 **声明**
 
-```c++
+```
 template<typename Rep,typename Period,typename Predicate>
 bool wait_for(
     std::unique_lock<std::mutex>& lock,
@@ -1225,7 +1225,7 @@ pred()谓词必须是合法的，并且需要返回一个值，这个值可以�
 **效果**<br>
 等价于
 
-```c++
+```
 internal_clock::time_point end=internal_clock::now()+relative_time;
 while(!pred())
 {
@@ -1254,7 +1254,7 @@ return true;
 
 **声明**
 
-```c++
+```
 template<typename Clock,typename Duration>
 cv_status wait_until(
     std::unique_lock<std::mutex>& lock,
@@ -1284,7 +1284,7 @@ cv_status wait_until(
 
 **声明**
 
-```c++
+```
 template<typename Clock,typename Duration,typename Predicate>
 bool wait_until(
     std::unique_lock<std::mutex>& lock,
@@ -1298,7 +1298,7 @@ pred()必须是合法的，并且其返回值能转换为bool值。当线程调�
 **效果**<br>
 等价于
 
-```c++
+```
 while(!pred())
 {
   if(wait_until(lock,absolute_time)==std::cv_status::timeout)
@@ -1324,7 +1324,7 @@ return true;
 
 **声明**
 
-```c++
+```
 void notify_all_at_thread_exit(
   condition_variable& cv,unique_lock<mutex> lk);
 ```
@@ -1335,7 +1335,7 @@ void notify_all_at_thread_exit(
 **效果**<br>
 将lk的所有权转移到内部存储中，并且当有线程退出时，安排被提醒的cv类。这里的提醒等价于
 
-```c++
+```
 lk.unlock();
 cv.notify_all();
 ```
@@ -1353,7 +1353,7 @@ cv.notify_all();
 
 #### 类型定义
 
-```c++
+```
 class condition_variable_any
 {
 public:
@@ -1408,7 +1408,7 @@ public:
 
 **声明**
 
-```c++
+```
 condition_variable_any();
 ```
 
@@ -1424,7 +1424,7 @@ condition_variable_any();
 
 **声明**
 
-```c++
+```
 ~condition_variable_any();
 ```
 
@@ -1443,7 +1443,7 @@ condition_variable_any();
 
 **声明**
 
-```c++
+```
 void notify_all() noexcept;
 ```
 
@@ -1462,7 +1462,7 @@ void notify_all() noexcept;
 
 **声明**
 
-```c++
+```
 void notify_all() noexcept;
 ```
 
@@ -1481,7 +1481,7 @@ void notify_all() noexcept;
 
 **声明**
 
-```c++
+```
 template<typename Lockable>
 void wait(Lockable& lock);
 ```
@@ -1506,7 +1506,7 @@ std::condition_variable_any实例中的notify_one(),notify_all(),wait(),wait_for
 
 **声明**
 
-```c++
+```
 template<typename Lockable,typename Predicate>
 void wait(Lockable& lock,Predicate pred);
 ```
@@ -1517,7 +1517,7 @@ pred()谓词必须是合法的，并且需要返回一个值，这个值可以�
 **效果**<br>
 正如
 
-```c++
+```
 while(!pred())
 {
 wait(lock);
@@ -1538,7 +1538,7 @@ pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`
 
 **声明**
 
-```c++
+```
 template<typename Lockable,typename Rep,typename Period>
 std::cv_status wait_for(
     Lockable& lock,
@@ -1568,7 +1568,7 @@ std::cv_status wait_for(
 
 **声明**
 
-```c++
+```
 template<typename Lockable,typename Rep,
     typename Period, typename Predicate>
 bool wait_for(
@@ -1583,7 +1583,7 @@ pred()谓词必须是合法的，并且需要返回一个值，这个值可以�
 **效果**<br>
 正如
 
-```c++
+```
 internal_clock::time_point end=internal_clock::now()+relative_time;
 while(!pred())
 {
@@ -1613,7 +1613,7 @@ return true;
 
 **声明**
 
-```c++
+```
 template<typename Lockable,typename Clock,typename Duration>
 std::cv_status wait_until(
     Lockable& lock,
@@ -1643,7 +1643,7 @@ Lockable类型需要能够上锁，lock对象拥有一个锁。
 
 **声明**
 
-```c++
+```
 template<typename Lockable,typename Clock,
     typename Duration, typename Predicate>
 bool wait_until(
@@ -1658,7 +1658,7 @@ pred()必须是合法的，并且其返回值能转换为bool值。当线程调�
 **效果**<br>
 等价于
 
-```c++
+```
 while(!pred())
 {
   if(wait_until(lock,absolute_time)==std::cv_status::timeout)
@@ -1684,7 +1684,7 @@ return true;
 
 ####头文件内容
 
-```c++
+```
 #define ATOMIC_BOOL_LOCK_FREE 参见详述
 #define ATOMIC_CHAR_LOCK_FREE 参见详述
 #define ATOMIC_SHORT_LOCK_FREE 参见详述
@@ -1793,7 +1793,7 @@ namespace std
 
 **宏定义**
 
-```c++
+```
 #define ATOMIC_BOOL_LOCK_FREE 参见详述
 #define ATOMIC_CHAR_LOCK_FREE参见详述
 #define ATOMIC_SHORT_LOCK_FREE 参见详述
@@ -1819,13 +1819,13 @@ namespace std
 
 宏可以扩展成一系列符号，这个宏可以通过一个给定值，初始化一个标准原子类型，表达式如下所示：
 
-```c++
+```
 std::atomic<type> x = ATOMIC_VAR_INIT(val);
 ```
 
 给定值可以兼容与原子变量相关的非原子变量，例如：
 
-```c++
+```
 std::atomic&lt;int> i = ATOMIC_VAR_INIT(42);
 std::string s;
 std::atomic&lt;std::string*> p = ATOMIC_VAR_INIT(&s);
@@ -1839,7 +1839,7 @@ std::atomic&lt;std::string*> p = ATOMIC_VAR_INIT(&s);
 
 **声明**
 
-```c++
+```
 typedef enum memory_order
 {
   memory_order_relaxed,memory_order_consume,
@@ -1882,7 +1882,7 @@ typedef enum memory_order
 
 **声明**
 
-```c++
+```
 extern "C" void atomic_thread_fence(std::memory_order order);
 ```
 
@@ -1902,7 +1902,7 @@ extern "C" void atomic_thread_fence(std::memory_order order);
 
 **声明**
 
-```c++
+```
 extern "C" void atomic_signal_fence(std::memory_order order);
 ```
 
@@ -1920,7 +1920,7 @@ extern "C" void atomic_signal_fence(std::memory_order order);
 
 **类型定义**
 
-```c++
+```
 struct atomic_flag
 {
   atomic_flag() noexcept = default;
@@ -1957,7 +1957,7 @@ void atomic_flag_clear_explicit(
 
 **声明**
 
-```c++
+```
 std::atomic_flag() noexcept = default;
 ```
 
@@ -1973,13 +1973,13 @@ std::atomic_flag() noexcept = default;
 
 **声明**
 
-```c++
+```
 #define ATOMIC_FLAG_INIT unspecified
 ```
 
 **用法**
 
-```c++
+```
 std::atomic_flag flag=ATOMIC_FLAG_INIT;
 ```
 
@@ -1998,14 +1998,14 @@ std::atomic_flag flag=ATOMIC_FLAG_INIT;
 
 **声明**
 
-```c++
+```
 bool atomic_flag_test_and_set(volatile atomic_flag* flag) noexcept;
 bool atomic_flag_test_and_set(atomic_flag* flag) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return flag->test_and_set();
 ```
 
@@ -2015,7 +2015,7 @@ return flag->test_and_set();
 
 **声明**
 
-```c++
+```
 bool atomic_flag_test_and_set_explicit(
     volatile atomic_flag* flag, memory_order order) noexcept;
 bool atomic_flag_test_and_set_explicit(
@@ -2024,7 +2024,7 @@ bool atomic_flag_test_and_set_explicit(
 
 **效果**
 
-```c++
+```
 return flag->test_and_set(order);
 ```
 
@@ -2034,7 +2034,7 @@ return flag->test_and_set(order);
 
 **声明**
 
-```c++
+```
 bool atomic_flag_test_and_set_explicit(
     volatile atomic_flag* flag, memory_order order) noexcept;
 bool atomic_flag_test_and_set_explicit(
@@ -2043,7 +2043,7 @@ bool atomic_flag_test_and_set_explicit(
 
 **效果**
 
-```c++
+```
 return flag->test_and_set(order);
 ```
 
@@ -2053,7 +2053,7 @@ return flag->test_and_set(order);
 
 **声明**
 
-```c++
+```
 void clear(memory_order order = memory_order_seq_cst) volatile noexcept;
 void clear(memory_order order = memory_order_seq_cst) noexcept;
 ```
@@ -2077,14 +2077,14 @@ void clear(memory_order order = memory_order_seq_cst) noexcept;
 
 **声明**
 
-```c++
+```
 void atomic_flag_clear(volatile atomic_flag* flag) noexcept;
 void atomic_flag_clear(atomic_flag* flag) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 flag->clear();
 ```
 
@@ -2094,7 +2094,7 @@ flag->clear();
 
 **声明**
 
-```c++
+```
 void atomic_flag_clear_explicit(
     volatile atomic_flag* flag, memory_order order) noexcept;
 void atomic_flag_clear_explicit(
@@ -2103,7 +2103,7 @@ void atomic_flag_clear_explicit(
 
 **效果**
 
-```c++
+```
 return flag->clear(order);
 ```
 
@@ -2126,7 +2126,7 @@ return flag->clear(order);
 
 **类型定义**
 
-```c++
+```
 template<typename BaseType>
 struct atomic
 {
@@ -2270,7 +2270,7 @@ bool atomic_compare_exchange_weak_explicit(
 
 **声明**
 
-```c++
+```
 atomic() noexcept;
 ```
 
@@ -2288,7 +2288,7 @@ atomic() noexcept;
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 void atomic_init(atomic<BaseType> volatile* p, BaseType v) noexcept;
 template<typename BaseType>
@@ -2309,7 +2309,7 @@ void atomic_init(atomic<BaseType>* p, BaseType v) noexcept;
 
 **声明**
 
-```c++
+```
 constexpr atomic(BaseType b) noexcept;
 ```
 
@@ -2325,14 +2325,14 @@ constexpr atomic(BaseType b) noexcept;
 
 **声明**
 
-```c++
+```
 BaseType operator=(BaseType b) volatile noexcept;
 BaseType operator=(BaseType b) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->store(b);
 ```
 
@@ -2342,7 +2342,7 @@ return this->store(b);
 
 **声明**
 
-```c++
+```
 bool is_lock_free() const volatile noexcept;
 bool is_lock_free() const noexcept;
 ```
@@ -2359,7 +2359,7 @@ bool is_lock_free() const noexcept;
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 bool atomic_is_lock_free(volatile const atomic<BaseType>* p) noexcept;
 template<typename BaseType>
@@ -2368,7 +2368,7 @@ bool atomic_is_lock_free(const atomic<BaseType>* p) noexcept;
 
 **效果**
 
-```c++
+```
 return p->is_lock_free();
 ```
 
@@ -2378,7 +2378,7 @@ return p->is_lock_free();
 
 **声明**
 
-```c++
+```
 BaseType load(memory_order order = memory_order_seq_cst)
     const volatile noexcept;
 BaseType load(memory_order order = memory_order_seq_cst) const noexcept;
@@ -2404,7 +2404,7 @@ BaseType load(memory_order order = memory_order_seq_cst) const noexcept;
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 BaseType atomic_load(volatile const atomic<BaseType>* p) noexcept;
 template<typename BaseType>
@@ -2413,7 +2413,7 @@ BaseType atomic_load(const atomic<BaseType>* p) noexcept;
 
 **效果**
 
-```c++
+```
 return p->load();
 ```
 
@@ -2423,7 +2423,7 @@ return p->load();
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 BaseType atomic_load_explicit(
     volatile const atomic<BaseType>* p, memory_order order) noexcept;
@@ -2434,7 +2434,7 @@ BaseType atomic_load_explicit(
 
 **效果**
 
-```c++
+```
 return p->load(order);
 ```
 
@@ -2444,14 +2444,14 @@ return p->load(order);
 
 **声明**
 
-```c++
+```
 operator BaseType() const volatile noexcept;
 operator BaseType() const noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->load();
 ```
 
@@ -2461,7 +2461,7 @@ return this->load();
 
 **声明**
 
-```c++
+```
 void store(BaseType new_value,memory_order order = memory_order_seq_cst)
     volatile noexcept;
 void store(BaseType new_value,memory_order order = memory_order_seq_cst)
@@ -2485,7 +2485,7 @@ void store(BaseType new_value,memory_order order = memory_order_seq_cst)
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 void atomic_store(volatile atomic<BaseType>* p, BaseType new_value)
     noexcept;
@@ -2495,7 +2495,7 @@ void atomic_store(atomic<BaseType>* p, BaseType new_value) noexcept;
 
 **效果**
 
-```c++
+```
 p->store(new_value);
 ```
 
@@ -2505,7 +2505,7 @@ p->store(new_value);
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 void atomic_store_explicit(
     volatile atomic<BaseType>* p, BaseType new_value, memory_order order)
@@ -2517,7 +2517,7 @@ void atomic_store_explicit(
 
 **效果**
 
-```c++
+```
 p->store(new_value,order);
 ```
 
@@ -2527,7 +2527,7 @@ p->store(new_value,order);
 
 **声明**
 
-```c++
+```
 BaseType exchange(
     BaseType new_value,
     memory_order order = memory_order_seq_cst)
@@ -2551,7 +2551,7 @@ BaseType exchange(
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 BaseType atomic_exchange(volatile atomic<BaseType>* p, BaseType new_value)
     noexcept;
@@ -2561,7 +2561,7 @@ BaseType atomic_exchange(atomic<BaseType>* p, BaseType new_value) noexcept;
 
 **效果**
 
-```c++
+```
 return p->exchange(new_value);
 ```
 
@@ -2571,7 +2571,7 @@ return p->exchange(new_value);
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 BaseType atomic_exchange_explicit(
     volatile atomic<BaseType>* p, BaseType new_value, memory_order order)
@@ -2583,7 +2583,7 @@ BaseType atomic_exchange_explicit(
 
 **效果**
 
-```c++
+```
 return p->exchange(new_value,order);
 ```
 
@@ -2593,7 +2593,7 @@ return p->exchange(new_value,order);
 
 **声明**
 
-```c++
+```
 bool compare_exchange_strong(
     BaseType& expected,BaseType new_value,
     memory_order order = std::memory_order_seq_cst) volatile noexcept;
@@ -2631,7 +2631,7 @@ failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`�
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 bool atomic_compare_exchange_strong(
     volatile atomic<BaseType>* p,BaseType * old_value,BaseType new_value)
@@ -2643,7 +2643,7 @@ bool atomic_compare_exchange_strong(
 
 **效果**
 
-```c++
+```
 return p->compare_exchange_strong(*old_value,new_value);
 ```
 
@@ -2653,7 +2653,7 @@ return p->compare_exchange_strong(*old_value,new_value);
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 bool atomic_compare_exchange_strong_explicit(
     volatile atomic<BaseType>* p,BaseType * old_value,
@@ -2668,7 +2668,7 @@ bool atomic_compare_exchange_strong_explicit(
 
 **效果**<br>
 
-```c++
+```
 return p->compare_exchange_strong(
     *old_value,new_value,success_order,failure_order) noexcept;
 ```
@@ -2679,7 +2679,7 @@ return p->compare_exchange_strong(
 
 **声明**
 
-```c++
+```
 bool compare_exchange_weak(
     BaseType& expected,BaseType new_value,
     memory_order order = std::memory_order_seq_cst) volatile noexcept;
@@ -2717,7 +2717,7 @@ failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`�
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 bool atomic_compare_exchange_weak(
     volatile atomic<BaseType>* p,BaseType * old_value,BaseType new_value)
@@ -2729,7 +2729,7 @@ bool atomic_compare_exchange_weak(
 
 **效果**
 
-```c++
+```
 return p->compare_exchange_weak(*old_value,new_value);
 ```
 
@@ -2739,7 +2739,7 @@ return p->compare_exchange_weak(*old_value,new_value);
 
 **声明**
 
-```c++
+```
 template<typename BaseType>
 bool atomic_compare_exchange_weak_explicit(
     volatile atomic<BaseType>* p,BaseType * old_value,
@@ -2754,7 +2754,7 @@ bool atomic_compare_exchange_weak_explicit(
 
 **效果**
 
-```c++
+```
 return p->compare_exchange_weak(
    *old_value,new_value,success_order,failure_order);
 ```
@@ -2765,7 +2765,7 @@ return p->compare_exchange_weak(
 
 特化模板提供如下整型：
 
-```c++
+```
 std::atomic<bool>
 std::atomic<char>
 std::atomic<signed char>
@@ -2791,7 +2791,7 @@ std::atomic<char32_t&gt;
 
 下面的特化模板也适用于`std::atomic<>`类模板：
 
-```c++
+```
 std::atomic<char>
 std::atomic<signed char>
 std::atomic<unsigned char>
@@ -2812,7 +2812,7 @@ std::atomic<char32_t>
 
 **类型定义**
 
-```c++
+```
 template<>
 struct atomic<integral-type>
 {
@@ -3018,7 +3018,7 @@ integral-type atomic_fetch_xor_explicit(
 
 **声明**
 
-```c++
+```
 integral-type fetch_add(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3043,7 +3043,7 @@ integral-type fetch_add(
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_add(
     volatile atomic<integral-type>* p, integral-type i) noexcept;
 integral-type atomic_fetch_add(
@@ -3052,7 +3052,7 @@ integral-type atomic_fetch_add(
 
 **效果**
 
-```c++
+```
 return p->fetch_add(i);
 ```
 
@@ -3062,7 +3062,7 @@ return p->fetch_add(i);
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_add_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3073,7 +3073,7 @@ integral-type atomic_fetch_add_explicit(
 
 **效果**
 
-```c++
+```
 return p->fetch_add(i,order);
 ```
 
@@ -3083,7 +3083,7 @@ return p->fetch_add(i,order);
 
 **声明**
 
-```c++
+```
 integral-type fetch_sub(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3108,7 +3108,7 @@ integral-type fetch_sub(
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_sub(
     volatile atomic<integral-type>* p, integral-type i) noexcept;
 integral-type atomic_fetch_sub(
@@ -3117,7 +3117,7 @@ integral-type atomic_fetch_sub(
 
 **效果**
 
-```c++
+```
 return p->fetch_sub(i);
 ```
 
@@ -3127,7 +3127,7 @@ return p->fetch_sub(i);
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_sub_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3138,7 +3138,7 @@ integral-type atomic_fetch_sub_explicit(
 
 **效果**
 
-```c++
+```
 return p->fetch_sub(i,order);
 ```
 
@@ -3148,7 +3148,7 @@ return p->fetch_sub(i,order);
 
 **声明**
 
-```c++
+```
 integral-type fetch_and(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3173,7 +3173,7 @@ integral-type fetch_and(
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_and(
     volatile atomic<integral-type>* p, integral-type i) noexcept;
 integral-type atomic_fetch_and(
@@ -3182,7 +3182,7 @@ integral-type atomic_fetch_and(
 
 **效果**
 
-```c++
+```
 return p->fetch_and(i);
 ```
 
@@ -3192,7 +3192,7 @@ return p->fetch_and(i);
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_and_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3203,7 +3203,7 @@ integral-type atomic_fetch_and_explicit(
 
 **效果**
 
-```c++
+```
 return p->fetch_and(i,order);
 ```
 
@@ -3213,7 +3213,7 @@ return p->fetch_and(i,order);
 
 **声明**
 
-```c++
+```
 integral-type fetch_or(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3238,7 +3238,7 @@ integral-type fetch_or(
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_or(
     volatile atomic<integral-type>* p, integral-type i) noexcept;
 integral-type atomic_fetch_or(
@@ -3247,7 +3247,7 @@ integral-type atomic_fetch_or(
 
 **效果**
 
-```c++
+```
 return p->fetch_or(i);
 ```
 
@@ -3257,7 +3257,7 @@ return p->fetch_or(i);
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_or_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3268,7 +3268,7 @@ integral-type atomic_fetch_or_explicit(
 
 **效果**
 
-```c++
+```
 return p->fetch_or(i,order);
 ```
 
@@ -3278,7 +3278,7 @@ return p->fetch_or(i,order);
 
 **声明**
 
-```c++
+```
 integral-type fetch_xor(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3303,7 +3303,7 @@ integral-type fetch_xor(
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_xor_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3314,7 +3314,7 @@ integral-type atomic_fetch_xor_explicit(
 
 **效果**
 
-```c++
+```
 return p->fetch_xor(i,order);
 ```
 
@@ -3324,7 +3324,7 @@ return p->fetch_xor(i,order);
 
 **声明**
 
-```c++
+```
 integral-type atomic_fetch_xor_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3335,7 +3335,7 @@ integral-type atomic_fetch_xor_explicit(
 
 **效果**
 
-```c++
+```
 return p->fetch_xor(i,order);
 ```
 
@@ -3345,14 +3345,14 @@ return p->fetch_xor(i,order);
 
 **声明**
 
-```c++
+```
 integral-type operator++() volatile noexcept;
 integral-type operator++() noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(1) + 1;
 ```
 
@@ -3362,14 +3362,14 @@ return this->fetch_add(1) + 1;
 
 **声明**
 
-```c++
+```
 integral-type operator++() volatile noexcept;
 integral-type operator++() noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(1);
 ```
 
@@ -3379,14 +3379,14 @@ return this->fetch_add(1);
 
 **声明**
 
-```c++
+```
 integral-type operator--() volatile noexcept;
 integral-type operator--() noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(1) - 1;
 ```
 
@@ -3396,14 +3396,14 @@ return this->fetch_add(1) - 1;
 
 **声明**
 
-```c++
+```
 integral-type operator--() volatile noexcept;
 integral-type operator--() noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(1);
 ```
 
@@ -3413,14 +3413,14 @@ return this->fetch_add(1);
 
 **声明**
 
-```c++
+```
 integral-type operator+=(integral-type i) volatile noexcept;
 integral-type operator+=(integral-type i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(i) + i;
 ```
 
@@ -3430,14 +3430,14 @@ return this->fetch_add(i) + i;
 
 **声明**
 
-```c++
+```
 integral-type operator-=(integral-type i) volatile noexcept;
 integral-type operator-=(integral-type i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_sub(i,std::memory_order_seq_cst) – i;
 ```
 
@@ -3447,14 +3447,14 @@ return this->fetch_sub(i,std::memory_order_seq_cst) – i;
 
 **声明**
 
-```c++
+```
 integral-type operator&=(integral-type i) volatile noexcept;
 integral-type operator&=(integral-type i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_and(i) & i;
 ```
 
@@ -3464,14 +3464,14 @@ return this->fetch_and(i) & i;
 
 **声明**
 
-```c++
+```
 integral-type operator|=(integral-type i) volatile noexcept;
 integral-type operator|=(integral-type i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_or(i,std::memory_order_seq_cst) | i;
 ```
 
@@ -3481,14 +3481,14 @@ return this->fetch_or(i,std::memory_order_seq_cst) | i;
 
 **声明**
 
-```c++
+```
 integral-type operator^=(integral-type i) volatile noexcept;
 integral-type operator^=(integral-type i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_xor(i,std::memory_order_seq_cst) ^ i;
 ```
 
@@ -3500,7 +3500,7 @@ return this->fetch_xor(i,std::memory_order_seq_cst) ^ i;
 
 **类型定义**
 
-```c++
+```
 template<typename T>
 struct atomic<T*>
 {
@@ -3637,7 +3637,7 @@ T* atomic_fetch_sub_explicit(
 
 **声明**
 
-```c++
+```
 T* fetch_add(
     ptrdiff_t i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3662,14 +3662,14 @@ T* fetch_add(
 
 **声明**
 
-```c++
+```
 T* atomic_fetch_add(volatile atomic<T*>* p, ptrdiff_t i) noexcept;
 T* atomic_fetch_add(atomic<T*>* p, ptrdiff_t i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return p->fetch_add(i);
 ```
 
@@ -3679,7 +3679,7 @@ return p->fetch_add(i);
 
 **声明**
 
-```c++
+```
 T* atomic_fetch_add_explicit(
      volatile atomic<T*>* p, ptrdiff_t i,memory_order order) noexcept;
 T* atomic_fetch_add_explicit(
@@ -3688,7 +3688,7 @@ T* atomic_fetch_add_explicit(
 
 **效果**
 
-```c++
+```
 return p->fetch_add(i,order);
 ```
 
@@ -3698,7 +3698,7 @@ return p->fetch_add(i,order);
 
 **声明**
 
-```c++
+```
 T* fetch_sub(
     ptrdiff_t i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3723,14 +3723,14 @@ T* fetch_sub(
 
 **声明**
 
-```c++
+```
 T* atomic_fetch_sub(volatile atomic<T*>* p, ptrdiff_t i) noexcept;
 T* atomic_fetch_sub(atomic<T*>* p, ptrdiff_t i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return p->fetch_sub(i);
 ```
 
@@ -3740,7 +3740,7 @@ return p->fetch_sub(i);
 
 **声明**
 
-```c++
+```
 T* atomic_fetch_sub_explicit(
      volatile atomic<T*>* p, ptrdiff_t i,memory_order order) noexcept;
 T* atomic_fetch_sub_explicit(
@@ -3749,7 +3749,7 @@ T* atomic_fetch_sub_explicit(
 
 **效果**
 
-```c++
+```
 return p->fetch_sub(i,order);
 ```
 
@@ -3759,14 +3759,14 @@ return p->fetch_sub(i,order);
 
 **声明**
 
-```c++
+```
 T* operator++() volatile noexcept;
 T* operator++() noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(1) + 1;
 ```
 
@@ -3776,14 +3776,14 @@ return this->fetch_add(1) + 1;
 
 **声明**
 
-```c++
+```
 T* operator++() volatile noexcept;
 T* operator++() noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(1);
 ```
 
@@ -3793,14 +3793,14 @@ return this->fetch_add(1);
 
 **声明**
 
-```c++
+```
 T* operator--() volatile noexcept;
 T* operator--() noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_sub(1) - 1;
 ```
 
@@ -3810,14 +3810,14 @@ return this->fetch_sub(1) - 1;
 
 **声明**
 
-```c++
+```
 T* operator--() volatile noexcept;
 T* operator--() noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_sub(1);
 ```
 
@@ -3827,14 +3827,14 @@ return this->fetch_sub(1);
 
 **声明**
 
-```c++
+```
 T* operator+=(ptrdiff_t i) volatile noexcept;
 T* operator+=(ptrdiff_t i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(i) + i;
 ```
 
@@ -3845,14 +3845,14 @@ return this->fetch_add(i) + i;
 
 **声明**
 
-```c++
+```
 T* operator+=(ptrdiff_t i) volatile noexcept;
 T* operator+=(ptrdiff_t i) noexcept;
 ```
 
 **效果**
 
-```c++
+```
 return this->fetch_add(i) - i;
 ```
 
@@ -3862,7 +3862,7 @@ return this->fetch_add(i) - i;
 
 **头文件内容**
 
-```c++
+```
 namespace std
 {
   enum class future_status {
@@ -3920,7 +3920,7 @@ namespace std
 
 **类型声明**
 
-```c++
+```
 template<typename ResultType>
 class future
 {
@@ -3957,7 +3957,7 @@ public:
 
 **声明**
 
-```c++
+```
 future() noexcept;
 ```
 
@@ -3976,7 +3976,7 @@ valid()返回false。
 
 **声明**
 
-```c++
+```
 future(future&& other) noexcept;
 ```
 
@@ -3995,7 +3995,7 @@ future(future&& other) noexcept;
 
 **声明**
 
-```c++
+```
 future(future&& other) noexcept;
 ```
 
@@ -4014,7 +4014,7 @@ future(future&& other) noexcept;
 
 **声明**
 
-```c++
+```
 ~future();
 ```
 
@@ -4030,7 +4030,7 @@ future(future&& other) noexcept;
 
 **声明**
 
-```c++
+```
 shared_future<ResultType> share();
 ```
 
@@ -4049,7 +4049,7 @@ shared_future<ResultType> share();
 
 **声明**
 
-```c++
+```
 bool valid() const noexcept;
 ```
 
@@ -4065,7 +4065,7 @@ bool valid() const noexcept;
 
 **声明**
 
-```c++
+```
 void wait();
 ```
 
@@ -4084,7 +4084,7 @@ void wait();
 
 **声明**
 
-```c++
+```
 template<typename Rep,typename Period>
 future_status wait_for(
     std::chrono::duration<Rep,Period> const& relative_time);
@@ -4110,7 +4110,7 @@ future_status wait_for(
 
 **声明**
 
-```c++
+```
 template<typename Clock,typename Duration>
 future_status wait_until(
   std::chrono::time_point<Clock,Duration> const& absolute_time);
@@ -4136,7 +4136,7 @@ this->valid()将返回true。
 
 **声明**
 
-```c++
+```
 void future<void>::get();
 R& future<R&>::get();
 R future<R>::get();
@@ -4158,7 +4158,7 @@ this->valid()将返回true。
 
 **后置条件**
 
-```c++
+```
 this->valid()==false
 ```
 
@@ -4172,7 +4172,7 @@ this->valid()==false
 
 **类型定义**
 
-```c++
+```
 template<typename ResultType>
 class shared_future
 {
@@ -4209,7 +4209,7 @@ public:
 
 **声明**
 
-```c++
+```
 shared_future() noexcept;
 ```
 
@@ -4228,7 +4228,7 @@ shared_future() noexcept;
 
 **声明**
 
-```c++
+```
 shared_future(shared_future&& other) noexcept;
 ```
 
@@ -4247,7 +4247,7 @@ shared_future(shared_future&& other) noexcept;
 
 **声明**
 
-```c++
+```
 shared_future(std::future<ResultType>&& other) noexcept;
 ```
 
@@ -4266,7 +4266,7 @@ shared_future(std::future<ResultType>&& other) noexcept;
 
 **声明**
 
-```c++
+```
 shared_future(shared_future const& other);
 ```
 
@@ -4285,7 +4285,7 @@ shared_future(shared_future const& other);
 
 **声明**
 
-```c++
+```
 ~shared_future();
 ```
 
@@ -4301,7 +4301,7 @@ shared_future(shared_future const& other);
 
 **声明**
 
-```c++
+```
 bool valid() const noexcept;
 ```
 
@@ -4317,7 +4317,7 @@ bool valid() const noexcept;
 
 **声明**
 
-```c++
+```
 void wait() const;
 ```
 
@@ -4336,7 +4336,7 @@ this->valid()将返回true。
 
 **声明**
 
-```c++
+```
 template<typename Rep,typename Period>
 future_status wait_for(
     std::chrono::duration<Rep,Period> const& relative_time) const;
@@ -4362,7 +4362,7 @@ future_status wait_for(
 
 **声明**
 
-```c++
+```
 template<typename Clock,typename Duration>
 future_status wait_until(
   std::chrono::time_point<Clock,Duration> const& absolute_time) const;
@@ -4388,7 +4388,7 @@ this->valid()将返回true。
 
 **声明**
 
-```c++
+```
 void shared_future<void>::get() const;
 R& shared_future<R&>::get() const;
 R const& shared_future<R>::get() const;
@@ -4416,7 +4416,7 @@ this->valid()将返回true。
 
 **类型定义**
 
-```c++
+```
 template<typename FunctionType>
 class packaged_task; // undefined
 
@@ -4455,7 +4455,7 @@ public:
 
 **声明**
 
-```c++
+```
 packaged_task() noexcept;
 ```
 
@@ -4471,7 +4471,7 @@ packaged_task() noexcept;
 
 **声明**
 
-```c++
+```
 template<typename Callable>
 packaged_task(Callable&& func);
 ```
@@ -4491,7 +4491,7 @@ packaged_task(Callable&& func);
 
 **声明**
 
-```c++
+```
 template<typename Allocator,typename Callable>
 packaged_task(
     std::allocator_arg_t, Allocator const& alloc,Callable&& func);
@@ -4512,7 +4512,7 @@ packaged_task(
 
 **声明**
 
-```c++
+```
 packaged_task(packaged_task&& other) noexcept;
 ```
 
@@ -4531,7 +4531,7 @@ packaged_task(packaged_task&& other) noexcept;
 
 **声明**
 
-```c++
+```
 packaged_task& operator=(packaged_task&& other) noexcept;
 ```
 
@@ -4543,7 +4543,7 @@ packaged_task& operator=(packaged_task&& other) noexcept;
 
 **返回**
 
-```c++
+```
 *this
 ```
 
@@ -4556,7 +4556,7 @@ packaged_task& operator=(packaged_task&& other) noexcept;
 
 **声明**
 
-```c++
+```
 void swap(packaged_task& other) noexcept;
 ```
 
@@ -4575,7 +4575,7 @@ void swap(packaged_task& other) noexcept;
 
 **声明**
 
-```c++
+```
 ~packaged_task();
 ```
 
@@ -4591,7 +4591,7 @@ void swap(packaged_task& other) noexcept;
 
 **声明**
 
-```c++
+```
 std::future<ResultType> get_future();
 ```
 
@@ -4610,7 +4610,7 @@ std::future<ResultType> get_future();
 
 **声明**
 
-```c++
+```
 void reset();
 ```
 
@@ -4629,7 +4629,7 @@ void reset();
 
 **声明**
 
-```c++
+```
 bool valid() const noexcept;
 ```
 
@@ -4645,7 +4645,7 @@ bool valid() const noexcept;
 
 **声明**
 
-```c++
+```
 void operator()(ArgTypes... args);
 ```
 
@@ -4670,7 +4670,7 @@ void operator()(ArgTypes... args);
 
 **声明**
 
-```c++
+```
 void make_ready_at_thread_exit(ArgTypes... args);
 ```
 
@@ -4701,7 +4701,7 @@ ResultType模板参数，该类型可以存储异步结果。
 
 **类型定义**
 
-```c++
+```
 template<typename ResultType>
 class promise
 {
@@ -4732,7 +4732,7 @@ public:
 
 **声明**
 
-```c++
+```
 promise();
 ```
 
@@ -4748,7 +4748,7 @@ promise();
 
 **声明**
 
-```c++
+```
 template<typename Allocator>
 promise(std::allocator_arg_t, Allocator const& alloc);
 ```
@@ -4765,7 +4765,7 @@ promise(std::allocator_arg_t, Allocator const& alloc);
 
 **声明**
 
-```c++
+```
 promise(promise&& other) noexcept;
 ```
 
@@ -4784,7 +4784,7 @@ promise(promise&& other) noexcept;
 
 **声明**
 
-```c++
+```
 promise& operator=(promise&& other) noexcept;
 ```
 
@@ -4796,7 +4796,7 @@ promise& operator=(promise&& other) noexcept;
 
 **返回**<br>
 
-```c++
+```
 *this
 ```
 
@@ -4809,7 +4809,7 @@ promise& operator=(promise&& other) noexcept;
 
 **声明**
 
-```c++
+```
 void swap(promise& other);
 ```
 
@@ -4828,7 +4828,7 @@ void swap(promise& other);
 
 **声明**
 
-```c++
+```
 ~promise();
 ```
 
@@ -4844,7 +4844,7 @@ void swap(promise& other);
 
 **声明**
 
-```c++
+```
 std::future<ResultType> get_future();
 ```
 
@@ -4863,7 +4863,7 @@ std::future<ResultType> get_future();
 
 **声明**
 
-```c++
+```
 void promise<void>::set_value();
 void promise<R&>::set_value(R& r);
 void promise<R>::set_value(R const& r);
@@ -4891,7 +4891,7 @@ void promise<R>::set_value(R&& r);
 
 **声明**
 
-```c++
+```
 void promise<void>::set_value_at_thread_exit();
 void promise<R&>::set_value_at_thread_exit(R& r);
 void promise<R>::set_value_at_thread_exit(R const& r);
@@ -4919,7 +4919,7 @@ void promise<R>::set_value_at_thread_exit(R&& r);
 
 **声明**
 
-```c++
+```
 void set_exception(std::exception_ptr e);
 ```
 
@@ -4944,7 +4944,7 @@ void set_exception(std::exception_ptr e);
 
 **声明**
 
-```c++
+```
 void set_exception_at_thread_exit(std::exception_ptr e);
 ```
 
@@ -4969,7 +4969,7 @@ void set_exception_at_thread_exit(std::exception_ptr e);
 
 **声明**
 
-```c++
+```
 enum class launch
 {
   async,deferred
@@ -5012,7 +5012,7 @@ async(launch policy,Callable&& func,Args&& ... args);
 
 **头文件内容**
 
-```c++
+```
 namespace std
 {
   class mutex;
@@ -5055,7 +5055,7 @@ namespace std
 
 **类型定义**
 
-```c++
+```
 class mutex
 {
 public:
@@ -5077,7 +5077,7 @@ public:
 
 **声明**
 
-```c++
+```
 constexpr mutex() noexcept;
 ```
 
@@ -5096,7 +5096,7 @@ constexpr mutex() noexcept;
 
 **声明**
 
-```c++
+```
 ~mutex();
 ```
 
@@ -5115,7 +5115,7 @@ constexpr mutex() noexcept;
 
 **声明**
 
-```c++
+```
 void lock();
 ```
 
@@ -5137,7 +5137,7 @@ void lock();
 
 **声明**
 
-```c++
+```
 bool try_lock();
 ```
 
@@ -5164,7 +5164,7 @@ bool try_lock();
 
 **声明**
 
-```c++
+```
 void unlock();
 ```
 
@@ -5190,7 +5190,7 @@ void unlock();
 
 **类型定义**
 
-```c++
+```
 class recursive_mutex
 {
 public:
@@ -5212,7 +5212,7 @@ public:
 
 **声明**
 
-```c++
+```
 recursive_mutex() noexcept;
 ```
 
@@ -5231,7 +5231,7 @@ recursive_mutex() noexcept;
 
 **声明**
 
-```c++
+```
 ~recursive_mutex();
 ```
 
@@ -5250,7 +5250,7 @@ recursive_mutex() noexcept;
 
 **声明**
 
-```c++
+```
 void lock();
 ```
 
@@ -5269,7 +5269,7 @@ void lock();
 
 **声明**
 
-```c++
+```
 bool try_lock() noexcept;
 ```
 
@@ -5293,7 +5293,7 @@ bool try_lock() noexcept;
 
 **声明**
 
-```c++
+```
 void unlock();
 ```
 
@@ -5317,7 +5317,7 @@ void unlock();
 
 **类型定义**
 
-```c++
+```
 class timed_mutex
 {
 public:
@@ -5347,7 +5347,7 @@ public:
 
 **声明**
 
-```c++
+```
 timed_mutex();
 ```
 
@@ -5366,7 +5366,7 @@ timed_mutex();
 
 **声明**
 
-```c++
+```
 ~timed_mutex();
 ```
 
@@ -5385,7 +5385,7 @@ timed_mutex();
 
 **声明**
 
-```c++
+```
 void lock();
 ```
 
@@ -5407,7 +5407,7 @@ void lock();
 
 **声明**
 
-```c++
+```
 bool try_lock();
 ```
 
@@ -5434,7 +5434,7 @@ bool try_lock();
 
 **声明**
 
-```c++
+```
 template<typename Rep,typename Period>
 bool try_lock_for(
     std::chrono::duration<Rep,Period> const& relative_time);
@@ -5463,7 +5463,7 @@ bool try_lock_for(
 
 **声明**
 
-```c++
+```
 template<typename Clock,typename Duration>
 bool try_lock_until(
     std::chrono::time_point<Clock,Duration> const& absolute_time);
@@ -5492,7 +5492,7 @@ bool try_lock_until(
 
 **声明**
 
-```c++
+```
 void unlock();
 ```
 
@@ -5518,7 +5518,7 @@ void unlock();
 
 **类型定义**
 
-```c++
+```
 class recursive_timed_mutex
 {
 public:
@@ -5548,7 +5548,7 @@ public:
 
 **声明**
 
-```c++
+```
 recursive_timed_mutex();
 ```
 
@@ -5567,7 +5567,7 @@ recursive_timed_mutex();
 
 **声明**
 
-```c++
+```
 ~recursive_timed_mutex();
 ```
 
@@ -5586,7 +5586,7 @@ recursive_timed_mutex();
 
 **声明**
 
-```c++
+```
 void lock();
 ```
 
@@ -5608,7 +5608,7 @@ void lock();
 
 **声明**
 
-```c++
+```
 bool try_lock() noexcept;
 ```
 
@@ -5632,7 +5632,7 @@ bool try_lock() noexcept;
 
 **声明**
 
-```c++
+```
 template<typename Rep,typename Period>
 bool try_lock_for(
     std::chrono::duration<Rep,Period> const& relative_time);
@@ -5658,7 +5658,7 @@ bool try_lock_for(
 
 **声明**
 
-```c++
+```
 template<typename Clock,typename Duration>
 bool try_lock_until(
     std::chrono::time_point<Clock,Duration> const& absolute_time);
@@ -5684,7 +5684,7 @@ bool try_lock_until(
 
 **声明**
 
-```c++
+```
 void unlock();
 ```
 
@@ -5705,7 +5705,7 @@ void unlock();
 
 **类型定义**
 
-```c++
+```
 template <class Mutex>
 class lock_guard
 {
@@ -5727,7 +5727,7 @@ public:
 
 **声明**
 
-```c++
+```
 explicit lock_guard(mutex_type& m);
 ```
 
@@ -5746,7 +5746,7 @@ m.lock()抛出的任何异常。
 
 **声明**
 
-```c++
+```
 lock_guard(mutex_type& m,std::adopt_lock_t);
 ```
 
@@ -5768,7 +5768,7 @@ lock_guard(mutex_type& m,std::adopt_lock_t);
 
 **声明**
 
-```c++
+```
 ~lock_guard();
 ```
 
@@ -5788,7 +5788,7 @@ lock_guard(mutex_type& m,std::adopt_lock_t);
 
 **类型定义**
 
-```c++
+```
 template <class Mutex>
 class unique_lock
 {
@@ -5844,7 +5844,7 @@ public:
 
 **声明**
 
-```c++
+```
 unique_lock() noexcept;
 ```
 
@@ -5860,7 +5860,7 @@ this->mutex()==NULL, this->owns_lock()==false.
 
 **声明**
 
-```c++
+```
 explicit unique_lock(mutex_type& m);
 ```
 
@@ -5879,7 +5879,7 @@ this->owns_lock()==true, this->mutex()==&m.
 
 **声明**
 
-```c++
+```
 unique_lock(mutex_type& m,std::adopt_lock_t);
 ```
 
@@ -5901,7 +5901,7 @@ this->owns_lock()==true, this->mutex()==&m.
 
 **声明**
 
-```c++
+```
 unique_lock(mutex_type& m,std::defer_lock_t) noexcept;
 ```
 
@@ -5920,7 +5920,7 @@ this->owns_lock()==false, this->mutex()==&m.
 
 **声明**
 
-```c++
+```
 unique_lock(mutex_type& m,std::try_to_lock_t);
 ```
 
@@ -5942,7 +5942,7 @@ this->owns_lock()将返回m.try_lock()的结果，且this->mutex()==&m。
 
 **声明**
 
-```c++
+```
 template<typename Rep,typename Period>
 unique_lock(
     mutex_type& m,
@@ -5967,7 +5967,7 @@ this->owns_lock()将返回m.try_lock_for()的结果，且this->mutex()==&m。
 
 **声明**
 
-```c++
+```
 template<typename Clock,typename Duration>
 unique_lock(
     mutex_type& m,
@@ -5992,7 +5992,7 @@ this->owns_lock()将返回m.try_lock_until()的结果，且this->mutex()==&m。
 
 **声明**
 
-```c++
+```
 unique_lock(unique_lock&& other) noexcept;
 ```
 
@@ -6016,7 +6016,7 @@ unique_lock(unique_lock&& other) noexcept;
 
 **声明**
 
-```c++
+```
 unique_lock& operator=(unique_lock&& other) noexcept;
 ```
 
@@ -6037,7 +6037,7 @@ this->mutex()等于在为进行赋值前的other.mutex()，并且this->owns_lock
 
 **声明**
 
-```c++
+```
 ~unique_lock();
 ```
 
@@ -6053,7 +6053,7 @@ this->mutex()等于在为进行赋值前的other.mutex()，并且this->owns_lock
 
 **声明**
 
-```c++
+```
 void swap(unique_lock& other) noexcept;
 ```
 
@@ -6069,7 +6069,7 @@ void swap(unique_lock& other) noexcept;
 
 **声明**
 
-```c++
+```
 void swap(unique_lock& lhs,unique_lock& rhs) noexcept;
 ```
 
@@ -6085,7 +6085,7 @@ lhs.swap(rhs)
 
 **声明**
 
-```c++
+```
 void lock();
 ```
 
@@ -6107,7 +6107,7 @@ this->owns_lock()==true。
 
 **声明**
 
-```c++
+```
 bool try_lock();
 ```
 
@@ -6129,7 +6129,7 @@ bool try_lock();
 
 **声明**
 
-```c++
+```
 void unlock();
 ```
 
@@ -6148,7 +6148,7 @@ this->owns_lock()==false。
 
 **声明**
 
-```c++
+```
 template<typename Rep, typename Period>
 bool try_lock_for(
     std::chrono::duration<Rep,Period> const& relative_time);
@@ -6175,7 +6175,7 @@ bool try_lock_for(
 
 **声明**
 
-```c++
+```
 template<typename Clock, typename Duration>
 bool try_lock_until(
     std::chrono::time_point<Clock,Duration> const& absolute_time);
@@ -6202,7 +6202,7 @@ bool try_lock_until(
 
 **声明**
 
-```c++
+```
 explicit operator bool() const noexcept;
 ```
 
@@ -6220,7 +6220,7 @@ this->owns_lock()
 
 **声明**
 
-```c++
+```
 bool owns_lock() const noexcept;
 ```
 
@@ -6236,7 +6236,7 @@ bool owns_lock() const noexcept;
 
 **声明**
 
-```c++
+```
 mutex_type* mutex() const noexcept;
 ```
 
@@ -6252,7 +6252,7 @@ mutex_type* mutex() const noexcept;
 
 **声明**
 
-```c++
+```
 mutex_type* release() noexcept;
 ```
 
@@ -6276,7 +6276,7 @@ this->mutex()==NULL, this->owns_lock()==false。
 
 **声明**
 
-```c++
+```
 template<typename LockableType1,typename... LockableType2>
 void lock(LockableType1& m1,LockableType2& m2...);
 ```
@@ -6301,7 +6301,7 @@ void lock(LockableType1& m1,LockableType2& m2...);
 
 **声明**
 
-```c++
+```
 template<typename LockableType1,typename... LockableType2>
 int try_lock(LockableType1& m1,LockableType2& m2...);
 ```
@@ -6331,7 +6331,7 @@ try_lock()抛出的任何异常。
 
 **类型定义**
 
-```c++
+```
 struct once_flag
 {
   constexpr once_flag() noexcept;
@@ -6347,7 +6347,7 @@ struct once_flag
 
 **声明**
 
-```c++
+```
 constexpr once_flag() noexcept;
 ```
 
@@ -6360,7 +6360,7 @@ constexpr once_flag() noexcept;
 
 **声明**
 
-```c++
+```
 template<typename Callable,typename... Args>
 void call_once(std::once_flag& flag,Callable func,Args args...);
 ```
@@ -6383,7 +6383,7 @@ void call_once(std::once_flag& flag,Callable func,Args args...);
 
 **头文件内容**
 
-```c++
+```
 namespace std
 {
   template<intmax_t N,intmax_t D=1>
@@ -6446,7 +6446,7 @@ namespace std
 
 **类型定义**
 
-```c++
+```
 template <intmax_t N, intmax_t D = 1>
 class ratio
 {
@@ -6465,7 +6465,7 @@ num和den分别为分子和分母，构造分数N/D。den总是正数。当N和D
 
 **例子**
 
-```c++
+```
 ratio<4,6>::num == 2
 ratio<4,6>::den == 3
 ratio<4,-6>::num == -2
@@ -6478,7 +6478,7 @@ ratio<4,-6>::den == 3
 
 **定义**
 
-```c++
+```
 template <class R1, class R2>
 using ratio_add = std::ratio<see below>;
 ```
@@ -6491,7 +6491,7 @@ ratio_add<R1, R2>被定义为一个别名，如果两数可以计算，且无溢
 
 **例子**
 
-```c++
+```
 std::ratio_add<std::ratio<1,3>, std::ratio<2,5> >::num == 11
 std::ratio_add<std::ratio<1,3>, std::ratio<2,5> >::den == 15
 
@@ -6505,7 +6505,7 @@ std::ratio_add<std::ratio<1,3>, std::ratio<7,6> >::den == 2
 
 **定义**
 
-```c++
+```
 template <class R1, class R2>
 using ratio_subtract = std::ratio<see below>;
 ```
@@ -6518,7 +6518,7 @@ ratio_add<R1, R2>被定义为一个别名，如果两数可以计算，且无溢
 
 **例子**
 
-```c++
+```
 std::ratio_subtract<std::ratio<1,3>, std::ratio<1,5> >::num == 2
 std::ratio_subtract<std::ratio<1,3>, std::ratio<1,5> >::den == 15
 
@@ -6532,7 +6532,7 @@ std::ratio_subtract<std::ratio<1,3>, std::ratio<7,6> >::den == 6
 
 **定义**
 
-```c++
+```
 template <class R1, class R2>
 using ratio_multiply = std::ratio<see below>;
 ```
@@ -6545,7 +6545,7 @@ ratio_add<R1, R2>被定义为一个别名，如果两数可以计算，且无溢
 
 **例子**
 
-```c++
+```
 std::ratio_multiply<std::ratio<1,3>, std::ratio<2,5> >::num == 2
 std::ratio_multiply<std::ratio<1,3>, std::ratio<2,5> >::den == 15
 
@@ -6559,7 +6559,7 @@ std::ratio_multiply<std::ratio<1,3>, std::ratio<15,7> >::den == 7
 
 **定义**
 
-```c++
+```
 template <class R1, class R2>
 using ratio_multiply = std::ratio<see below>;
 ```
@@ -6572,7 +6572,7 @@ ratio_add<R1, R2>被定义为一个别名，如果两数可以计算，且无溢
 
 **例子**
 
-```c++
+```
 std::ratio_divide<std::ratio<1,3>, std::ratio<2,5> >::num == 5
 std::ratio_divide<std::ratio<1,3>, std::ratio<2,5> >::den == 6
 
@@ -6586,7 +6586,7 @@ std::ratio_divide<std::ratio<1,3>, std::ratio<15,7> >::den == 45
 
 **类型定义**
 
-```c++
+```
 template <class R1, class R2>
 class ratio_equal:
   public std::integral_constant<
@@ -6599,7 +6599,7 @@ R1和R2必须使用`std::ratio`进行初始化。
 
 **例子**
 
-```c++
+```
 std::ratio_equal<std::ratio<1,3>, std::ratio<2,6> >::value == true
 std::ratio_equal<std::ratio<1,3>, std::ratio<1,6> >::value == false
 std::ratio_equal<std::ratio<1,3>, std::ratio<2,3> >::value == false
@@ -6612,7 +6612,7 @@ std::ratio_equal<std::ratio<1,3>, std::ratio<1,3> >::value == true
 
 **类型定义**
 
-```c++
+```
 template <class R1, class R2>
 class ratio_not_equal:
   public std::integral_constant<bool,!ratio_equal<R1,R2>::value>
@@ -6624,7 +6624,7 @@ R1和R2必须使用`std::ratio`进行初始化。
 
 **例子**
 
-```c++
+```
 std::ratio_not_equal<std::ratio<1,3>, std::ratio<2,6> >::value == false
 std::ratio_not_equal<std::ratio<1,3>, std::ratio<1,6> >::value == true
 std::ratio_not_equal<std::ratio<1,3>, std::ratio<2,3> >::value == true
@@ -6637,7 +6637,7 @@ std::ratio_not_equal<std::ratio<1,3>, std::ratio<1,3> >::value == false
 
 **类型定义**
 
-```c++
+```
 template <class R1, class R2>
 class ratio_less:
   public std::integral_constant<bool,see below>
@@ -6652,7 +6652,7 @@ std::ratio_less<R1,R2>可通过`std::integral_constant<bool, value >`导出，�
 
 **例子**
 
-```c++
+```
 std::ratio_less<std::ratio<1,3>, std::ratio<2,6> >::value == false
 std::ratio_less<std::ratio<1,6>, std::ratio<1,3> >::value == true
 std::ratio_less<
@@ -6669,7 +6669,7 @@ std::ratio_less<
 
 **类型定义**
 
-```c++
+```
 template <class R1, class R2>
 class ratio_greater:
   public std::integral_constant<bool,ratio_less<R2,R1>::value>
@@ -6685,7 +6685,7 @@ R1和R2必须使用`std::ratio`进行初始化。
 
 **类型定义**
 
-```c++
+```
 template <class R1, class R2>
 class ratio_less_equal:
   public std::integral_constant<bool,!ratio_less<R2,R1>::value>
@@ -6701,7 +6701,7 @@ R1和R2必须使用`std::ratio`进行初始化。
 
 **类型定义**
 
-```c++
+```
 template <class R1, class R2>
 class ratio_greater_equal:
   public std::integral_constant<bool,!ratio_less<R1,R2>::value>
@@ -6717,7 +6717,7 @@ R1和R2必须使用`std::ratio`进行初始化。
 
 **头文件内容**
 
-```c++
+```
 namespace std
 {
   class thread;
@@ -6743,7 +6743,7 @@ namespace std
 
 `std::thread`用来管理线程的执行。其提供让新的线程执行或执行，也提供对线程的识别，以及提供其他函数用于管理线程的执行。
 
-```c++
+```
 class thread
 {
 public:
@@ -6785,7 +6785,7 @@ void swap(thread& lhs,thread& rhs);
 
 **类型定义**
 
-```c++
+```
 class thread::id
 {
 public:
@@ -6817,7 +6817,7 @@ operator<< (basic_ostream<charT, traits>&& out, thread::id id);
 
 **声明**
 
-```c++
+```
 id() noexcept;
 ```
 
@@ -6835,7 +6835,7 @@ id() noexcept;
 
 **声明**
 
-```c++
+```
 bool operator==(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6851,7 +6851,7 @@ bool operator==(std::thread::id lhs,std::thread::id rhs) noexcept;
 
 **声明**
 
-```c++
+```
 bool operator！=(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6867,7 +6867,7 @@ bool operator！=(std::thread::id lhs,std::thread::id rhs) noexcept;
 
 **声明**
 
-```c++
+```
 bool operator<(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6885,7 +6885,7 @@ bool operator<(std::thread::id lhs,std::thread::id rhs) noexcept;
 
 **声明**
 
-```c++
+```
 bool operator<(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6901,7 +6901,7 @@ bool operator<(std::thread::id lhs,std::thread::id rhs) noexcept;
 
 **声明**
 
-```c++
+```
 bool operator>(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6917,7 +6917,7 @@ bool operator>(std::thread::id lhs,std::thread::id rhs) noexcept;
 
 **声明**
 
-```c++
+```
 bool operator>=(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6933,7 +6933,7 @@ bool operator>=(std::thread::id lhs,std::thread::id rhs) noexcept;
 
 **声明**
 
-```c++
+```
 template<typename charT, typename traits>
 basic_ostream<charT, traits>&
 operator<< (basic_ostream<charT, traits>&& out, thread::id id);
@@ -6953,7 +6953,7 @@ operator<< (basic_ostream<charT, traits>&& out, thread::id id);
 
 **声明**
 
-```c++
+```
 typedef implementation-defined native_handle_type;
 ```
 
@@ -6965,7 +6965,7 @@ typedef implementation-defined native_handle_type;
 
 **声明**
 
-```c++
+```
 native_handle_type native_handle();
 ```
 
@@ -6977,7 +6977,7 @@ native_handle_type native_handle();
 
 **声明**
 
-```c++
+```
 thread() noexcept;
 ```
 
@@ -6996,7 +6996,7 @@ thread() noexcept;
 
 **声明**
 
-```c++
+```
 thread(thread&& other) noexcept;
 ```
 
@@ -7017,7 +7017,7 @@ thread(thread&& other) noexcept;
 
 **声明**
 
-```c++
+```
 ~thread();
 ```
 
@@ -7033,7 +7033,7 @@ thread(thread&& other) noexcept;
 
 **声明**
 
-```c++
+```
 thread& operator=(thread&& other) noexcept;
 ```
 
@@ -7054,7 +7054,7 @@ this->get_id()的值等于调用该函数前的other.get_id()。oter.get_id()==i
 
 **声明**
 
-```c++
+```
 void swap(thread& other) noexcept;
 ```
 
@@ -7073,7 +7073,7 @@ this->get_id()的值等于调用该函数前的other.get_id()。other.get_id()�
 
 **声明**
 
-```c++
+```
 void swap(thread& lhs,thread& rhs) noexcept;
 ```
 
@@ -7089,7 +7089,7 @@ lhs.swap(rhs)
 
 **声明**
 
-```c++
+```
 bool joinable() const noexcept;
 ```
 
@@ -7105,7 +7105,7 @@ bool joinable() const noexcept;
 
 **声明**
 
-```c++
+```
 void join();
 ```
 
@@ -7130,7 +7130,7 @@ this->get_id()==id()。与*this先关的执行线程将在该函数调用后结�
 
 **声明**
 
-```c++
+```
 void detach();
 ```
 
@@ -7154,7 +7154,7 @@ this->get_id()==id(), this->joinable()==false
 
 **声明**
 
-```c++
+```
 thread::id get_id() const noexcept;
 ```
 
@@ -7170,7 +7170,7 @@ thread::id get_id() const noexcept;
 
 **声明**
 
-```c++
+```
 unsigned hardware_concurrency() noexcept;
 ```
 
@@ -7190,7 +7190,7 @@ unsigned hardware_concurrency() noexcept;
 
 **声明**
 
-```c++
+```
 thread::id get_id() noexcept;
 ```
 
@@ -7206,7 +7206,7 @@ thread::id get_id() noexcept;
 
 **声明**
 
-```c++
+```
 void yield() noexcept;
 ```
 
@@ -7222,7 +7222,7 @@ void yield() noexcept;
 
 **声明**
 
-```c++
+```
 template<typename Rep,typename Period>
 void sleep_for(std::chrono::duration<Rep,Period> const& relative_time);
 ```
@@ -7241,7 +7241,7 @@ void sleep_for(std::chrono::duration<Rep,Period> const& relative_time);
 
 **声明**
 
-```c++
+```
 template<typename Clock,typename Duration>
 void sleep_until(
     std::chrono::time_point<Clock,Duration> const& absolute_time);

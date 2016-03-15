@@ -24,7 +24,7 @@
 
 清单7.1 使用`std::atomic_flag`实现了一个简单的自旋锁
 
-```c++
+```
 class spinlock_mutex
 {
   std::atomic_flag flag;
@@ -99,7 +99,7 @@ OK，那如何应对讨厌的条件竞争呢？答案就是：在第3步的时�
 
 清单7.2 不用锁实现push()
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -143,7 +143,7 @@ public:
 
 当“比较/交换”成功，就可以确定当前线程是弹出给定节点的唯一线程，之后就可以放心的执行步骤4了。这里先看一下pop()的雏形：
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -165,7 +165,7 @@ public:
 
 清单7.3 带有节点泄露的无锁栈
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -212,7 +212,7 @@ public:
 
 清单7.4 没有线程通过pop()访问节点时，就对节点进行回收
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -241,7 +241,7 @@ threads_in_pop①原子变量用来记录有多少线程试图弹出栈中的元
 
 清单7.5 采用引用计数的回收机制
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -327,7 +327,7 @@ private:
 
 首先，需要一个地点能存储指向访问对象的指针，这个地点就是风险指针。这个地点必须能让所有线程看到，需要其中一些线程可以对数据结构进行访问。如何正确和高效的分配这些线程，的确是一个挑战，所以这个问题可以放在后面解决，而后假设你有一个get_hazard_pointer_for_current_thread()的函数，这个函数可以返回风险指针的引用。当你读取一个指针，并且想要解引用它的时候，你就需要这个函数——在这种情况下head数值源于下面的列表：
 
-```c++
+```
 std::shared_ptr<T> pop()
 {
   std::atomic<void*>& hp=get_hazard_pointer_for_current_thread();
@@ -349,7 +349,7 @@ std::shared_ptr<T> pop()
 
 清单7.6 使用风险指针实现的pop()
 
-```c++
+```
 std::shared_ptr<T> pop()
 {
   std::atomic<void*>& hp=get_hazard_pointer_for_current_thread();
@@ -393,7 +393,7 @@ std::shared_ptr<T> pop()
 
 清单7.7 get_hazard_pointer_for_current_thread()函数的简单实现
 
-```c++
+```
 unsigned const max_hazard_pointers=100;
 struct hazard_pointer
 {
@@ -455,7 +455,7 @@ get_hazard_pointer_for_current_thread()的实现看起来很简单③：一个hp
 
 实现get_hazard_pointer_for_current_thread()后，outstanding_hazard_pointer_for()实现就简单了：只需要对风险指针表进行搜索，就可以找到对应记录。
 
-```c++
+```
 bool outstanding_hazard_pointers_for(void* p)
 {
   for(unsigned i=0;i<max_hazard_pointers;++i)
@@ -475,7 +475,7 @@ reclaim_later()和delete_nodes_with_no_hazards()可以对简单的链表进行�
 
 清单7.8 回收函数的简单实现
 
-```c++
+```
 template<typename T>
 void do_delete(void* p)
 {
@@ -562,7 +562,7 @@ delete_nodes_with_no_hazards()将已声明的链表节点进行回收，使用�
 
 清单7.9 无锁栈——使用无锁`std::shared_ptr<>`的实现
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -605,7 +605,7 @@ public:
 
 清单7.10 使用分离引用计数的方式推送一个节点到无锁栈中
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -659,7 +659,7 @@ push()相对简单⑤，可以构造一个counted_node_ptr实例，去引用新�
 
 清单7.11 使用分离引用计数从无锁栈中弹出一个节点
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -731,7 +731,7 @@ public:
 
 做push()的线程，会先构造数据项和节点，再设置head。做pop()的线程，会先加载head的值，再做在循环中对head做“比较/交换”操作，并增加引用计数，再读取对应的node节点，获取next的指向的值，现在就可以看到一组需求关系。next的值是普通的非原子对象，所以为了保证读取安全，这里必须确定存储(推送线程)和加载(弹出线程)的先行关系。因为唯一的原子操作就是push()函数中的compare_exchange_weak()，这里需要释放操作来获取两个线程间的先行关系，这里compare_exchange_weak()必须是`std::memory_order_release`或更严格的内存序。当compare_exchange_weak()调用失败，什么都不会改变，并且可以持续循环下去，所以使用`std::memory_order_relaxed`就足够了。
 
-```c++
+```
 void push(T const& data)
 {
   counted_node_ptr new_node;
@@ -745,7 +745,7 @@ void push(T const& data)
 
 那pop()的实现呢？为了确定先行关系，必须在访问next值之前使用`std::memory_order_acquire`或更严格内存序的操作。因为，在increase_head_count()中使用compare_exchange_strong()就获取next指针指向的旧值，所以想要其获取成功就需要确定内存序。如同调用push()那样，当交换失败，循环会继续，所以在失败的时候使用松散的内存序：
 
-```c++
+```
 void increase_head_count(counted_node_ptr& old_counter)
 {
   counted_node_ptr new_counter;
@@ -776,7 +776,7 @@ void increase_head_count(counted_node_ptr& old_counter)
 
 清单7.12 基于引用计数和松散原子操作的无锁栈
 
-```c++
+```
 template<typename T>
 class lock_free_stack
 {
@@ -881,7 +881,7 @@ public:
 
 清单7.13 单生产者/单消费者模型下的无锁队列
 
-```c++
+```
 template<typename T>
 class lock_free_queue
 {
@@ -966,7 +966,7 @@ pop()的问题解决了，那么push()呢？问题在于为了获取push()和pop
 
 清单7.14 push()的第一次修订(不正确的)
 
-```c++
+```
 void push(T new_value)
 {
   std::unique_ptr<T> new_data(new T(new_value));
@@ -993,7 +993,7 @@ void push(T new_value)
 
 清单7.15 使用带有引用计数tail，实现的无锁队列中的push()
 
-```c++
+```
 template<typename T>
 class lock_free_queue
 {
@@ -1068,7 +1068,7 @@ push()处理完毕，再来看一下pop()。下面的实现，是将清单7.11�
 
 清单7.16 使用尾部引用计数，将节点从无锁队列中弹出
 
-```c++
+```
 template<typename T>
 class lock_free_queue
 {
@@ -1106,7 +1106,7 @@ public:
 
 清单7.17 在无锁队列中释放一个节点引用
 
-```c++
+```
 template<typename T>
 class lock_free_queue
 {
@@ -1140,7 +1140,7 @@ node::release_ref()的实现，只是对7.11中lock_free_stack::pop()进行小�
 
 清单7.18 从无锁队列中获取一个节点的引用
 
-```c++
+```
 template<typename T>
 class lock_free_queue
 {
@@ -1168,7 +1168,7 @@ private:
 
 清单7.19 无锁队列中释放节点外部计数器
 
-```c++
+```
 template<typename T>
 class lock_free_queue
 {
@@ -1212,7 +1212,7 @@ private:
 
 清单7.20 修改pop()用来帮助push()完成工作
 
-```c++
+```
 template<typename T>
 class lock_free_queue
 {
@@ -1254,7 +1254,7 @@ public:
 
 清单7.21 无锁队列中简单的帮助性push()的实现
 
-```c++
+```
 template<typename T>
 class lock_free_queue
 {

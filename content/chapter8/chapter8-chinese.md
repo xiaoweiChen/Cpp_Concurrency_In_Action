@@ -61,7 +61,7 @@
 
 清单8.1 使用栈的并行快速排序算法——等待数据块排序
 
-```c++
+```
 template<typename T>
 struct sorter  // 1
 {
@@ -239,7 +239,7 @@ std::list<T> parallel_quick_sort(std::list<T> input)  // 19
 
 思考下面简短的代码段：
 
-```c++
+```
 std::atomic<unsigned long> counter(0);
 void processing_loop()
 {
@@ -256,7 +256,7 @@ counter变量是全局的，所以任何线程都能调用processing_loop()去�
 
 你可能会想，这种情况不会发生在你身上；因为，你没有使用任何循环。你确定吗？那么互斥锁呢？如果你需要在循环中放置一个互斥量，那么你的代码就和之前从数据访问的差不多了。为了锁住互斥量，另一个线程必须将数据进行转移，就能弥补处理器的互斥性，并且对数据进行修改。当这个过程完成时，将会再次对互斥量进行修改，并对线程进行解锁，之后互斥数据将会传递到下一个需要互斥量的线程上去。转移时间，就是第二个线程等待第一个线程释放互斥量的时间：
 
-```c++
+```
 std::mutex m;
 my_data data;
 void processing_loop_with_mutex()
@@ -357,7 +357,7 @@ OK，我们已经了解了访问数组是如何对性能产生影响的。那么
 
 一种测试伪共享问题的方法是：对大量的数据块填充数据，让不同线程并发的进行访问。比如，你可以使用：
 
-```c++
+```
 struct protected_data
 {
   std::mutex m;
@@ -368,7 +368,7 @@ struct protected_data
 
 用来测试互斥量竞争或
 
-```c++
+```
 struct my_data
 {
   data_item1 d1;
@@ -396,7 +396,7 @@ my_data some_array[256];
 
 清单8.2 `std::accumulate`的原始并行版本(源于清单2.8)
 
-```c++
+```
 template<typename Iterator,typename T>
 struct accumulate_block
 {
@@ -468,7 +468,7 @@ accumulate_block⑨的调用就可能抛出异常，就会产生和上面类似�
 
 清单8.3 使用`std::packaged_task`的并行`std::accumulate`
 
-```c++
+```
 template<typename Iterator,typename T>
 struct accumulate_block
 {
@@ -537,7 +537,7 @@ T parallel_accumulate(Iterator first,Iterator last,T init)
 
 剩下的问题就是，当生成第一个新线程和当所有线程都汇入主线程时，抛出异常；这样会让线程产生泄露。最简单的方法就是捕获所有抛出的线程，汇入的线程依旧是joinable()的，并且会再次抛出异常：
 
-```c++
+```
 try
 {
   for(unsigned long i=0;i<(num_threads-1);++i)
@@ -562,7 +562,7 @@ catch(...)
 
 现在好了，无论线程如何离开这段代码，所有线程都可以被汇入。不过，*try-catch*很不美观，并且这里有重复代码。可以将“正常”控制流上的线程在*catch*块上执行的线程进行汇入。重复代码是没有必要的，因为这就意味着更多的地方需要改变。不过，现在让我们来提取一个对象的析构函数；毕竟，析构函数是C++中处理资源的惯用方式。看一下你的类：
 
-```c++
+```
 class join_threads
 {
   std::vector<std::thread>& threads;
@@ -585,7 +585,7 @@ public:
 
 清单8.4 异常安全版`std::accumulate`
 
-```c++
+```
 template<typename Iterator,typename T>
 T parallel_accumulate(Iterator first,Iterator last,T init)
 {
@@ -640,7 +640,7 @@ T parallel_accumulate(Iterator first,Iterator last,T init)
 
 清单8.5 异常安全并行版`std::accumulate`——使用`std::async()`
 
-```c++
+```
 template<typename Iterator,typename T>
 T parallel_accumulate(Iterator first,Iterator last,T init)
 {
@@ -705,7 +705,7 @@ Amdahl定律明确了，对代码最大化并发可以保证所有处理器都�
 
 很多流行的图形化用户接口框架都是*事件驱动型*(*event driven*)；对图形化接口进行操作是通过按下按键或移动鼠标进行，将产生一系列需要应用处理的事件或信息。系统也可能产生信息或事件。为了确定所有事件和信息都能被正确的处理，应用通常会有一个事件循环，就像下面的代码：
 
-```c++
+```
 while(true)
 {
   event_data event=get_event();
@@ -721,7 +721,7 @@ while(true)
 
 清单8.6 将GUI线程和任务线程进行分离
 
-```c++
+```
 std::thread task_thread;
 std::atomic<bool> task_cancelled(false);
 
@@ -796,7 +796,7 @@ void process(event_data const& event)
 
 清单8.7 并行版`std::for_each`
 
-```c++
+```
 template<typename Iterator,typename Func>
 void parallel_for_each(Iterator first,Iterator last,Func f)
 {
@@ -849,7 +849,7 @@ void parallel_for_each(Iterator first,Iterator last,Func f)
 
 清单8.8 使用`std::async`实现`std::for_each`
 
-```c++
+```
 template<typename Iterator,typename Func>
 void parallel_for_each(Iterator first,Iterator last,Func f)
 {
@@ -896,7 +896,7 @@ void parallel_for_each(Iterator first,Iterator last,Func f)
 
 清单8.9 并行find算法实现
 
-```c++
+```
 template<typename Iterator,typename MatchType>
 Iterator parallel_find(Iterator first,Iterator last,MatchType match)
 {
@@ -987,7 +987,7 @@ Iterator parallel_find(Iterator first,Iterator last,MatchType match)
 
 清单8.10 使用`std::async`实现的并行find算法
 
-```c++
+```
 template<typename Iterator,typename MatchType>  // 1
 Iterator parallel_find_impl(Iterator first,Iterator last,MatchType match,
                             std::atomic<bool>& done)
@@ -1067,7 +1067,7 @@ OK，现在你已经使用了并行化的`std::find`。如在本节开始说的�
 
 清单8.11 使用划分的方式来并行的计算部分和
 
-```c++
+```
 template<typename Iterator>
 void parallel_partial_sum(Iterator first,Iterator last)
 {
@@ -1194,7 +1194,7 @@ OK，现在来看一下process_chunk函数对象①。对于整块的处理是�
 
 清单8.12 简单的栅栏类
 
-```c++
+```
 class barrier
 {
   unsigned const count;
@@ -1230,19 +1230,19 @@ public:
 
 这意味着你要将count改为一个原子变量，这样在多线程对其进行更新的时候，就不需要添加额外的同步：
 
-```c++
+```
 std::atomic<unsigned> count;
 ```
 
 初始化保持不变，不过当spaces的值被重置后，你需要显式的对count进行load()操作：
 
-```c++
+```
 spaces=count.load();
 ```
 
 这就是要对wait()函数的改动；现在需要一个新的成员函数来递减count。这个函数命名为done_waiting()，因为当一个线程完成其工作，并在等待的时候，才能对其进行调用它：
 
-```c++
+```
 void done_waiting()
 {
   --count;  // 1
@@ -1260,7 +1260,7 @@ void done_waiting()
 
 清单8.13 通过两两更新对的方式实现partial_sum
 
-```c++
+```
 struct barrier
 {
   std::atomic<unsigned> count;
