@@ -614,7 +614,7 @@ std::shared_future<std::string> sf(p.get_future());  // 1 隐式转移所有权
 
 `std::future`的这种特性，可促进`std::shared_future`的使用，容器可以自动的对类型进行推断，从而初始化这个类型的变量(详见附录A，A.6节)。`std::future`有一个share()成员函数，可用来创建新的`std::shared_future` ，并且可以直接转移“期望”的所有权。这样也就能保存很多类型，并且使得代码易于修改：
 
-``` c++
+```
 std::promise< std::map< SomeIndexType, SomeDataType, SomeComparator,
      SomeAllocator>::iterator> p;
 auto sf=p.get_future().share();
