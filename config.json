@@ -1,0 +1,7 @@
+{
+    "name": "《C++ Concurrency in Action》中文版",
+    "introduction":"本书是基于C++11新标准的并发和多线程编程深度指南。",
+     "path": {
+     "toc": "SUMMARY.md"
+     }
+}

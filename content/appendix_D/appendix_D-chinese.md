@@ -1,11 +1,12 @@
-#附录D C++线程库参考
+# 附录D C++线程库参考
 
-##D.1 &lt;chrono&gt;头文件
+## D.1 &lt;chrono&gt;头文件
 
 &lt;chrono&gt;头文件作为`time_point`的提供者，具有代表时间点的类，duration类和时钟类。每个时钟都有一个`is_steady`静态数据成员，这个成员用来表示该时钟是否是一个*稳定的*时钟(以匀速计时的时钟，且不可调节)。`std::chrono::steady_clock`是唯一个能保证稳定的时钟类。
 
 头文件正文
-```c++
+
+```
 namespace std
 {
   namespace chrono
@@ -23,13 +24,13 @@ namespace std
 }
 ```
 
-###D.1.1 std::chrono::duration类型模板
+### D.1.1 std::chrono::duration类型模板
 
 `std::chrono::duration`类模板可以用来表示时间。模板参数`Rep`和`Period`是用来存储持续时间的数据类型，`std::ratio`实例代表了时间的长度(几分之一秒)，其表示了在两次“时钟滴答”后的时间(时钟周期)。因此，`std::chrono::duration<int, std::milli>`即为，时间以毫秒数的形式存储到int类型中，而`std::chrono::duration<short, std::ratio<1,50>>`则是记录1/50秒的个数，并将个数存入short类型的变量中，还有`std::chrono::duration <long long, std::ratio<60,1>>`则是将分钟数存储到long long类型的变量中。
 
-####类的定义
+#### 类的定义
 
-```c++
+```
 template <class Rep, class Period=ratio<1> >
 class duration
 {
@@ -110,44 +111,48 @@ template <class ToDuration, class Rep, class Period>
 
 `Period`必须是`std::ratio<>`实例。
 
-####std::chrono::duration::Rep 类型
+#### std::chrono::duration::Rep 类型
 
 用来记录`dration`中时钟周期的数量。
 
 **声明**<br>
-```c++
+
+```
 typedef Rep rep;
 ```
 
 `rep`类型用来记录`duration`对象内部的表示。
 
-####std::chrono::duration::Period 类型
+#### std::chrono::duration::Period 类型
 
 这个类型必须是一个`std::ratio`的特化实例，用来表示在继续时间中，1s所要记录的次数。例如，当`period`是`std::ratio<1, 50>`，`duration`变量的count()就会在N秒钟返回50N。
 
 **声明**
-```c++
+
+```
 typedef Period period;
 ```
 
-####std::chrono::duration 默认构造函数
+#### std::chrono::duration 默认构造函数
 
 使用默认值构造`std::chrono::duration`实例
 
 **声明**
-```c++
+
+```
 constexpr duration() = default;
 ```
 
 **效果**<br>
 `duration`内部值(例如`rep`类型的值)都已初始化。
 
-####std::chrono::duration 需要计数值的转换构造函数
+#### std::chrono::duration 需要计数值的转换构造函数
 
 通过给定的数值来构造`std::chrono::duration`实例。
 
 **声明**
-```c++
+
+```
 template <class Rep2>;
 constexpr explicit duration(const Rep2& r);
 ```
@@ -159,16 +164,18 @@ constexpr explicit duration(const Rep2& r);
 当Rep2隐式转换为Rep，Rep是浮点类型或Rep2不是浮点类型，这个构造函数才能使用。
 
 **后验条件**
-```c++
+
+```
 this->count()==static_cast<rep>(r)
 ```
 
-####std::chrono::duration 需要另一个std::chrono::duration值的转化构造函数
+#### std::chrono::duration 需要另一个std::chrono::duration值的转化构造函数
 
 通过另一个`std::chrono::duration`类实例中的计数值来构造一个`std::chrono::duration`类实例。
 
 **声明**
-```c++
+
+```
 template <class Rep2, class Period>
 constexpr duration(const duration<Rep2,Period2>& d);
 ```
@@ -183,265 +190,296 @@ duration对象的内部值通过`duration_cast<duration<Rep,Period>>(d).count()`
 `this->count() == dutation_cast&lt;duration<Rep, Period>>(d).count()`
 
 **例子**
-```c++
+
+```
 duration<int, ratio<1, 1000>> ms(5);  // 5毫秒
 duration<int, ratio<1, 1>> s(ms);  // 错误：不能将ms当做s进行存储
 duration<double, ratio<1,1>> s2(ms);  // 合法：s2.count() == 0.005
 duration<int, ration<1, 1000000>> us<ms>;  // 合法:us.count() == 5000
 ```
 
-####std::chrono::duration::count 成员函数
+#### std::chrono::duration::count 成员函数
 
 查询持续时长。
 
 **声明**
-```c++
+
+```
 constexpr rep count() const;
 ```
 
 **返回**<br>
 返回duration的内部值，其值类型和rep一样。
 
-####std::chrono::duration::operator+ 加法操作符
+#### std::chrono::duration::operator+ 加法操作符
 
 这是一个空操作：只会返回*this的副本。
 
 **声明**
-```c++
+
+```
 constexpr duration operator+() const;
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::operator- 减法操作符
+#### std::chrono::duration::operator- 减法操作符
 
 返回将内部值只为负数的*this副本。
 
 **声明**
-```c++
+
+```
 constexpr duration operator-() const;
 ```
 
 **返回**
 `duration(--this->count());`
 
-####std::chrono::duration::operator++ 前置自加操作符
+#### std::chrono::duration::operator++ 前置自加操作符
 
 增加内部计数值。
 
 **声明**
-```c++
+
+```
 duration& operator++();
 ```
 
 **结果**
-```c++
+
+```
 ++this->internal_count;
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::operator++ 后置自加操作符
+#### std::chrono::duration::operator++ 后置自加操作符
 
 自加内部计数值，并且返回还没有增加前的*this。
 
 **声明**
-```c++
+
+```
 duration operator++(int);
 ```
 
 **结果**
-```c++
+
+```
 duration temp(*this);
 ++(*this);
 return temp;
 ```
 
-####std::chrono::duration::operator-- 前置自减操作符
+#### std::chrono::duration::operator-- 前置自减操作符
 
 自减内部计数值
 
 **声明**
-```c++
+
+```
 duration& operator--();
 ```
 
 **结果**
-```c++
+
+```
 --this->internal_count;
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::operator-- 前置自减操作符
+#### std::chrono::duration::operator-- 前置自减操作符
 
 自减内部计数值，并且返回还没有减少前的*this。
 
 **声明**
-```c++
+
+```
 duration operator--(int);
 ```
 
 **结果**
-```c++
+
+```
 duration temp(*this);
 --(*this);
 return temp;
 ```
 
-####std::chrono::duration::operator+= 复合赋值操作符
+#### std::chrono::duration::operator+= 复合赋值操作符
 
 将其他duration对象中的内部值增加到现有duration对象当中。
 
 **声明**
-```c++
+
+```
 duration& operator+=(duration const& other);
 ```
 
 **结果**
-```c++
+
+```
 internal_count+=other.count();
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::operator-= 复合赋值操作符
+#### std::chrono::duration::operator-= 复合赋值操作符
 
 现有duration对象减去其他duration对象中的内部值。
 
 **声明**
-```c++
+
+```
 duration& operator-=(duration const& other);
 ```
 
 **结果**
-```c++
+
+```
 internal_count-=other.count();
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::operator*= 复合赋值操作符
+#### std::chrono::duration::operator*= 复合赋值操作符
 
 内部值乘以一个给定的值。
 
 **声明**
-```c++
+
+```
 duration& operator*=(rep const& rhs);
 ```
 
 **结果**
-```c++
+
+```
 internal_count*=rhs;
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::operator/= 复合赋值操作符
+#### std::chrono::duration::operator/= 复合赋值操作符
 
 内部值除以一个给定的值。
 
 **声明**
-```c++
+
+```
 duration& operator/=(rep const& rhs);
 ```
 
 **结果**
-```c++
+
+```
 internal_count/=rhs;
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::operator%= 复合赋值操作符
+#### std::chrono::duration::operator%= 复合赋值操作符
 
 内部值对一个给定的值求余。
 
 **声明**
-```c++
+
+```
 duration& operator%=(rep const& rhs);
 ```
 
 **结果**
-```c++
+
+```
 internal_count%=rhs;
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::operator%= 复合赋值操作符(重载)
+#### std::chrono::duration::operator%= 复合赋值操作符(重载)
 
 内部值对另一个duration类的内部值求余。
 
 **声明**
-```c++
+
+```
 duration& operator%=(duration const& rhs);
 ```
 
 **结果**
-```c++
+
+```
 internal_count%=rhs.count();
 ```
 
 **返回**
 `*this`
 
-####std::chrono::duration::zero 静态成员函数
+#### std::chrono::duration::zero 静态成员函数
 
 返回一个内部值为0的duration对象。
 
 **声明**
-```c++
+
+```
 constexpr duration zero();
 ```
 
 **返回**
-```c++
+
+```
 duration(duration_values<rep>::zero());
 ```
 
-####std::chrono::duration::min 静态成员函数
+#### std::chrono::duration::min 静态成员函数
 
 返回duration类实例化后能表示的最小值。
 
 **声明**
-```c++
+
+```
 constexpr duration min();
 ```
 
 **返回**
-```c++
+
+```
 duration(duration_values<rep>::min());
 ```
 
-####std::chrono::duration::max 静态成员函数
+#### std::chrono::duration::max 静态成员函数
 
 返回duration类实例化后能表示的最大值。
 
 **声明**
-```c++
+
+```
 constexpr duration max();
 ```
 
 **返回**
-```c++
+
+```
 duration(duration_values<rep>::max());
 ```
 
-####std::chrono::duration 等于比较操作符
+#### std::chrono::duration 等于比较操作符
 
 比较两个duration对象是否相等。
 
 **声明**
-```c++
+
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator==(
 const duration<Rep1, Period1>& lhs,
@@ -454,12 +492,13 @@ const duration<Rep2, Period2>& rhs);
 **结果**<br>
 当`CommonDuration`和`std::common_type< duration< Rep1, Period1>, duration< Rep2, Period2>>::type`同类，那么`lhs==rhs`就会返回`CommonDuration(lhs).count()==CommonDuration(rhs).count()`。
 
-####std::chrono::duration 不等于比较操作符
+#### std::chrono::duration 不等于比较操作符
 
 比较两个duration对象是否不相等。
 
 **声明**
-```c++
+
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator!=(
    const duration<Rep1, Period1>& lhs,
@@ -472,12 +511,13 @@ constexpr bool operator!=(
 **返回**
 `!(lhs==rhs)`
 
-####std::chrono::duration 小于比较操作符
+#### std::chrono::duration 小于比较操作符
 
 比较两个duration对象是否小于。
 
 **声明**
-```c++
+
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator<(
    const duration<Rep1, Period1>& lhs,
@@ -490,12 +530,13 @@ constexpr bool operator<(
 **结果**<br>
 当`CommonDuration`和`std::common_type< duration< Rep1, Period1>, duration< Rep2, Period2>>::type`同类，那么`lhs&lt;rhs`就会返回`CommonDuration(lhs).count()&lt;CommonDuration(rhs).count()`。
 
-####std::chrono::duration 大于比较操作符
+#### std::chrono::duration 大于比较操作符
 
 比较两个duration对象是否大于。
 
 **声明**
-```c++
+
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator>(
    const duration<Rep1, Period1>& lhs,
@@ -508,12 +549,13 @@ constexpr bool operator>(
 **返回**
 `rhs<lhs`
 
-####std::chrono::duration 小于等于比较操作符
+#### std::chrono::duration 小于等于比较操作符
 
 比较两个duration对象是否小于等于。
 
 **声明**
-```c++
+
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator<=(
    const duration<Rep1, Period1>& lhs,
@@ -526,12 +568,13 @@ constexpr bool operator<=(
 **返回**
 `!(rhs<lhs)`
 
-####std::chrono::duration 大于等于比较操作符
+#### std::chrono::duration 大于等于比较操作符
 
 比较两个duration对象是否大于等于。
 
 **声明**
-```c++
+
+```
 template <class Rep1, class Period1, class Rep2, class Period2>
 constexpr bool operator>=(
    const duration<Rep1, Period1>& lhs,
@@ -544,12 +587,13 @@ constexpr bool operator>=(
 **返回**
 `!(lhs<rhs)`
 
-####std::chrono::duration_cast 非成员函数
+#### std::chrono::duration_cast 非成员函数
 
 显示将一个`std::chrono::duration`对象转化为另一个`std::chrono::duration`实例。
 
 **声明**
-```c++
+
+```
 template <class ToDuration, class Rep, class Period>
 constexpr ToDuration duration_cast(const duration<Rep, Period>& d);
 ```
@@ -560,13 +604,13 @@ ToDuration必须是`std::chrono::duration`的实例。
 **返回**<br>
 duration类d转换为指定类型ToDuration。这种方式可以在不同尺寸和表示类型的转换中尽可能减少精度损失。
 
-###D.1.2 std::chrono::time_point类型模板
+### D.1.2 std::chrono::time_point类型模板
 
 `std::chrono::time_point`类型模板通过(特别的)时钟来表示某个时间点。这个时钟代表的是从epoch(1970-01-01 00:00:00 UTC，作为UNIX系列系统的特定时间戳)到现在的时间。模板参数Clock代表使用的使用(不同的使用必定有自己独特的类型)，而Duration模板参数使用来测量从epoch到现在的时间，并且这个参数的类型必须是`std::chrono::duration`类型。Duration默认存储Clock上的测量值。
 
-####类型定义
+#### 类型定义
 
-```c++
+```
 template <class Clock,class Duration = typename Clock::duration>
 class time_point
 {
@@ -592,36 +636,39 @@ public:
 };
 ```
 
-####std::chrono::time_point 默认构造函数
+#### std::chrono::time_point 默认构造函数
 
 构造time_point代表着，使用相关的Clock，记录从epoch到现在的时间；其内部计时使用Duration::zero()进行初始化。
 
 **声明**
-```c++
+
+```
 time_point();
 ```
 
 **后验条件**<br>
 对于使用默认构造函数构造出的time_point对象tp，`tp.time_since_epoch() == tp::duration::zero()`。
 
-####std::chrono::time_point 需要时间长度的构造函数
+#### std::chrono::time_point 需要时间长度的构造函数
 
 构造time_point代表着，使用相关的Clock，记录从epoch到现在的时间。
 
 **声明**
-```c++
+
+```
 explicit time_point(const duration& d);
 ```
 
 **后验条件**<br>
 当有一个time_point对象tp，是通过duration d构造出来的(tp(d))，那么`tp.time_since_epoch() == d`。
 
-####std::chrono::time_point 转换构造函数
+#### std::chrono::time_point 转换构造函数
 
 构造time_point代表着，使用相关的Clock，记录从epoch到现在的时间。
 
 **声明**
-```c++
+
+```
 template <class Duration2>
 time_point(const time_point<clock, Duration2>& t);
 ```
@@ -635,24 +682,26 @@ Duration2必须呢个隐式转换为Duration。
 
 (扩展阅读：[as-if准则](http://stackoverflow.com/questions/15718262/what-exactly-is-the-as-if-rule))
 
-####std::chrono::time_point::time_since_epoch 成员函数
+#### std::chrono::time_point::time_since_epoch 成员函数
 
 返回当前time_point从epoch到现在的具体时长。
 
 **声明**
-```c++
+
+```
 duration time_since_epoch() const;
 ```
 
 **返回**<br>
 duration的值存储在*this中。
 
-####std::chrono::time_point::operator+= 复合赋值函数
+#### std::chrono::time_point::operator+= 复合赋值函数
 
 将指定的duration的值与原存储在指定的time_point对象中的duration相加，并将加后值存储在*this对象中。
 
 **声明**
-```c++
+
+```
 time_point& operator+=(const duration& d);
 ```
 
@@ -662,12 +711,13 @@ time_point& operator+=(const duration& d);
 **返回**
 `*this`
 
-####std::chrono::time_point::operator-= 复合赋值函数
+#### std::chrono::time_point::operator-= 复合赋值函数
 
 将指定的duration的值与原存储在指定的time_point对象中的duration相减，并将加后值存储在*this对象中。
 
 **声明**
-```c++
+
+```
 time_point& operator-=(const duration& d);
 ```
 
@@ -677,31 +727,35 @@ time_point& operator-=(const duration& d);
 **返回**
 `*this`
 
-####std::chrono::time_point::min 静态成员函数
+#### std::chrono::time_point::min 静态成员函数
 
 获取time_point对象可能表示的最小值。
 
 **声明**
-```c++
+
+```
 static constexpr time_point min();
 ```
 
 **返回**
-```c++
+
+```
 time_point(time_point::duration::min()) (see 11.1.1.15)
 ```
 
-####std::chrono::time_point::max 静态成员函数
+#### std::chrono::time_point::max 静态成员函数
 
 获取time_point对象可能表示的最大值。
 
 **声明**
-```c++
+
+```
 static constexpr time_point max();
 ```
 
 **返回**
-```c++
+
+```
 time_point(time_point::duration::max()) (see 11.1.1.16)
 ```
 
@@ -711,7 +765,7 @@ time_point(time_point::duration::max()) (see 11.1.1.16)
 
 ####类型定义
 
-```c++
+```
 class system_clock
 {
 public:
@@ -728,50 +782,55 @@ public:
 };
 ```
 
-####std::chrono::system_clock::rep 类型定义
+#### std::chrono::system_clock::rep 类型定义
 
 将时间周期数记录在一个duration值中
 
 **声明**
-```c++
+
+```
 typedef unspecified-integral-type rep;
 ```
 
-####std::chrono::system_clock::period 类型定义
+#### std::chrono::system_clock::period 类型定义
 
 类型为`std::ratio`类型模板，通过在两个不同的duration或time_point间特化最小秒数(或将1秒分为好几份)。period指定了时钟的精度，而非时钟频率。
 
 **声明**
-```c++
+
+```
 typedef std::ratio<unspecified,unspecified> period;
 ```
 
-####std::chrono::system_clock::duration 类型定义
+#### std::chrono::system_clock::duration 类型定义
 
 类型为`std::ratio`类型模板，通过系统实时时钟获取两个时间点之间的时长。
 
 **声明**
-```c++
+
+```
 typedef std::chrono::duration<
    std::chrono::system_clock::rep,
    std::chrono::system_clock::period> duration;
 ```
 
-####std::chrono::system_clock::time_point 类型定义
+#### std::chrono::system_clock::time_point 类型定义
 
 类型为`std::ratio`类型模板，通过系统实时时钟获取当前时间点的时间。
 
 **声明**<br>
-```c++
+
+```
 typedef std::chrono::time_point&lt;std::chrono::system_clock&gt; time_point;
 ```
 
-####std::chrono::system_clock::now 静态成员函数
+#### std::chrono::system_clock::now 静态成员函数
 
 从系统实时时钟上获取当前的外部设备显示的时间。
 
 **声明**
-```c++
+
+```
 time_point now() noexcept;
 ```
 
@@ -781,12 +840,13 @@ time_point类型变量来代表当前系统实时时钟的时间。
 **抛出**<br>
 当错误发生，`std::system_error`异常将会抛出。
 
-####std::chrono::system_clock:to_time_t 静态成员函数
+#### std::chrono::system_clock:to_time_t 静态成员函数
 
 将time_point类型值转化为time_t。
 
 **声明**
-```c++
+
+```
 time_t to_time_t(time_point const& t) noexcept;
 ```
 
@@ -796,10 +856,11 @@ time_t to_time_t(time_point const& t) noexcept;
 **抛出**<br>
 当错误发生，`std::system_error`异常将会抛出。
 
-####std::chrono::system_clock::from_time_t 静态成员函数
+#### std::chrono::system_clock::from_time_t 静态成员函数
 
 **声明**
-```c++
+
+```
 time_point from_time_t(time_t const& t) noexcept;
 ```
 
@@ -809,13 +870,13 @@ time_point中的值与t中的值一样。
 **抛出**<br>
 当错误发生，`std::system_error`异常将会抛出。
 
-###D.1.4 std::chrono::steady_clock类
+### D.1.4 std::chrono::steady_clock类
 
 `std::chrono::steady_clock`能访问系统稳定时钟。可以通过调用`std::chrono::steady_clock::now()`获取当前的时间。设备上显示的时间，与使用`std::chrono::steady_clock::now()`获取的时间没有固定的关系。稳定时钟是无法回调的，所以在`std::chrono::steady_clock::now()`两次调用后，第二次调用获取的时间必定等于或大于第一次获得的时间。时钟以固定的速率进行计时。
 
-####类型定义
+#### 类型定义
 
-```c++
+```
 class steady_clock
 {
 public:
@@ -831,50 +892,55 @@ public:
 };
 ```
 
-####std::chrono::steady_clock::rep 类型定义
+#### std::chrono::steady_clock::rep 类型定义
 
 定义一个整型，用来保存duration的值。
 
 **声明**
-```c++
+
+```
 typedef unspecified-integral-type rep;
 ```
 
-####std::chrono::steady_clock::period 类型定义
+#### std::chrono::steady_clock::period 类型定义
 
 类型为`std::ratio`类型模板，通过在两个不同的duration或time_point间特化最小秒数(或将1秒分为好几份)。period指定了时钟的精度，而非时钟频率。
 
 **声明**
-```c++
+
+```
 typedef std::ratio<unspecified,unspecified> period;
 ```
 
-####std::chrono::steady_clock::duration 类型定义
+#### std::chrono::steady_clock::duration 类型定义
 
 类型为`std::ratio`类型模板，通过系统实时时钟获取两个时间点之间的时长。
 
 **声明**
-```c++
+
+```
 typedef std::chrono::duration<
    std::chrono::system_clock::rep,
    std::chrono::system_clock::period> duration;
 ```
 
-####std::chrono::steady_clock::time_point 类型定义
+#### std::chrono::steady_clock::time_point 类型定义
 
 `std::chrono::time_point`类型实例，可以存储从系统稳定时钟返回的时间点。
 
 **声明**
-```c++
+
+```
 typedef std::chrono::time_point<std::chrono::steady_clock> time_point;
 ```
 
-####std::chrono::steady_clock::now 静态成员函数
+#### std::chrono::steady_clock::now 静态成员函数
 
 从系统稳定时钟获取当前时间。
 
 **声明**
-```c++
+
+```
 time_point now() noexcept;
 ```
 
@@ -887,16 +953,16 @@ time_point表示当前系统稳定时钟的时间。
 **同步**<br>
 当先行调用过一次`std::chrono::steady_clock::now()`，那么下一次time_point获取的值，一定大于等于第一次获取的值。
 
-###D.1.5 std::chrono::high_resolution_clock类定义
+### D.1.5 std::chrono::high_resolution_clock类定义
 
 `td::chrono::high_resolution_clock`类能访问系统高精度时钟。和所有其他时钟一样，通过调用`std::chrono::high_resolution_clock::now()`来获取当前时间。`std::chrono::high_resolution_clock`可能是`std::chrono::system_clock`类或`std::chrono::steady_clock`类的别名，也可能就是独立的一个类。
 
 通过`std::chrono::high_resolution_clock`具有所有标准库支持时钟中最高的精度，这就意味着使用
 `std::chrono::high_resolution_clock::now()`要花掉一些时间。所以，当你再调用`std::chrono::high_resolution_clock::now()`的时候，需要注意函数本身的时间开销。
 
-####类型定义
+#### 类型定义
 
-```c++
+```
 class high_resolution_clock
 {
 public:
@@ -912,12 +978,13 @@ public:
 };
 ```
 
-##D.2 &lt;condition_variable&gt;头文件
+## D.2 &lt;condition_variable&gt;头文件
 
 &lt;condition_variable&gt;头文件提供了条件变量的定义。其作为基本同步机制，允许被阻塞的线程在某些条件达成或超时时，解除阻塞继续执行。
 
-####头文件内容
-```c++
+#### 头文件内容
+
+```
 namespace std
 {
   enum class cv_status { timeout, no_timeout };
@@ -927,14 +994,15 @@ namespace std
 }
 ```
 
-###D.2.1 std::condition_variable类
+### D.2.1 std::condition_variable类
 
 `std::condition_variable`允许阻塞一个线程，直到条件达成。
 
 `std::condition_variable`实例不支持CopyAssignable(拷贝赋值), CopyConstructible(拷贝构造), MoveAssignable(移动赋值)和 MoveConstructible(移动构造)。
 
-####类型定义
-```c++
+#### 类型定义
+
+```
 class condition_variable
 {
 public:
@@ -978,12 +1046,13 @@ public:
 void notify_all_at_thread_exit(condition_variable&,unique_lock<mutex>);
 ```
 
-####std::condition_variable 默认构造函数
+#### std::condition_variable 默认构造函数
 
 构造一个`std::condition_variable`对象。
 
 **声明**
-```c++
+
+```
 condition_variable();
 ```
 
@@ -993,12 +1062,13 @@ condition_variable();
 **抛出**<br>
 当条件变量无法够早的时候，将会抛出一个`std::system_error`异常。
 
-####std::condition_variable 析构函数
+#### std::condition_variable 析构函数
 
 销毁一个`std::condition_variable`对象。
 
 **声明**
-```c++
+
+```
 ~condition_variable();
 ```
 
@@ -1011,12 +1081,13 @@ condition_variable();
 **抛出**<br>
 无
 
-####std::condition_variable::notify_one 成员函数
+#### std::condition_variable::notify_one 成员函数
 
 唤醒一个等待当前`std::condition_variable`实例的线程。
 
 **声明**
-```c++
+
+```
 void notify_one() noexcept;
 ```
 
@@ -1029,12 +1100,13 @@ void notify_one() noexcept;
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable::notify_all 成员函数
+#### std::condition_variable::notify_all 成员函数
 
 唤醒所有等待当前`std::condition_variable`实例的线程。
 
 **声明**
-```c++
+
+```
 void notify_all() noexcept;
 ```
 
@@ -1047,12 +1119,13 @@ void notify_all() noexcept;
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable::wait 成员函数
+#### std::condition_variable::wait 成员函数
 
 通过`std::condition_variable`的notify_one()、notify_all()或伪唤醒结束等待。
 
 **等待**
-```c++
+
+```
 void wait(std::unique_lock<std::mutex>& lock);
 ```
 
@@ -1070,12 +1143,13 @@ void wait(std::unique_lock<std::mutex>& lock);
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable::wait 需要一个谓词的成员函数重载
+#### std::condition_variable::wait 需要一个谓词的成员函数重载
 
 等待`std::condition_variable`上的notify_one()或notify_all()被调用，或谓词为true的情况，来唤醒线程。
 
 **声明**
-```c++
+
+```
 template<typename Predicate>
 void wait(std::unique_lock<std::mutex>& lock,Predicate pred);
 ```
@@ -1085,7 +1159,8 @@ pred()谓词必须是合法的，并且需要返回一个值，这个值可以�
 
 **效果**<br>
 正如
-```c++
+
+```
 while(!pred())
 {
   wait(lock);
@@ -1100,12 +1175,13 @@ pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable::wait_for 成员函数
+#### std::condition_variable::wait_for 成员函数
 
 `std::condition_variable`在调用notify_one()、调用notify_all()、超时或线程伪唤醒时，结束等待。
 
 **声明**
-```c++
+
+```
 template<typename Rep,typename Period>
 cv_status wait_for(
     std::unique_lock<std::mutex>& lock,
@@ -1129,12 +1205,13 @@ cv_status wait_for(
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable::wait_for 需要一个谓词的成员函数重载
+#### std::condition_variable::wait_for 需要一个谓词的成员函数重载
 
 `std::condition_variable`在调用notify_one()、调用notify_all()、超时或线程伪唤醒时，结束等待。
 
 **声明**
-```c++
+
+```
 template<typename Rep,typename Period,typename Predicate>
 bool wait_for(
     std::unique_lock<std::mutex>& lock,
@@ -1147,7 +1224,8 @@ pred()谓词必须是合法的，并且需要返回一个值，这个值可以�
 
 **效果**<br>
 等价于
-```c++
+
+```
 internal_clock::time_point end=internal_clock::now()+relative_time;
 while(!pred())
 {
@@ -1170,12 +1248,13 @@ return true;
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable::wait_until 成员函数
+#### std::condition_variable::wait_until 成员函数
 
 `std::condition_variable`在调用notify_one()、调用notify_all()、指定时间内达成条件或线程伪唤醒时，结束等待。
 
 **声明**
-```c++
+
+```
 template<typename Clock,typename Duration>
 cv_status wait_until(
     std::unique_lock<std::mutex>& lock,
@@ -1199,12 +1278,13 @@ cv_status wait_until(
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable::wait_until 需要一个谓词的成员函数重载
+#### std::condition_variable::wait_until 需要一个谓词的成员函数重载
 
 `std::condition_variable`在调用notify_one()、调用notify_all()、谓词返回true或指定时间内达到条件，结束等待。
 
 **声明**
-```c++
+
+```
 template<typename Clock,typename Duration,typename Predicate>
 bool wait_until(
     std::unique_lock<std::mutex>& lock,
@@ -1217,7 +1297,8 @@ pred()必须是合法的，并且其返回值能转换为bool值。当线程调�
 
 **效果**<br>
 等价于
-```c++
+
+```
 while(!pred())
 {
   if(wait_until(lock,absolute_time)==std::cv_status::timeout)
@@ -1237,12 +1318,13 @@ return true;
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::notify_all_at_thread_exit 非成员函数
+#### std::notify_all_at_thread_exit 非成员函数
 
 当当前调用函数的线程退出时，等待`std::condition_variable`的所有线程将会被唤醒。
 
 **声明**
-```c++
+
+```
 void notify_all_at_thread_exit(
   condition_variable& cv,unique_lock<mutex> lk);
 ```
@@ -1252,7 +1334,8 @@ void notify_all_at_thread_exit(
 
 **效果**<br>
 将lk的所有权转移到内部存储中，并且当有线程退出时，安排被提醒的cv类。这里的提醒等价于
-```c++
+
+```
 lk.unlock();
 cv.notify_all();
 ```
@@ -1262,14 +1345,15 @@ cv.notify_all();
 
 **NOTE**:在线程退出前，掌握着锁的所有权，所以这里要避免死锁发生。这里建议调用该函数的线程应该尽快退出，并且在该线程可以执行一些阻塞的操作。用户必须保证等地线程不会错误的将唤醒线程当做已退出的线程，特别是伪唤醒。可以通过等待线程上的谓词测试来实现这一功能，在互斥量保护的情况下，只有谓词返回true时线程才能被唤醒，并且在调用notify_all_at_thread_exit(std::condition_variable_any类中函数)前是不会释放锁。
 
-###D.2.2 std::condition_variable_any类
+### D.2.2 std::condition_variable_any类
 
 `std::condition_variable_any`类允许线程等待某一条件为true的时候继续运行。不过`std::condition_variable`只能和`std::unique_lock<std::mutex>`一起使用，`std::condition_variable_any`可以和任意可上锁(Lockable)类型一起使用。
 
 `std::condition_variable_any`实例不能进行拷贝赋值(CopyAssignable)、拷贝构造(CopyConstructible)、移动赋值(MoveAssignable)或移动构造(MoveConstructible)。
 
-####类型定义
-```c++
+#### 类型定义
+
+```
 class condition_variable_any
 {
 public:
@@ -1318,12 +1402,13 @@ public:
 };
 ```
 
-####std::condition_variable_any 默认构造函数
+#### std::condition_variable_any 默认构造函数
 
 构造一个`std::condition_variable_any`对象。
 
 **声明**
-```c++
+
+```
 condition_variable_any();
 ```
 
@@ -1333,12 +1418,13 @@ condition_variable_any();
 **抛出**<br>
 当条件变量构造成功，将抛出`std::system_error`异常。
 
-####std::condition_variable_any 析构函数
+#### std::condition_variable_any 析构函数
 
 销毁`std::condition_variable_any`对象。
 
 **声明**
-```c++
+
+```
 ~condition_variable_any();
 ```
 
@@ -1351,12 +1437,13 @@ condition_variable_any();
 **抛出**<br>
 无
 
-####std::condition_variable_any::notify_one 成员函数
+#### std::condition_variable_any::notify_one 成员函数
 
 `std::condition_variable_any`唤醒一个等待该条件变量的线程。
 
 **声明**
-```c++
+
+```
 void notify_all() noexcept;
 ```
 
@@ -1369,12 +1456,13 @@ void notify_all() noexcept;
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable_any::notify_all 成员函数
+#### std::condition_variable_any::notify_all 成员函数
 
 唤醒所有等待当前`std::condition_variable_any`实例的线程。
 
 **声明**
-```c++
+
+```
 void notify_all() noexcept;
 ```
 
@@ -1387,12 +1475,13 @@ void notify_all() noexcept;
 **同步**<br>
 `std::condition_variable`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable_any::wait 成员函数
+#### std::condition_variable_any::wait 成员函数
 
 通过`std::condition_variable_any`的notify_one()、notify_all()或伪唤醒结束等待。
 
 **声明**
-```c++
+
+```
 template<typename Lockable>
 void wait(Lockable& lock);
 ```
@@ -1411,12 +1500,13 @@ Lockable类型需要能够上锁，lock对象拥有一个锁。
 **同步**<br>
 std::condition_variable_any实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable_any::wait 需要一个谓词的成员函数重载
+#### std::condition_variable_any::wait 需要一个谓词的成员函数重载
 
 等待`std::condition_variable_any`上的notify_one()或notify_all()被调用，或谓词为true的情况，来唤醒线程。
 
 **声明**
-```c++
+
+```
 template<typename Lockable,typename Predicate>
 void wait(Lockable& lock,Predicate pred);
 ```
@@ -1426,7 +1516,8 @@ pred()谓词必须是合法的，并且需要返回一个值，这个值可以�
 
 **效果**<br>
 正如
-```c++
+
+```
 while(!pred())
 {
 wait(lock);
@@ -1441,12 +1532,13 @@ pred中可以抛出任意异常，或者当效果没有达到的时候，抛出`
 **同步**<br>
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable_any::wait_for 成员函数
+#### std::condition_variable_any::wait_for 成员函数
 
 `std::condition_variable_any`在调用notify_one()、调用notify_all()、超时或线程伪唤醒时，结束等待。
 
 **声明**
-```c++
+
+```
 template<typename Lockable,typename Rep,typename Period>
 std::cv_status wait_for(
     Lockable& lock,
@@ -1470,12 +1562,13 @@ std::cv_status wait_for(
 **同步**<br>
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable_any::wait_for 需要一个谓词的成员函数重载
+#### std::condition_variable_any::wait_for 需要一个谓词的成员函数重载
 
 `std::condition_variable_any`在调用notify_one()、调用notify_all()、超时或线程伪唤醒时，结束等待。
 
 **声明**
-```c++
+
+```
 template<typename Lockable,typename Rep,
     typename Period, typename Predicate>
 bool wait_for(
@@ -1489,7 +1582,8 @@ pred()谓词必须是合法的，并且需要返回一个值，这个值可以�
 
 **效果**<br>
 正如
-```c++
+
+```
 internal_clock::time_point end=internal_clock::now()+relative_time;
 while(!pred())
 {
@@ -1513,12 +1607,13 @@ return true;
 **同步**<br>
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable_any::wait_until 成员函数
+#### std::condition_variable_any::wait_until 成员函数
 
 `std::condition_variable_any`在调用notify_one()、调用notify_all()、指定时间内达成条件或线程伪唤醒时，结束等待
 
 **声明**
-```c++
+
+```
 template<typename Lockable,typename Clock,typename Duration>
 std::cv_status wait_until(
     Lockable& lock,
@@ -1542,12 +1637,13 @@ Lockable类型需要能够上锁，lock对象拥有一个锁。
 **同步**
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
 
-####std::condition_variable_any::wait_unti 需要一个谓词的成员函数重载
+#### std::condition_variable_any::wait_unti 需要一个谓词的成员函数重载
 
 `std::condition_variable_any`在调用notify_one()、调用notify_all()、谓词返回true或指定时间内达到条件，结束等待。
 
 **声明**
-```c++
+
+```
 template<typename Lockable,typename Clock,
     typename Duration, typename Predicate>
 bool wait_until(
@@ -1561,7 +1657,8 @@ pred()必须是合法的，并且其返回值能转换为bool值。当线程调�
 
 **效果**<br>
 等价于
-```c++
+
+```
 while(!pred())
 {
   if(wait_until(lock,absolute_time)==std::cv_status::timeout)
@@ -1581,12 +1678,13 @@ return true;
 **同步**<br>
 `std::condition_variable_any`实例中的notify_one(),notify_all(),wait(),wait_for()和wait_until()都是序列化函数(串行调用)。调用notify_one()或notify_all()只能唤醒正在等待中的线程。
  
-##D.3 &lt;atomic&gt;头文件
+## D.3 &lt;atomic&gt;头文件
 
 &lt;atomic&gt;头文件提供一组基础的原子类型，和提供对这些基本类型的操作，以及一个原子模板函数，用来接收用户定义的类型，以适用于某些标准。
 
 ####头文件内容
-```c++
+
+```
 #define ATOMIC_BOOL_LOCK_FREE 参见详述
 #define ATOMIC_CHAR_LOCK_FREE 参见详述
 #define ATOMIC_SHORT_LOCK_FREE 参见详述
@@ -1664,7 +1762,7 @@ namespace std
 }
 ```
 
-###std::atomic_xxx类型定义
+### std::atomic_xxx类型定义
 
 为了兼容新的C标准(C11)，C++支持定义原子整型类型。这些类型都与`std::atimic<T>;`特化类相对应，或是用同一接口特化的一个基本类型。
 
@@ -1689,12 +1787,13 @@ namespace std
 
 (译者注：该表与第5章中的表5.1几乎一致)
 
-###D.3.2 ATOMIC_xxx_LOCK_FREE宏
+### D.3.2 ATOMIC_xxx_LOCK_FREE宏
 
 这里的宏指定了原子类型与其内置类型是否是无锁的。
 
 **宏定义**
-```c++
+
+```
 #define ATOMIC_BOOL_LOCK_FREE 参见详述
 #define ATOMIC_CHAR_LOCK_FREE参见详述
 #define ATOMIC_SHORT_LOCK_FREE 参见详述
@@ -1711,7 +1810,7 @@ namespace std
 
 宏`ATOMIC_POINTER_LOCK_FREE`描述了，对于特化的原子类型指针`std::atomic<T*>`操作的无锁特性。
 
-###D.3.3 ATOMIC_VAR_INIT宏
+### D.3.3 ATOMIC_VAR_INIT宏
 
 `ATOMIC_VAR_INIT`宏可以通过一个特定的值来初始化一个原子变量。
 
@@ -1719,13 +1818,14 @@ namespace std
 `#define ATOMIC_VAR_INIT(value)参见详述`
 
 宏可以扩展成一系列符号，这个宏可以通过一个给定值，初始化一个标准原子类型，表达式如下所示：
-```c++
+
+```
 std::atomic<type> x = ATOMIC_VAR_INIT(val);
 ```
 
 给定值可以兼容与原子变量相关的非原子变量，例如：
 
-```c++
+```
 std::atomic&lt;int> i = ATOMIC_VAR_INIT(42);
 std::string s;
 std::atomic&lt;std::string*> p = ATOMIC_VAR_INIT(&s);
@@ -1733,12 +1833,13 @@ std::atomic&lt;std::string*> p = ATOMIC_VAR_INIT(&s);
 
 这样初始化的变量是非原子的，并且在变量初始化之后，其他线程可以随意的访问该变量，这样可以避免条件竞争和未定义行为的发生。
 
-###D.3.4 std::memory_order枚举类型
+### D.3.4 std::memory_order枚举类型
 
 `std::memory_order`枚举类型用来表明原子操作的约束顺序。
 
 **声明**
-```c++
+
+```
 typedef enum memory_order
 {
   memory_order_relaxed,memory_order_consume,
@@ -1749,27 +1850,27 @@ typedef enum memory_order
 
 通过标记各种内存序变量来标记操作的顺序(详见第5章，在该章节中有对书序约束更加详尽的介绍)
 
-####std::memory_order_relaxed
+#### std::memory_order_relaxed
 
 操作不受任何额外的限制。
 
-####std::memory_order_release
+#### std::memory_order_release
 
 对于指定位置上的内存可进行释放操作。因此，与获取操作读取同一内存位置所存储的值。
 
-####std::memory_order_acquire
+#### std::memory_order_acquire
 
 操作可以获取指定内存位置上的值。当需要存储的值通过释放操作写入时，是与存储操同步的。
 
-####std::memory_order_acq_rel
+#### std::memory_order_acq_rel
 
 操作必须是“读-改-写”操作，并且其行为需要在`std::memory_order_acquire`和`std::memory_order_release`序指定的内存位置上进行操作。
 
-####std::memory_order_seq_cst
+#### std::memory_order_seq_cst
 
 操作在全局序上都会受到约束。还有，当为存储操作时，其行为好比`std::memory_order_release`操作；当为加载操作时，其行为好比`std::memory_order_acquire`操作；并且，当其是一个“读-改-写”操作时，其行为和`std::memory_order_acquire`和`std::memory_order_release`类似。对于所有顺序来说，该顺序为默认序。
 
-####std::memory_order_consume
+#### std::memory_order_consume
 
 对于指定位置的内存进行消耗操作(consume operation)。
 
@@ -1780,7 +1881,8 @@ typedef enum memory_order
 `std::atomic_thread_fence()`会在代码中插入“内存栅栏”，强制两个操作保持内存约束顺序。
 
 **声明**
-```c++
+
+```
 extern "C" void atomic_thread_fence(std::memory_order order);
 ```
 
@@ -1794,12 +1896,13 @@ extern "C" void atomic_thread_fence(std::memory_order order);
 **抛出**<br>
 无
 
-###D.3.6 std::atomic_signal_fence函数
+### D.3.6 std::atomic_signal_fence函数
 
 `std::atomic_signal_fence()`会在代码中插入“内存栅栏”，强制两个操作保持内存约束顺序，并且在对应线程上执行信号处理操作。
 
 **声明**
-```c++
+
+```
 extern "C" void atomic_signal_fence(std::memory_order order);
 ```
 
@@ -1809,14 +1912,15 @@ extern "C" void atomic_signal_fence(std::memory_order order);
 **抛出**<br>
 无
 
-###D.3.7 std::atomic_flag类
+### D.3.7 std::atomic_flag类
 
 `std::atomic_flag`类算是原子标识的骨架。在C++11标准下，只有这个数据类型可以保证是无锁的(当然，更多的原子类型在未来的实现中将采取无锁实现)。
 
 对于一个`std::atomic_flag`来说，其状态不是set，就是clear。
 
 **类型定义**
-```c++
+
+```
 struct atomic_flag
 {
   atomic_flag() noexcept = default;
@@ -1847,12 +1951,13 @@ void atomic_flag_clear_explicit(
 #define ATOMIC_FLAG_INIT unspecified
 ```
 
-####std::atomic_flag 默认构造函数
+#### std::atomic_flag 默认构造函数
 
 这里未指定默认构造出来的`std::atomic_flag`实例是clear状态，还是set状态。因为对象存储过程是静态的，所以初始化必须是静态的。
 
 **声明**
-```c++
+
+```
 std::atomic_flag() noexcept = default;
 ```
 
@@ -1862,17 +1967,19 @@ std::atomic_flag() noexcept = default;
 **抛出**<br>
 无
 
-####std::atomic_flag 使用ATOMIC_FLAG_INIT进行初始化
+#### std::atomic_flag 使用ATOMIC_FLAG_INIT进行初始化
 
 `std::atomic_flag`实例可以使用`ATOMIC_FLAG_INIT`宏进行创建，这样构造出来的实例状态为clear。因为对象存储过程是静态的，所以初始化必须是静态的。
 
 **声明**
-```c++
+
+```
 #define ATOMIC_FLAG_INIT unspecified
 ```
 
 **用法**
-```c++
+
+```
 std::atomic_flag flag=ATOMIC_FLAG_INIT;
 ```
 
@@ -1885,27 +1992,30 @@ std::atomic_flag flag=ATOMIC_FLAG_INIT;
 **NOTE**：
 对于内存位置上的*this，这个操作属于“读-改-写”操作。
 
-####std::atomic_flag::test_and_set 成员函数
+#### std::atomic_flag::test_and_set 成员函数
 
 自动设置实例状态标识，并且检查实例的状态标识是否已经设置。
 
 **声明**
-```c++
+
+```
 bool atomic_flag_test_and_set(volatile atomic_flag* flag) noexcept;
 bool atomic_flag_test_and_set(atomic_flag* flag) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return flag->test_and_set();
 ```
 
-####std::atomic_flag_test_and_set 非成员函数
+#### std::atomic_flag_test_and_set 非成员函数
 
 自动设置原子变量的状态标识，并且检查原子变量的状态标识是否已经设置。
 
 **声明**
-```c++
+
+```
 bool atomic_flag_test_and_set_explicit(
     volatile atomic_flag* flag, memory_order order) noexcept;
 bool atomic_flag_test_and_set_explicit(
@@ -1913,16 +2023,18 @@ bool atomic_flag_test_and_set_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return flag->test_and_set(order);
 ```
 
-####std::atomic_flag_test_and_set_explicit 非成员函数
+#### std::atomic_flag_test_and_set_explicit 非成员函数
 
 自动设置原子变量的状态标识，并且检查原子变量的状态标识是否已经设置。
 
 **声明**
-```c++
+
+```
 bool atomic_flag_test_and_set_explicit(
     volatile atomic_flag* flag, memory_order order) noexcept;
 bool atomic_flag_test_and_set_explicit(
@@ -1930,16 +2042,18 @@ bool atomic_flag_test_and_set_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return flag->test_and_set(order);
 ```
 
-####std::atomic_flag::clear 成员函数
+#### std::atomic_flag::clear 成员函数
 
 自动清除原子变量的状态标识。
 
 **声明**
-```c++
+
+```
 void clear(memory_order order = memory_order_seq_cst) volatile noexcept;
 void clear(memory_order order = memory_order_seq_cst) noexcept;
 ```
@@ -1957,27 +2071,30 @@ void clear(memory_order order = memory_order_seq_cst) noexcept;
 **NOTE**:对于内存位置上的*this，这个操作属于“写”操作(存储操作)。
 
 
-####std::atomic_flag_clear 非成员函数
+#### std::atomic_flag_clear 非成员函数
 
 自动清除原子变量的状态标识。
 
 **声明**
-```c++
+
+```
 void atomic_flag_clear(volatile atomic_flag* flag) noexcept;
 void atomic_flag_clear(atomic_flag* flag) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 flag->clear();
 ```
 
-####std::atomic_flag_clear_explicit 非成员函数
+#### std::atomic_flag_clear_explicit 非成员函数
 
 自动清除原子变量的状态标识。
 
 **声明**
-```c++
+
+```
 void atomic_flag_clear_explicit(
     volatile atomic_flag* flag, memory_order order) noexcept;
 void atomic_flag_clear_explicit(
@@ -1985,7 +2102,8 @@ void atomic_flag_clear_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return flag->clear(order);
 ```
 
@@ -2007,7 +2125,8 @@ return flag->clear(order);
 `std::atomic`实例是不支持`CopyConstructible`(拷贝构造)和`CopyAssignable`(拷贝赋值)，原因你懂得，因为这样原子操作就无法执行。
 
 **类型定义**
-```c++
+
+```
 template<typename BaseType>
 struct atomic
 {
@@ -2145,12 +2264,13 @@ bool atomic_compare_exchange_weak_explicit(
 
 **NOTE**:虽然非成员函数通过模板的方式指定，不过他们只作为从在函数提供，并且对于这些函数，不能显示的指定模板的参数。
 
-####std::atomic 构造函数
+#### std::atomic 构造函数
 
 使用默认初始值，构造一个`std::atomic`实例。
 
 **声明**
-```c++
+
+```
 atomic() noexcept;
 ```
 
@@ -2162,12 +2282,13 @@ atomic() noexcept;
 **抛出**<br>
 无
 
-####std::atomic_init 非成员函数
+#### std::atomic_init 非成员函数
 
 `std::atomic<BaseType>`实例提供的值，可非原子的进行存储。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 void atomic_init(atomic<BaseType> volatile* p, BaseType v) noexcept;
 template<typename BaseType>
@@ -2182,12 +2303,13 @@ void atomic_init(atomic<BaseType>* p, BaseType v) noexcept;
 **抛出**<br>
 无
 
-####std::atomic 转换构造函数
+#### std::atomic 转换构造函数
 
 使用提供的BaseType值去构造一个`std::atomic`实例。
 
 **声明**
-```c++
+
+```
 constexpr atomic(BaseType b) noexcept;
 ```
 
@@ -2197,27 +2319,30 @@ constexpr atomic(BaseType b) noexcept;
 **抛出**<br>
 无
 
-####std::atomic 转换赋值操作
+#### std::atomic 转换赋值操作
 
 在*this存储一个新值。
 
 **声明**
-```c++
+
+```
 BaseType operator=(BaseType b) volatile noexcept;
 BaseType operator=(BaseType b) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->store(b);
 ```
 
-####std::atomic::is_lock_free 成员函数
+#### std::atomic::is_lock_free 成员函数
 
 确定对于*this是否是无锁操作。
 
 **声明**
-```c++
+
+```
 bool is_lock_free() const volatile noexcept;
 bool is_lock_free() const noexcept;
 ```
@@ -2228,12 +2353,13 @@ bool is_lock_free() const noexcept;
 **抛出**<br>
 无
 
-####std::atomic_is_lock_free 非成员函数
+#### std::atomic_is_lock_free 非成员函数
 
 确定对于*this是否是无锁操作。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 bool atomic_is_lock_free(volatile const atomic<BaseType>* p) noexcept;
 template<typename BaseType>
@@ -2241,16 +2367,18 @@ bool atomic_is_lock_free(const atomic<BaseType>* p) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return p->is_lock_free();
 ```
 
-####std::atomic::load 成员函数
+#### std::atomic::load 成员函数
 
 原子的加载`std::atomic`实例当前的值
 
 **声明**
-```c++
+
+```
 BaseType load(memory_order order = memory_order_seq_cst)
     const volatile noexcept;
 BaseType load(memory_order order = memory_order_seq_cst) const noexcept;
@@ -2270,12 +2398,13 @@ BaseType load(memory_order order = memory_order_seq_cst) const noexcept;
 
 **NOTE**:是对于*this内存地址原子加载的操作。
 
-####std::atomic_load 非成员函数
+#### std::atomic_load 非成员函数
 
 原子的加载`std::atomic`实例当前的值。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 BaseType atomic_load(volatile const atomic<BaseType>* p) noexcept;
 template<typename BaseType>
@@ -2283,16 +2412,18 @@ BaseType atomic_load(const atomic<BaseType>* p) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return p->load();
 ```
 
-####std::atomic_load_explicit 非成员函数
+#### std::atomic_load_explicit 非成员函数
 
 原子的加载`std::atomic`实例当前的值。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 BaseType atomic_load_explicit(
     volatile const atomic<BaseType>* p, memory_order order) noexcept;
@@ -2302,31 +2433,35 @@ BaseType atomic_load_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->load(order);
 ```
 
-####std::atomic::operator BastType转换操作
+#### std::atomic::operator BastType转换操作
 
 加载存储在*this中的值。
 
 **声明**
-```c++
+
+```
 operator BaseType() const volatile noexcept;
 operator BaseType() const noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->load();
 ```
 
-####std::atomic::store 成员函数
+#### std::atomic::store 成员函数
 
 以原子操作的方式存储一个新值到`atomic<BaseType>`实例中。
 
 **声明**
-```c++
+
+```
 void store(BaseType new_value,memory_order order = memory_order_seq_cst)
     volatile noexcept;
 void store(BaseType new_value,memory_order order = memory_order_seq_cst)
@@ -2344,12 +2479,13 @@ void store(BaseType new_value,memory_order order = memory_order_seq_cst)
 
 **NOTE**:是对于*this内存地址原子加载的操作。
 
-####std::atomic_store 非成员函数
+#### std::atomic_store 非成员函数
 
 以原子操作的方式存储一个新值到`atomic&lt;BaseType&gt;`实例中。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 void atomic_store(volatile atomic<BaseType>* p, BaseType new_value)
     noexcept;
@@ -2358,16 +2494,18 @@ void atomic_store(atomic<BaseType>* p, BaseType new_value) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 p->store(new_value);
 ```
 
-####std::atomic_explicit 非成员函数
+#### std::atomic_explicit 非成员函数
 
 以原子操作的方式存储一个新值到`atomic&lt;BaseType&gt;`实例中。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 void atomic_store_explicit(
     volatile atomic<BaseType>* p, BaseType new_value, memory_order order)
@@ -2378,16 +2516,18 @@ void atomic_store_explicit(
 ```
 
 **效果**
-```c++
+
+```
 p->store(new_value,order);
 ```
 
-####std::atomic::exchange 成员函数
+#### std::atomic::exchange 成员函数
 
 原子的存储一个新值，并读取旧值。
 
 **声明**
-```c++
+
+```
 BaseType exchange(
     BaseType new_value,
     memory_order order = memory_order_seq_cst)
@@ -2405,12 +2545,13 @@ BaseType exchange(
 
 **NOTE**:这是对*this内存地址的原子“读-改-写”操作。
 
-####std::atomic_exchange 非成员函数
+#### std::atomic_exchange 非成员函数
 
 原子的存储一个新值到`atomic<BaseType>`实例中，并且读取旧值。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 BaseType atomic_exchange(volatile atomic<BaseType>* p, BaseType new_value)
     noexcept;
@@ -2419,16 +2560,18 @@ BaseType atomic_exchange(atomic<BaseType>* p, BaseType new_value) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return p->exchange(new_value);
 ```
 
-####std::atomic_exchange_explicit 非成员函数
+#### std::atomic_exchange_explicit 非成员函数
 
 原子的存储一个新值到`atomic<BaseType>`实例中，并且读取旧值。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 BaseType atomic_exchange_explicit(
     volatile atomic<BaseType>* p, BaseType new_value, memory_order order)
@@ -2439,16 +2582,18 @@ BaseType atomic_exchange_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->exchange(new_value,order);
 ```
 
-####std::atomic::compare_exchange_strong 成员函数
+#### std::atomic::compare_exchange_strong 成员函数
 
 当期望值和新值一样时，将新值存储到实例中。如果不相等，那么就实用新值更新期望值。
 
 **声明**
-```c++
+
+```
 bool compare_exchange_strong(
     BaseType& expected,BaseType new_value,
     memory_order order = std::memory_order_seq_cst) volatile noexcept;
@@ -2480,12 +2625,13 @@ failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`�
 
 **NOTE**:当返回true和success_order内存序时，是对*this内存地址的原子“读-改-写”操作；反之，这是对*this内存地址的原子加载操作(failure_order)。
 
-####std::atomic_compare_exchange_strong 非成员函数
+#### std::atomic_compare_exchange_strong 非成员函数
 
 当期望值和新值一样时，将新值存储到实例中。如果不相等，那么就实用新值更新期望值。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 bool atomic_compare_exchange_strong(
     volatile atomic<BaseType>* p,BaseType * old_value,BaseType new_value)
@@ -2496,16 +2642,18 @@ bool atomic_compare_exchange_strong(
 ```
 
 **效果**
-```c++
+
+```
 return p->compare_exchange_strong(*old_value,new_value);
 ```
 
-####std::atomic_compare_exchange_strong_explicit 非成员函数
+#### std::atomic_compare_exchange_strong_explicit 非成员函数
 
 当期望值和新值一样时，将新值存储到实例中。如果不相等，那么就实用新值更新期望值。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 bool atomic_compare_exchange_strong_explicit(
     volatile atomic<BaseType>* p,BaseType * old_value,
@@ -2519,17 +2667,19 @@ bool atomic_compare_exchange_strong_explicit(
 ```
 
 **效果**<br>
-```c++
+
+```
 return p->compare_exchange_strong(
     *old_value,new_value,success_order,failure_order) noexcept;
 ```
 
-####std::atomic::compare_exchange_weak 成员函数
+#### std::atomic::compare_exchange_weak 成员函数
 
 原子的比较新值和期望值，如果相等，那么存储新值并且进行原子化更新。当两值不相等，或更新未进行，那期望值会更新为新值。
 
 **声明**
-```c++
+
+```
 bool compare_exchange_weak(
     BaseType& expected,BaseType new_value,
     memory_order order = std::memory_order_seq_cst) volatile noexcept;
@@ -2561,12 +2711,13 @@ failure_order不能是`std::memory_order_release`或`std::memory_order_acq_rel`�
 
 **NOTE**:当返回true和success_order内存序时，是对*this内存地址的原子“读-改-写”操作；反之，这是对*this内存地址的原子加载操作(failure_order)。
 
-####std::atomic_compare_exchange_weak 非成员函数
+#### std::atomic_compare_exchange_weak 非成员函数
 
 原子的比较新值和期望值，如果相等，那么存储新值并且进行原子化更新。当两值不相等，或更新未进行，那期望值会更新为新值。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 bool atomic_compare_exchange_weak(
     volatile atomic<BaseType>* p,BaseType * old_value,BaseType new_value)
@@ -2577,16 +2728,18 @@ bool atomic_compare_exchange_weak(
 ```
 
 **效果**
-```c++
+
+```
 return p->compare_exchange_weak(*old_value,new_value);
 ```
 
-####std::atomic_compare_exchange_weak_explicit 非成员函数
+#### std::atomic_compare_exchange_weak_explicit 非成员函数
 
 原子的比较新值和期望值，如果相等，那么存储新值并且进行原子化更新。当两值不相等，或更新未进行，那期望值会更新为新值。
 
 **声明**
-```c++
+
+```
 template<typename BaseType>
 bool atomic_compare_exchange_weak_explicit(
     volatile atomic<BaseType>* p,BaseType * old_value,
@@ -2600,17 +2753,19 @@ bool atomic_compare_exchange_weak_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->compare_exchange_weak(
    *old_value,new_value,success_order,failure_order);
 ```
 
-###D.3.9 std::atomic模板类型的特化
+### D.3.9 std::atomic模板类型的特化
 
 `std::atomic`类模板的特化类型有整型和指针类型。对于整型来说，特化模板提供原子加减，以及位域操作(主模板未提供)。对于指针类型来说，特化模板提供原子指针的运算(主模板未提供)。
 
 特化模板提供如下整型：
-```c++
+
+```
 std::atomic<bool>
 std::atomic<char>
 std::atomic<signed char>
@@ -2630,13 +2785,13 @@ std::atomic<char32_t&gt;
 
 `std::atomic<T*>`原子指针，可以使用以上的类型作为T。
 
-###D.3.10 特化std::atomic&lt;integral-type&gt;
+### D.3.10 特化std::atomic&lt;integral-type&gt;
 
 `std::atomic&lt;integral-type&gt;`是为每一个基础整型提供的`std::atomic`类模板，其中提供了一套完整的整型操作。
 
 下面的特化模板也适用于`std::atomic<>`类模板：
 
-```c++
+```
 std::atomic<char>
 std::atomic<signed char>
 std::atomic<unsigned char>
@@ -2656,7 +2811,8 @@ std::atomic<char32_t>
 因为原子操作只能执行其中一个，所以特化模板的实例不可`CopyConstructible`(拷贝构造)和`CopyAssignable`(拷贝赋值)。
 
 **类型定义**
-```c++
+
+```
 template<>
 struct atomic<integral-type>
 {
@@ -2856,12 +3012,13 @@ integral-type atomic_fetch_xor_explicit(
 
 这些操作在主模板中也有提供(见D.3.8)。
 
-####std::atomic&lt;integral-type&gt;::fetch_add 成员函数
+#### std::atomic&lt;integral-type&gt;::fetch_add 成员函数
 
 原子的加载一个值，然后使用与提供i相加的结果，替换掉原值。
 
 **声明**
-```c++
+
+```
 integral-type fetch_add(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -2880,12 +3037,13 @@ integral-type fetch_add(
 
 **NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
-####std::atomic_fetch_add 非成员函数
+#### std::atomic_fetch_add 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值相加，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_add(
     volatile atomic<integral-type>* p, integral-type i) noexcept;
 integral-type atomic_fetch_add(
@@ -2893,16 +3051,18 @@ integral-type atomic_fetch_add(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_add(i);
 ```
 
-####std::atomic_fetch_add_explicit 非成员函数
+#### std::atomic_fetch_add_explicit 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值相加，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_add_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -2912,16 +3072,18 @@ integral-type atomic_fetch_add_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_add(i,order);
 ```
 
-####std::atomic&lt;integral-type&gt;::fetch_sub 成员函数
+#### std::atomic&lt;integral-type&gt;::fetch_sub 成员函数
 
 原子的加载一个值，然后使用与提供i相减的结果，替换掉原值。
 
 **声明**
-```c++
+
+```
 integral-type fetch_sub(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -2940,12 +3102,13 @@ integral-type fetch_sub(
 
 **NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
-####std::atomic_fetch_sub 非成员函数
+#### std::atomic_fetch_sub 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值相减，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_sub(
     volatile atomic<integral-type>* p, integral-type i) noexcept;
 integral-type atomic_fetch_sub(
@@ -2953,16 +3116,18 @@ integral-type atomic_fetch_sub(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_sub(i);
 ```
 
-####std::atomic_fetch_sub_explicit 非成员函数
+#### std::atomic_fetch_sub_explicit 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值相减，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_sub_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -2972,16 +3137,18 @@ integral-type atomic_fetch_sub_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_sub(i,order);
 ```
 
-####std::atomic&lt;integral-type&gt;::fetch_and 成员函数
+#### std::atomic&lt;integral-type&gt;::fetch_and 成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位与操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type fetch_and(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3000,12 +3167,13 @@ integral-type fetch_and(
 
 **NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
-####std::atomic_fetch_and 非成员函数
+#### std::atomic_fetch_and 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位与操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_and(
     volatile atomic<integral-type>* p, integral-type i) noexcept;
 integral-type atomic_fetch_and(
@@ -3013,16 +3181,18 @@ integral-type atomic_fetch_and(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_and(i);
 ```
 
-####std::atomic_fetch_and_explicit 非成员函数
+#### std::atomic_fetch_and_explicit 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位与操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_and_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3032,16 +3202,18 @@ integral-type atomic_fetch_and_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_and(i,order);
 ```
 
-####std::atomic&lt;integral-type&gt;::fetch_or 成员函数
+#### std::atomic&lt;integral-type&gt;::fetch_or 成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位或操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type fetch_or(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3060,12 +3232,13 @@ integral-type fetch_or(
 
 **NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
-####std::atomic_fetch_or 非成员函数
+#### std::atomic_fetch_or 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位或操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_or(
     volatile atomic<integral-type>* p, integral-type i) noexcept;
 integral-type atomic_fetch_or(
@@ -3073,16 +3246,18 @@ integral-type atomic_fetch_or(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_or(i);
 ```
 
-####std::atomic_fetch_or_explicit 非成员函数
+#### std::atomic_fetch_or_explicit 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位或操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_or_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3092,16 +3267,18 @@ integral-type atomic_fetch_or_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_or(i,order);
 ```
 
-####std::atomic&lt;integral-type&gt;::fetch_xor 成员函数
+#### std::atomic&lt;integral-type&gt;::fetch_xor 成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位亦或操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type fetch_xor(
     integral-type i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3120,12 +3297,13 @@ integral-type fetch_xor(
 
 **NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
-####std::atomic_fetch_xor 非成员函数
+#### std::atomic_fetch_xor 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位异或操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_xor_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3135,16 +3313,18 @@ integral-type atomic_fetch_xor_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_xor(i,order);
 ```
 
-####std::atomic_fetch_xor_explicit 非成员函数
+#### std::atomic_fetch_xor_explicit 非成员函数
 
 从`atomic<integral-type>`实例中原子的读取一个值，并且将其与给定i值进行位异或操作后，替换原值。
 
 **声明**
-```c++
+
+```
 integral-type atomic_fetch_xor_explicit(
     volatile atomic<integral-type>* p, integral-type i,
     memory_order order) noexcept;
@@ -3154,153 +3334,173 @@ integral-type atomic_fetch_xor_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_xor(i,order);
 ```
 
-####std::atomic&lt;integral-type&gt;::operator++ 前置递增操作
+#### std::atomic&lt;integral-type&gt;::operator++ 前置递增操作
 
 原子的将*this中存储的值加1，并返回新值。
 
 **声明**
-```c++
+
+```
 integral-type operator++() volatile noexcept;
 integral-type operator++() noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(1) + 1;
 ```
 
-####std::atomic&lt;integral-type&gt;::operator++ 后置递增操作
+#### std::atomic&lt;integral-type&gt;::operator++ 后置递增操作
 
 原子的将*this中存储的值加1，并返回旧值。
 
 **声明**
-```c++
+
+```
 integral-type operator++() volatile noexcept;
 integral-type operator++() noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(1);
 ```
 
-####std::atomic&lt;integral-type&gt;::operator-- 前置递减操作
+#### std::atomic&lt;integral-type&gt;::operator-- 前置递减操作
 
 原子的将*this中存储的值减1，并返回新值。
 
 **声明**
-```c++
+
+```
 integral-type operator--() volatile noexcept;
 integral-type operator--() noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(1) - 1;
 ```
 
-####std::atomic&lt;integral-type&gt;::operator-- 后置递减操作
+#### std::atomic&lt;integral-type&gt;::operator-- 后置递减操作
 
 原子的将*this中存储的值减1，并返回旧值。
 
 **声明**
-```c++
+
+```
 integral-type operator--() volatile noexcept;
 integral-type operator--() noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(1);
 ```
 
-####std::atomic&lt;integral-type&gt;::operator+= 复合赋值操作
+#### std::atomic&lt;integral-type&gt;::operator+= 复合赋值操作
 
 原子的将给定值与*this中的值相加，并返回新值。
 
 **声明**
-```c++
+
+```
 integral-type operator+=(integral-type i) volatile noexcept;
 integral-type operator+=(integral-type i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(i) + i;
 ```
 
-####std::atomic&lt;integral-type&gt;::operator-= 复合赋值操作
+#### std::atomic&lt;integral-type&gt;::operator-= 复合赋值操作
 
 原子的将给定值与*this中的值相减，并返回新值。
 
 **声明**
-```c++
+
+```
 integral-type operator-=(integral-type i) volatile noexcept;
 integral-type operator-=(integral-type i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_sub(i,std::memory_order_seq_cst) – i;
 ```
 
-####std::atomic&lt;integral-type&gt;::operator&= 复合赋值操作
+#### std::atomic&lt;integral-type&gt;::operator&= 复合赋值操作
 
 原子的将给定值与*this中的值相与，并返回新值。
 
 **声明**
-```c++
+
+```
 integral-type operator&=(integral-type i) volatile noexcept;
 integral-type operator&=(integral-type i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_and(i) & i;
 ```
 
-####std::atomic&lt;integral-type&gt;::operator|= 复合赋值操作
+#### std::atomic&lt;integral-type&gt;::operator|= 复合赋值操作
 
 原子的将给定值与*this中的值相或，并返回新值。
 
 **声明**
-```c++
+
+```
 integral-type operator|=(integral-type i) volatile noexcept;
 integral-type operator|=(integral-type i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_or(i,std::memory_order_seq_cst) | i;
 ```
 
-####std::atomic&lt;integral-type&gt;::operator^= 复合赋值操作
+#### std::atomic&lt;integral-type&gt;::operator^= 复合赋值操作
 
 原子的将给定值与*this中的值相亦或，并返回新值。
 
 **声明**
-```c++
+
+```
 integral-type operator^=(integral-type i) volatile noexcept;
 integral-type operator^=(integral-type i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_xor(i,std::memory_order_seq_cst) ^ i;
 ```
 
-####std::atomic&lt;T*&gt; 局部特化
+#### std::atomic&lt;T*&gt; 局部特化
 
 `std::atomic<T*>`为`std::atomic`特化了指针类型原子变量，并提供了一系列相关操作。
 
 `std::atomic<T*>`是CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)的，因为操作是原子的，在同一时间只能执行一个操作。
 
 **类型定义**
-```c++
+
+```
 template<typename T>
 struct atomic<T*>
 {
@@ -3431,12 +3631,13 @@ T* atomic_fetch_sub_explicit(
 
 在主模板中也提供了一些相同的操作(可见11.3.8节)。
 
-####std::atomic&lt;T*&gt;::fetch_add 成员函数
+#### std::atomic&lt;T*&gt;::fetch_add 成员函数
 
 原子的加载一个值，然后使用与提供i相加(使用标准指针运算规则)的结果，替换掉原值。
 
 **声明**
-```c++
+
+```
 T* fetch_add(
     ptrdiff_t i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3455,27 +3656,30 @@ T* fetch_add(
 
 **NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
-####std::atomic_fetch_add 非成员函数
+#### std::atomic_fetch_add 非成员函数
 
 从`atomic<T*>`实例中原子的读取一个值，并且将其与给定i值进行位相加操作(使用标准指针运算规则)后，替换原值。
 
 **声明**
-```c++
+
+```
 T* atomic_fetch_add(volatile atomic<T*>* p, ptrdiff_t i) noexcept;
 T* atomic_fetch_add(atomic<T*>* p, ptrdiff_t i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_add(i);
 ```
 
-####std::atomic_fetch_add_explicit 非成员函数
+#### std::atomic_fetch_add_explicit 非成员函数
 
 从`atomic<T*>`实例中原子的读取一个值，并且将其与给定i值进行位相加操作(使用标准指针运算规则)后，替换原值。
 
 **声明**
-```c++
+
+```
 T* atomic_fetch_add_explicit(
      volatile atomic<T*>* p, ptrdiff_t i,memory_order order) noexcept;
 T* atomic_fetch_add_explicit(
@@ -3483,16 +3687,18 @@ T* atomic_fetch_add_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_add(i,order);
 ```
 
-####std::atomic&lt;T*&gt;::fetch_sub 成员函数
+#### std::atomic&lt;T*&gt;::fetch_sub 成员函数
 
 原子的加载一个值，然后使用与提供i相减(使用标准指针运算规则)的结果，替换掉原值。
 
 **声明**
-```c++
+
+```
 T* fetch_sub(
     ptrdiff_t i,memory_order order = memory_order_seq_cst)
     volatile noexcept;
@@ -3511,27 +3717,30 @@ T* fetch_sub(
 
 **NOTE**:对于*this的内存地址来说，这是一个“读-改-写”操作。
 
-####std::atomic_fetch_sub 非成员函数
+#### std::atomic_fetch_sub 非成员函数
 
 从`atomic<T*>`实例中原子的读取一个值，并且将其与给定i值进行位相减操作(使用标准指针运算规则)后，替换原值。
 
 **声明**
-```c++
+
+```
 T* atomic_fetch_sub(volatile atomic<T*>* p, ptrdiff_t i) noexcept;
 T* atomic_fetch_sub(atomic<T*>* p, ptrdiff_t i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_sub(i);
 ```
 
-####std::atomic_fetch_sub_explicit 非成员函数
+#### std::atomic_fetch_sub_explicit 非成员函数
 
 从`atomic<T*>`实例中原子的读取一个值，并且将其与给定i值进行位相减操作(使用标准指针运算规则)后，替换原值。
 
 **声明**
-```c++
+
+```
 T* atomic_fetch_sub_explicit(
      volatile atomic<T*>* p, ptrdiff_t i,memory_order order) noexcept;
 T* atomic_fetch_sub_explicit(
@@ -3539,107 +3748,121 @@ T* atomic_fetch_sub_explicit(
 ```
 
 **效果**
-```c++
+
+```
 return p->fetch_sub(i,order);
 ```
 
-####std::atomic&lt;T*&gt;::operator++ 前置递增操作
+#### std::atomic&lt;T*&gt;::operator++ 前置递增操作
 
 原子的将*this中存储的值加1(使用标准指针运算规则)，并返回新值。
 
 **声明**
-```c++
+
+```
 T* operator++() volatile noexcept;
 T* operator++() noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(1) + 1;
 ```
 
-####std::atomic&lt;T*&gt;::operator++ 后置递增操作
+#### std::atomic&lt;T*&gt;::operator++ 后置递增操作
 
 原子的将*this中存储的值加1(使用标准指针运算规则)，并返回旧值。
 
 **声明**
-```c++
+
+```
 T* operator++() volatile noexcept;
 T* operator++() noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(1);
 ```
 
-####std::atomic&lt;T*&gt;::operator-- 前置递减操作
+#### std::atomic&lt;T*&gt;::operator-- 前置递减操作
 
 原子的将*this中存储的值减1(使用标准指针运算规则)，并返回新值。
 
 **声明**
-```c++
+
+```
 T* operator--() volatile noexcept;
 T* operator--() noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_sub(1) - 1;
 ```
 
-####std::atomic&lt;T*&gt;::operator-- 后置递减操作
+#### std::atomic&lt;T*&gt;::operator-- 后置递减操作
 
 原子的将*this中存储的值减1(使用标准指针运算规则)，并返回旧值。
 
 **声明**
-```c++
+
+```
 T* operator--() volatile noexcept;
 T* operator--() noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_sub(1);
 ```
 
-####std::atomic&lt;T*&gt;::operator+= 复合赋值操作
+#### std::atomic&lt;T*&gt;::operator+= 复合赋值操作
 
 原子的将*this中存储的值与给定值相加(使用标准指针运算规则)，并返回新值。
 
 **声明**
-```c++
+
+```
 T* operator+=(ptrdiff_t i) volatile noexcept;
 T* operator+=(ptrdiff_t i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(i) + i;
 ```
 
-####std::atomic&lt;T*&gt;::operator-= 复合赋值操作
+#### std::atomic&lt;T*&gt;::operator-= 复合赋值操作
 
 
 原子的将*this中存储的值与给定值相减(使用标准指针运算规则)，并返回新值。
 
 **声明**
-```c++
+
+```
 T* operator+=(ptrdiff_t i) volatile noexcept;
 T* operator+=(ptrdiff_t i) noexcept;
 ```
 
 **效果**
-```c++
+
+```
 return this->fetch_add(i) - i;
 ```
 
-##D.4 &lt;future&gt;头文件
+## D.4 &lt;future&gt;头文件
 
 `<future>`头文件提供处理异步结果(在其他线程上执行额结果)的工具。
 
 **头文件内容**
-```c++
+
+```
 namespace std
 {
   enum class future_status {
@@ -3689,14 +3912,15 @@ namespace std
 }
 ```
 
-###D.4.1 std::future类型模板
+### D.4.1 std::future类型模板
 
 `std::future`类型模板是为了等待其他线程上的异步结果。其和`std::promise`，`std::packaged_task`类型模板，还有`std::async`函数模板，都是为异步结果准备的工具。只有`std::future`实例可以在任意时间引用异步结果。
 
 `std::future`实例是MoveConstructible(移动构造)和MoveAssignable(移动赋值)，不过不能CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
 
 **类型声明**
-```c++
+
+```
 template<typename ResultType>
 class future
 {
@@ -3727,12 +3951,13 @@ public:
 };
 ```
 
-####std::future 默认构造函数
+#### std::future 默认构造函数
 
 不使用异步结果构造一个`std::future`对象。
 
 **声明**
-```c++
+
+```
 future() noexcept;
 ```
 
@@ -3745,12 +3970,13 @@ valid()返回false。
 **抛出**<br>
 无
 
-####std::future 移动构造函数
+#### std::future 移动构造函数
 
 使用另外一个对象，构造一个`std::future`对象，将相关异步结果的所有权转移给新`std::future`对象。
 
 **声明**
-```c++
+
+```
 future(future&& other) noexcept;
 ```
 
@@ -3763,12 +3989,13 @@ future(future&& other) noexcept;
 **抛出**<br>
 无
 
-####std::future 移动赋值操作
+#### std::future 移动赋值操作
 
 将已有`std::future`对象中异步结果的所有权，转移到另一对象当中。
 
 **声明**
-```c++
+
+```
 future(future&& other) noexcept;
 ```
 
@@ -3781,12 +4008,13 @@ future(future&& other) noexcept;
 **抛出**<br>
 无
 
-####std::future 析构函数
+#### std::future 析构函数
 
 销毁一个`std::future`对象。
 
 **声明**
-```c++
+
+```
 ~future();
 ```
 
@@ -3796,12 +4024,13 @@ future(future&& other) noexcept;
 **抛出**<br>
 无
 
-####std::future::share 成员函数
+#### std::future::share 成员函数
 
 构造一个新`std::shared_future`实例，并且将`*this`异步结果的所有权转移到新的`std::shared_future`实例中。
 
 **声明**
-```c++
+
+```
 shared_future<ResultType> share();
 ```
 
@@ -3814,12 +4043,13 @@ shared_future<ResultType> share();
 **抛出**<br>
 无
 
-####std::future::valid 成员函数
+#### std::future::valid 成员函数
 
 检查`std::future`实例是否与一个异步结果相关联。
 
 **声明**
-```c++
+
+```
 bool valid() const noexcept;
 ```
 
@@ -3829,12 +4059,13 @@ bool valid() const noexcept;
 **抛出**<br>
 无
 
-####std::future::wait 成员函数
+#### std::future::wait 成员函数
 
 如果与`*this`相关的状态包含延迟函数，将调用该函数。否则，会等待`std::future`实例中的异步结果准备就绪。
 
 **声明**
-```c++
+
+```
 void wait();
 ```
 
@@ -3847,12 +4078,13 @@ void wait();
 **抛出**<br>
 无
 
-####std::future::wait_for 成员函数
+#### std::future::wait_for 成员函数
 
 等待`std::future`实例上相关异步结果准备就绪，或超过某个给定的时间。
 
 **声明**
-```c++
+
+```
 template<typename Rep,typename Period>
 future_status wait_for(
     std::chrono::duration<Rep,Period> const& relative_time);
@@ -3872,12 +4104,13 @@ future_status wait_for(
 **抛出**<br>
 无
 
-####std::future::wait_until 成员函数
+#### std::future::wait_until 成员函数
 
 等待`std::future`实例上相关异步结果准备就绪，或超过某个给定的时间。
 
 **声明**
-```c++
+
+```
 template<typename Clock,typename Duration>
 future_status wait_until(
   std::chrono::time_point<Clock,Duration> const& absolute_time);
@@ -3897,12 +4130,13 @@ this->valid()将返回true。
 **抛出**<br>
 无
 
-####std::future::get 成员函数
+#### std::future::get 成员函数
 
 当相关状态包含一个`std::async`调用的延迟函数，调用该延迟函数，并返回结果；否则，等待与`std::future`实例相关的异步结果准备就绪，之后返回存储的值或异常。
 
 **声明**
-```c++
+
+```
 void future<void>::get();
 R& future<R&>::get();
 R future<R>::get();
@@ -3923,11 +4157,12 @@ this->valid()将返回true。
 异常由延期函数，或存储在异步结果中的异常(如果有的话)抛出。
 
 **后置条件**
-```c++
+
+```
 this->valid()==false
 ```
 
-###D.4.2 std::shared_future类型模板
+### D.4.2 std::shared_future类型模板
 
 `std::shared_future`类型模板是为了等待其他线程上的异步结果。其和`std::promise`，`std::packaged_task`类型模板，还有`std::async`函数模板，都是为异步结果准备的工具。多个`std::shared_future`实例可以引用同一个异步结果。
 
@@ -3936,7 +4171,8 @@ this->valid()==false
 访问给定`std::shared_future`实例是非同步的。因此，当有多个线程访问同一个`std::shared_future`实例，且无任何外围同步操作时，这样的访问是不安全的。不过访问关联状态时是同步的，所以多个线程访问多个独立的`std::shared_future`实例，且没有外围同步操作的时候，是安全的。
 
 **类型定义**
-```c++
+
+```
 template<typename ResultType>
 class shared_future
 {
@@ -3967,12 +4203,13 @@ public:
 };
 ```
 
-####std::shared_future 默认构造函数
+#### std::shared_future 默认构造函数
 
 不使用关联异步结果，构造一个`std::shared_future`对象。
 
 **声明**
-```c++
+
+```
 shared_future() noexcept;
 ```
 
@@ -3985,12 +4222,13 @@ shared_future() noexcept;
 **抛出**<br>
 无
 
-####std::shared_future 移动构造函数
+#### std::shared_future 移动构造函数
 
 以一个已创建`std::shared_future`对象为准，构造`std::shared_future`实例，并将使用`std::shared_future`对象关联的异步结果的所有权转移到新的实例中。
 
 **声明**
-```c++
+
+```
 shared_future(shared_future&& other) noexcept;
 ```
 
@@ -4003,12 +4241,13 @@ shared_future(shared_future&& other) noexcept;
 **抛出**<br>
 无
 
-####std::shared_future 移动对应std::future对象的构造函数
+#### std::shared_future 移动对应std::future对象的构造函数
 
 以一个已创建`std::future`对象为准，构造`std::shared_future`实例，并将使用`std::shared_future`对象关联的异步结果的所有权转移到新的实例中。
 
 **声明**
-```c++
+
+```
 shared_future(std::future<ResultType>&& other) noexcept;
 ```
 
@@ -4021,12 +4260,13 @@ shared_future(std::future<ResultType>&& other) noexcept;
 **抛出**<br>
 无
 
-####std::shared_future 拷贝构造函数
+#### std::shared_future 拷贝构造函数
 
 以一个已创建`std::future`对象为准，构造`std::shared_future`实例，并将使用`std::shared_future`对象关联的异步结果(如果有的话)拷贝到新创建对象当中，两个对象共享该异步结果。
 
 **声明**
-```c++
+
+```
 shared_future(shared_future const& other);
 ```
 
@@ -4039,12 +4279,13 @@ shared_future(shared_future const& other);
 **抛出**<br>
 无
 
-####std::shared_future 析构函数
+#### std::shared_future 析构函数
 
 销毁一个`std::shared_future`对象。
 
 **声明**
-```c++
+
+```
 ~shared_future();
 ```
 
@@ -4054,12 +4295,13 @@ shared_future(shared_future const& other);
 **抛出**<br>
 无
 
-####std::shared_future::valid 成员函数
+#### std::shared_future::valid 成员函数
 
 检查`std::shared_future`实例是否与一个异步结果相关联。
 
 **声明**
-```c++
+
+```
 bool valid() const noexcept;
 ```
 
@@ -4069,12 +4311,13 @@ bool valid() const noexcept;
 **抛出**<br>
 无
 
-####std::shared_future::wait 成员函数
+#### std::shared_future::wait 成员函数
 
 当*this关联状态包含一个延期函数，那么调用这个函数。否则，等待直到与`std::shared_future`实例相关的异步结果就绪为止。
 
 **声明**
-```c++
+
+```
 void wait() const;
 ```
 
@@ -4087,12 +4330,13 @@ this->valid()将返回true。
 **抛出**<br>
 无
 
-####std::shared_future::wait_for 成员函数
+#### std::shared_future::wait_for 成员函数
 
 等待`std::shared_future`实例上相关异步结果准备就绪，或超过某个给定的时间。
 
 **声明**
-```c++
+
+```
 template<typename Rep,typename Period>
 future_status wait_for(
     std::chrono::duration<Rep,Period> const& relative_time) const;
@@ -4112,12 +4356,13 @@ future_status wait_for(
 **抛出**<br>
 无
 
-####std::shared_future::wait_until 成员函数
+#### std::shared_future::wait_until 成员函数
 
 等待`std::future`实例上相关异步结果准备就绪，或超过某个给定的时间。
 
 **声明**
-```c++
+
+```
 template<typename Clock,typename Duration>
 future_status wait_until(
   std::chrono::time_point<Clock,Duration> const& absolute_time) const;
@@ -4137,12 +4382,13 @@ this->valid()将返回true。
 **抛出**<br>
 无
 
-####std::shared_future::get 成员函数
+#### std::shared_future::get 成员函数
 
 当相关状态包含一个`std::async`调用的延迟函数，调用该延迟函数，并返回结果；否则，等待与`std::shared_future`实例相关的异步结果准备就绪，之后返回存储的值或异常。
 
 **声明**
-```c++
+
+```
 void shared_future<void>::get() const;
 R& shared_future<R&>::get() const;
 R const& shared_future<R>::get() const;
@@ -4162,14 +4408,15 @@ this->valid()将返回true。
 **抛出**<br>
 抛出存储的异常(如果有的话)。
 
-###D.4.3 std::packaged_task类型模板
+### D.4.3 std::packaged_task类型模板
 
 `std::packaged_task`类型模板可打包一个函数或其他可调用对象，所以当函数通过`std::packaged_task`实例被调用时，结果将会作为异步结果。这个结果可以通过检索`std::future`实例来查找。
 
 `std::packaged_task`实例是可以MoveConstructible(移动构造)和MoveAssignable(移动赋值)，不过不能CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
 
 **类型定义**
-```c++
+
+```
 template<typename FunctionType>
 class packaged_task; // undefined
 
@@ -4202,12 +4449,13 @@ public:
 };
 ```
 
-####std::packaged_task 默认构造函数
+#### std::packaged_task 默认构造函数
 
 构造一个`std::packaged_task`对象。
 
 **声明**
-```c++
+
+```
 packaged_task() noexcept;
 ```
 
@@ -4217,12 +4465,13 @@ packaged_task() noexcept;
 **抛出**<br>
 无
 
-####std::packaged_task 通过可调用对象构造
+#### std::packaged_task 通过可调用对象构造
 
 使用关联任务和异步结果，构造一个`std::packaged_task`对象。
 
 **声明**
-```c++
+
+```
 template<typename Callable>
 packaged_task(Callable&& func);
 ```
@@ -4236,12 +4485,13 @@ packaged_task(Callable&& func);
 **抛出**<br>
 当构造函数无法为异步结果分配出内存时，会抛出`std::bad_alloc`类型的异常。其他异常会在使用Callable类型的拷贝或移动构造过程中抛出。
 
-####std::packaged_task 通过有分配器的可调用对象构造
+#### std::packaged_task 通过有分配器的可调用对象构造
 
 使用关联任务和异步结果，构造一个`std::packaged_task`对象。使用以提供的分配器为关联任务和异步结果分配内存。
 
 **声明**
-```c++
+
+```
 template<typename Allocator,typename Callable>
 packaged_task(
     std::allocator_arg_t, Allocator const& alloc,Callable&& func);
@@ -4256,12 +4506,13 @@ packaged_task(
 **抛出**<br>
 当构造函数无法为异步结果分配出内存时，会抛出`std::bad_alloc`类型的异常。其他异常会在使用Callable类型的拷贝或移动构造过程中抛出。
 
-####std::packaged_task 移动构造函数
+#### std::packaged_task 移动构造函数
 
 通过一个`std::packaged_task`对象构建另一个，将与已存在的`std::packaged_task`相关的异步结果和任务的所有权转移到新构建的对象当中。
 
 **声明**
-```c++
+
+```
 packaged_task(packaged_task&& other) noexcept;
 ```
 
@@ -4274,12 +4525,13 @@ packaged_task(packaged_task&& other) noexcept;
 **抛出**<br>
 无
 
-####std::packaged_task 移动赋值操作
+#### std::packaged_task 移动赋值操作
 
 将一个`std::packaged_task`对象相关的异步结果的所有权转移到另外一个。
 
 **声明**
-```c++
+
+```
 packaged_task& operator=(packaged_task&& other) noexcept;
 ```
 
@@ -4290,19 +4542,21 @@ packaged_task& operator=(packaged_task&& other) noexcept;
 与other相关的异步结果与任务移动转移，使*this.other无关联的异步结果。
 
 **返回**
-```c++
+
+```
 *this
 ```
 
 **抛出**<br>
 无
 
-####std::packaged_task::swap 成员函数
+#### std::packaged_task::swap 成员函数
 
 将两个`std::packaged_task`对象所关联的异步结果的所有权进行交换。
 
 **声明**
-```c++
+
+```
 void swap(packaged_task& other) noexcept;
 ```
 
@@ -4315,12 +4569,13 @@ void swap(packaged_task& other) noexcept;
 **抛出**<br>
 无
 
-####std::packaged_task 析构函数
+#### std::packaged_task 析构函数
 
 销毁一个`std::packaged_task`对象。
 
 **声明**
-```c++
+
+```
 ~packaged_task();
 ```
 
@@ -4330,12 +4585,13 @@ void swap(packaged_task& other) noexcept;
 **抛出**<br>
 无
 
-####std::packaged_task::get_future 成员函数
+#### std::packaged_task::get_future 成员函数
 
 在*this相关异步结果中，检索一个`std::future`实例。
 
 **声明**
-```c++
+
+```
 std::future<ResultType> get_future();
 ```
 
@@ -4348,12 +4604,13 @@ std::future<ResultType> get_future();
 **抛出**<br>
 如果一个`std::future`已经通过get_future()获取了异步结果，在抛出`std::future_error`异常时，错误码是`std::future_errc::future_already_retrieved`
 
-####std::packaged_task::reset 成员函数
+#### std::packaged_task::reset 成员函数
 
 将一个`std::packaged_task`对实例与一个新的异步结果相关联。
 
 **声明**
-```c++
+
+```
 void reset();
 ```
 
@@ -4366,12 +4623,13 @@ void reset();
 **抛出**<br>
 如果内存不足以分配给新的异构结果，那么将会抛出`std::bad_alloc`类异常。
 
-####std::packaged_task::valid 成员函数
+#### std::packaged_task::valid 成员函数
 
 检查*this中是都具有关联任务和异步结果。
 
 **声明**
-```c++
+
+```
 bool valid() const noexcept;
 ```
 
@@ -4381,12 +4639,13 @@ bool valid() const noexcept;
 **抛出**<br>
 无
 
-####std::packaged_task::operator() 函数调用操作
+#### std::packaged_task::operator() 函数调用操作
 
 调用一个`std::packaged_task`实例中的相关任务，并且存储返回值，或将异常存储到异常结果当中。
 
 **声明**
-```c++
+
+```
 void operator()(ArgTypes... args);
 ```
 
@@ -4405,12 +4664,13 @@ void operator()(ArgTypes... args);
 **同步**<br>
 `std::future<ResultType>::get()`或`std::shared_future<ResultType>::get()`的成功调用，代表同步操作的成功，函数将会检索异步结果中的值或异常。
 
-####std::packaged_task::make_ready_at_thread_exit 成员函数
+#### std::packaged_task::make_ready_at_thread_exit 成员函数
 
 调用一个`std::packaged_task`实例中的相关任务，并且存储返回值，或将异常存储到异常结果当中，直到线程退出时，将相关异步结果的状态置为就绪。
 
 **声明**
-```c++
+
+```
 void make_ready_at_thread_exit(ArgTypes... args);
 ```
 
@@ -4429,7 +4689,7 @@ void make_ready_at_thread_exit(ArgTypes... args);
 **同步**<br>
 `std::future<ResultType>::get()`或`std::shared_future<ResultType>::get()`在线程上的成功调用，代表同步操作的成功，函数将会检索异步结果中的值或异常。
 
-###D.4.4 std::promise类型模板
+### D.4.4 std::promise类型模板
 
 `std::promise`类型模板提供设置异步结果的方法，这样其他线程就可以通过`std::future`实例来索引该结果。
 
@@ -4440,7 +4700,8 @@ ResultType模板参数，该类型可以存储异步结果。
 `std::promise`实例是可以MoveConstructible(移动构造)和MoveAssignable(移动赋值)，但是不能CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
 
 **类型定义**
-```c++
+
+```
 template<typename ResultType>
 class promise
 {
@@ -4465,12 +4726,13 @@ public:
 };
 ```
 
-####std::promise 默认构造函数
+#### std::promise 默认构造函数
 
 构造一个`std::promise`对象。
 
 **声明**
-```c++
+
+```
 promise();
 ```
 
@@ -4480,12 +4742,13 @@ promise();
 **抛出**<br>
 当没有足够内存为异步结果进行分配，那么将抛出`std::bad_alloc`型异常。
 
-####std::promise 带分配器的构造函数
+#### std::promise 带分配器的构造函数
 
 构造一个`std::promise`对象，使用提供的分配器来为相关异步结果分配内存。
 
 **声明**
-```c++
+
+```
 template<typename Allocator>
 promise(std::allocator_arg_t, Allocator const& alloc);
 ```
@@ -4496,12 +4759,13 @@ promise(std::allocator_arg_t, Allocator const& alloc);
 **抛出**<br>
 当分配器为异步结果分配内存时，如有抛出异常，就为该函数抛出的异常。
 
-####std::promise 移动构造函数
+#### std::promise 移动构造函数
 
 通过另一个已存在对象，构造一个`std::promise`对象。将已存在对象中的相关异步结果的所有权转移到新创建的`std::promise`对象当中。
 
 **声明**
-```c++
+
+```
 promise(promise&& other) noexcept;
 ```
 
@@ -4514,12 +4778,13 @@ promise(promise&& other) noexcept;
 **抛出**<br>
 无
 
-####std::promise 移动赋值操作符
+#### std::promise 移动赋值操作符
 
 在两个`std::promise`实例中转移异步结果的所有权。
 
 **声明**
-```c++
+
+```
 promise& operator=(promise&& other) noexcept;
 ```
 
@@ -4530,19 +4795,21 @@ promise& operator=(promise&& other) noexcept;
 将other中关联的异步结果转移到*this当中。other中将无关联异步结果。
 
 **返回**<br>
-```c++
+
+```
 *this
 ```
 
 **抛出**<br>
 无
 
-####std::promise::swap 成员函数
+#### std::promise::swap 成员函数
 
 将两个`std::promise`实例中的关联异步结果进行交换。
 
 **声明**
-```c++
+
+```
 void swap(promise& other);
 ```
 
@@ -4555,12 +4822,13 @@ void swap(promise& other);
 **抛出**<br>
 无
 
-####std::promise 析构函数
+#### std::promise 析构函数
 
 销毁`std::promise`对象。
 
 **声明**
-```c++
+
+```
 ~promise();
 ```
 
@@ -4570,12 +4838,13 @@ void swap(promise& other);
 **抛出**<br>
 无
 
-####std::promise::get_future 成员函数
+#### std::promise::get_future 成员函数
 
 通过*this关联的异步结果，检索出所要的`std::future`实例。
 
 **声明**
-```c++
+
+```
 std::future<ResultType> get_future();
 ```
 
@@ -4588,12 +4857,13 @@ std::future<ResultType> get_future();
 **抛出**<br>
 当`std::future`已经通过get_future()获取过了，将会抛出一个`std::future_error`类型异常，伴随的错误码为`std::future_errc::future_already_retrieved`。
 
-####std::promise::set_value 成员函数
+#### std::promise::set_value 成员函数
 
 存储一个值到与*this关联的异步结果中。
 
 **声明**
-```c++
+
+```
 void promise<void>::set_value();
 void promise<R&>::set_value(R& r);
 void promise<R>::set_value(R const& r);
@@ -4615,12 +4885,13 @@ void promise<R>::set_value(R&& r);
 **同步**<br>
 并发调用set_value()和set_exception()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
 
-####std::promise::set_value_at_thread_exit 成员函数
+#### std::promise::set_value_at_thread_exit 成员函数
 
 存储一个值到与*this关联的异步结果中，到线程退出时，异步结果的状态会被设置为就绪。
 
 **声明**
-```c++
+
+```
 void promise<void>::set_value_at_thread_exit();
 void promise<R&>::set_value_at_thread_exit(R& r);
 void promise<R>::set_value_at_thread_exit(R const& r);
@@ -4642,12 +4913,13 @@ void promise<R>::set_value_at_thread_exit(R&& r);
 **同步**<br>
 并发调用set_value(), set_value_at_thread_exit(), set_exception()和set_exception_at_thread_exit()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
 
-####std::promise::set_exception 成员函数
+#### std::promise::set_exception 成员函数
 
 存储一个异常到与*this关联的异步结果中。
 
 **声明**
-```c++
+
+```
 void set_exception(std::exception_ptr e);
 ```
 
@@ -4666,12 +4938,13 @@ void set_exception(std::exception_ptr e);
 **同步**<br>
 并发调用set_value()和set_exception()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
 
-####std::promise::set_exception_at_thread_exit 成员函数
+#### std::promise::set_exception_at_thread_exit 成员函数
 
 存储一个异常到与*this关联的异步结果中，知道当前线程退出，异步结果被置为就绪。
 
 **声明**
-```c++
+
+```
 void set_exception_at_thread_exit(std::exception_ptr e);
 ```
 
@@ -4690,12 +4963,13 @@ void set_exception_at_thread_exit(std::exception_ptr e);
 **同步**<br>
 并发调用set_value(), set_value_at_thread_exit(), set_exception()和set_exception_at_thread_exit()的线程将被序列化。要想成功的调用set_exception()，需要在之前调用`std::future<Result-Type>::get()`或`std::shared_future<ResultType>::get()`，这两个函数将会查找已存储的异常。
 
-###D.4.5 std::async函数模板
+### D.4.5 std::async函数模板
 
 `std::async`能够简单的使用可用的硬件并行来运行自身包含的异步任务。当调用`std::async`返回一个包含任务结果的`std::future`对象。根据投放策略，任务在其所在线程上是异步运行的，当有线程调用了这个future对象的wait()和get()成员函数，则该任务会同步运行。
 
 **声明**
-```c++
+
+```
 enum class launch
 {
   async,deferred
@@ -4732,12 +5006,13 @@ async(launch policy,Callable&& func,Args&& ... args);
 **抛出**<br>
 当内部存储无法分配所需的空间，将抛出`std::bad_alloc`类型异常；否则，当效果没有达到，或任何异常在构造fff和xyz...发生时，抛出`std::future_error`异常。
 
-##D.5 &lt;mutex&gt;头文件
+## D.5 &lt;mutex&gt;头文件
 
 `<mutex>`头文件提供互斥工具：互斥类型，锁类型和函数，还有确保操作只执行一次的机制。
 
 **头文件内容**
-```c++
+
+```
 namespace std
 {
   class mutex;
@@ -4772,14 +5047,15 @@ namespace std
 }
 ```
 
-###D.5.1 std::mutex类
+### D.5.1 std::mutex类
 
 `std::mutex`类型为线程提供基本的互斥和同步工具，这些工具可以用来保护共享数据。互斥量可以用来保护数据，互斥量上锁必须要调用lok()或try_lock()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，具体酌情而定。当线程完成对共享数据的访问，之后就必须调用unlock()对锁进行释放，并且允许其他线程来访问这个共享数据。
 
 `std::mutex`符合Lockable的需求。
 
 **类型定义**
-```c++
+
+```
 class mutex
 {
 public:
@@ -4795,12 +5071,13 @@ public:
 };
 ```
 
-####std::mutex 默认构造函数
+#### std::mutex 默认构造函数
 
 构造一个`std::mutex`对象。
 
 **声明**
-```c++
+
+```
 constexpr mutex() noexcept;
 ```
 
@@ -4813,12 +5090,13 @@ constexpr mutex() noexcept;
 **抛出**<br>
 无
 
-####std::mutex 析构函数
+#### std::mutex 析构函数
 
 销毁一个`std::mutex`对象。
 
 **声明**
-```c++
+
+```
 ~mutex();
 ```
 
@@ -4831,12 +5109,13 @@ constexpr mutex() noexcept;
 **抛出**<br>
 无
 
-####std::mutex::lock 成员函数
+#### std::mutex::lock 成员函数
 
 为当前线程获取`std::mutex`上的锁。
 
 **声明**
-```c++
+
+```
 void lock();
 ```
 
@@ -4852,12 +5131,13 @@ void lock();
 **抛出**<br>
 当有错误产生，抛出`std::system_error`类型异常。
 
-####std::mutex::try_lock 成员函数
+#### std::mutex::try_lock 成员函数
 
 尝试为当前线程获取`std::mutex`上的锁。
 
 **声明**
-```c++
+
+```
 bool try_lock();
 ```
 
@@ -4878,12 +5158,13 @@ bool try_lock();
 
 **NOTE** 该函数在获取锁时，可能失败(并返回false)，即使没有其他线程持有*this上的锁。
 
-####std::mutex::unlock 成员函数
+#### std::mutex::unlock 成员函数
 
 释放当前线程获取的`std::mutex`锁。
 
 **声明**
-```c++
+
+```
 void unlock();
 ```
 
@@ -4899,7 +5180,7 @@ void unlock();
 **抛出**<br>
 无
 
-###D.5.2 std::recursive_mutex类
+### D.5.2 std::recursive_mutex类
 
 `std::recursive_mutex`类型为线程提供基本的互斥和同步工具，可以用来保护共享数据。互斥量可以用来保护数据，互斥量上锁必须要调用lok()或try_lock()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，具体酌情而定。当线程完成对共享数据的访问，之后就必须调用unlock()对锁进行释放，并且允许其他线程来访问这个共享数据。
 
@@ -4908,7 +5189,8 @@ void unlock();
 `std::recursive_mutex`符合Lockable的需求。
 
 **类型定义**
-```c++
+
+```
 class recursive_mutex
 {
 public:
@@ -4924,12 +5206,13 @@ public:
 };
 ```
 
-####std::recursive_mutex 默认构造函数
+#### std::recursive_mutex 默认构造函数
 
 构造一个`std::recursive_mutex`对象。
 
 **声明**
-```c++
+
+```
 recursive_mutex() noexcept;
 ```
 
@@ -4942,12 +5225,13 @@ recursive_mutex() noexcept;
 **抛出**<br>
 当无法创建一个新的`std::recursive_mutex`时，抛出`std::system_error`异常。
 
-####std::recursive_mutex 析构函数
+#### std::recursive_mutex 析构函数
 
 销毁一个`std::recursive_mutex`对象。
 
 **声明**
-```c++
+
+```
 ~recursive_mutex();
 ```
 
@@ -4960,12 +5244,13 @@ recursive_mutex() noexcept;
 **抛出**<br>
 无
 
-####std::recursive_mutex::lock 成员函数
+#### std::recursive_mutex::lock 成员函数
 
 为当前线程获取`std::recursive_mutex`上的锁。
 
 **声明**
-```c++
+
+```
 void lock();
 ```
 
@@ -4978,12 +5263,13 @@ void lock();
 **抛出**<br>
 当有错误产生，将抛出`std::system_error`异常。
 
-####std::recursive_mutex::try_lock 成员函数
+#### std::recursive_mutex::try_lock 成员函数
 
 尝试为当前线程获取`std::recursive_mutex`上的锁。
 
 **声明**
-```c++
+
+```
 bool try_lock() noexcept;
 ```
 
@@ -5001,12 +5287,13 @@ bool try_lock() noexcept;
 
 **NOTE** 该函数在获取锁时，当函数返回true时，`*this`上对锁的计数会加一。如果当前线程还未获取`*this`上的锁，那么该函数在获取锁时，可能失败(并返回false)，即使没有其他线程持有`*this`上的锁。
 
-####std::recursive_mutex::unlock 成员函数
+#### std::recursive_mutex::unlock 成员函数
 
 释放当前线程获取的`std::recursive_mutex`锁。
 
 **声明**
-```c++
+
+```
 void unlock();
 ```
 
@@ -5022,14 +5309,15 @@ void unlock();
 **抛出**<br>
 无
 
-###D.5.3 std::timed_mutex类
+### D.5.3 std::timed_mutex类
 
 `std::timed_mutex`类型在`std::mutex`基本互斥和同步工具的基础上，让锁支持超时。互斥量可以用来保护数据，互斥量上锁必须要调用lok(),try_lock_for(),或try_lock_until()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，或直到想要获取锁可以获取，亦或想要获取的锁超时(调用try_lock_for()或try_lock_until())。在线程调用unlock()对锁进行释放，其他线程才能获取这个锁被获取(不管是调用的哪个函数)。
 
 `std::timed_mutex`符合TimedLockable的需求。
 
 **类型定义**
-```c++
+
+```
 class timed_mutex
 {
 public:
@@ -5053,12 +5341,13 @@ public:
 };
 ```
 
-####std::timed_mutex 默认构造函数
+#### std::timed_mutex 默认构造函数
 
 构造一个`std::timed_mutex`对象。
 
 **声明**
-```c++
+
+```
 timed_mutex();
 ```
 
@@ -5071,12 +5360,13 @@ timed_mutex();
 **抛出**<br>
 当无法创建出新的`std::timed_mutex`实例时，抛出`std::system_error`类型异常。
 
-####std::timed_mutex 析构函数
+#### std::timed_mutex 析构函数
 
 销毁一个`std::timed_mutex`对象。
 
 **声明**
-```c++
+
+```
 ~timed_mutex();
 ```
 
@@ -5089,12 +5379,13 @@ timed_mutex();
 **抛出**<br>
 无
 
-####std::timed_mutex::lock 成员函数
+#### std::timed_mutex::lock 成员函数
 
 为当前线程获取`std::timed_mutex`上的锁。
 
 **声明**
-```c++
+
+```
 void lock();
 ```
 
@@ -5110,12 +5401,13 @@ void lock();
 **抛出**<br>
 当有错误产生，抛出`std::system_error`类型异常。
 
-####std::timed_mutex::try_lock 成员函数
+#### std::timed_mutex::try_lock 成员函数
 
 尝试获取为当前线程获取`std::timed_mutex`上的锁。
 
 **声明**
-```c++
+
+```
 bool try_lock();
 ```
 
@@ -5136,12 +5428,13 @@ bool try_lock();
 
 **NOTE** 即使没有线程已获取*this上的锁，函数还是有可能获取不到锁(并返回false)。
 
-####std::timed_mutex::try_lock_for 成员函数
+#### std::timed_mutex::try_lock_for 成员函数
 
 尝试获取为当前线程获取`std::timed_mutex`上的锁。
 
 **声明**
-```c++
+
+```
 template<typename Rep,typename Period>
 bool try_lock_for(
     std::chrono::duration<Rep,Period> const& relative_time);
@@ -5164,12 +5457,13 @@ bool try_lock_for(
 
 **NOTE** 即使没有线程已获取*this上的锁，函数还是有可能获取不到锁(并返回false)。线程阻塞的时长可能会长于给定的时间。逝去的时间可能是由一个稳定时钟所决定。
 
-####std::timed_mutex::try_lock_until 成员函数
+#### std::timed_mutex::try_lock_until 成员函数
 
 尝试获取为当前线程获取`std::timed_mutex`上的锁。
 
 **声明**
-```c++
+
+```
 template<typename Clock,typename Duration>
 bool try_lock_until(
     std::chrono::time_point<Clock,Duration> const& absolute_time);
@@ -5192,12 +5486,13 @@ bool try_lock_until(
 
 **NOTE** 即使没有线程已获取*this上的锁，函数还是有可能获取不到锁(并返回false)。这里不保证调用函数要阻塞多久，只有在函数返回false后，在Clock::now()返回的时间大于或等于absolute_time时，线程才会接触阻塞。
 
-####std::timed_mutex::unlock 成员函数
+#### std::timed_mutex::unlock 成员函数
 
 将当前线程持有`std::timed_mutex`对象上的锁进行释放。
 
 **声明**
-```c++
+
+```
 void unlock();
 ```
 
@@ -5213,7 +5508,7 @@ void unlock();
 **抛出**<br>
 无
 
-###D.5.4 std::recursive_timed_mutex类
+### D.5.4 std::recursive_timed_mutex类
 
 `std::recursive_timed_mutex`类型在`std::recursive_mutex`提供的互斥和同步工具的基础上，让锁支持超时。互斥量可以用来保护数据，互斥量上锁必须要调用lok(),try_lock_for(),或try_lock_until()。当有一个线程获取已经获取了锁，那么其他线程想要在获取锁的时候，会在尝试或取锁的时候失败(调用try_lock())或阻塞(调用lock())，或直到想要获取锁可以获取，亦或想要获取的锁超时(调用try_lock_for()或try_lock_until())。在线程调用unlock()对锁进行释放，其他线程才能获取这个锁被获取(不管是调用的哪个函数)。
 
@@ -5222,7 +5517,8 @@ void unlock();
 `std::recursive_timed_mutex`符合TimedLockable的需求。
 
 **类型定义**
-```c++
+
+```
 class recursive_timed_mutex
 {
 public:
@@ -5246,12 +5542,13 @@ public:
 };
 ```
 
-####std::recursive_timed_mutex 默认构造函数
+#### std::recursive_timed_mutex 默认构造函数
 
 构造一个`std::recursive_timed_mutex`对象。
 
 **声明**
-```c++
+
+```
 recursive_timed_mutex();
 ```
 
@@ -5264,12 +5561,13 @@ recursive_timed_mutex();
 **抛出**<br>
 当无法创建一个`std::recursive_timed_mutex`实例时，抛出`std::system_error`类异常。
 
-####std::recursive_timed_mutex 析构函数
+#### std::recursive_timed_mutex 析构函数
 
 析构一个`std::recursive_timed_mutex`对象。
 
 **声明**
-```c++
+
+```
 ~recursive_timed_mutex();
 ```
 
@@ -5282,12 +5580,13 @@ recursive_timed_mutex();
 **抛出**<br>
 无
 
-####std::recursive_timed_mutex::lock 成员函数
+#### std::recursive_timed_mutex::lock 成员函数
 
 为当前线程获取`std::recursive_timed_mutex`对象上的锁。
 
 **声明**
-```c++
+
+```
 void lock();
 ```
 
@@ -5303,12 +5602,13 @@ void lock();
 **抛出**<br>
 当错误出现时，抛出`std::system_error`类型异常。
 
-####std::recursive_timed_mutex::try_lock 成员函数
+#### std::recursive_timed_mutex::try_lock 成员函数
 
 尝试为当前线程获取`std::recursive_timed_mutex`对象上的锁。
 
 **声明**
-```c++
+
+```
 bool try_lock() noexcept;
 ```
 
@@ -5326,12 +5626,13 @@ bool try_lock() noexcept;
 
 **NOTE** 该函数在获取锁时，当函数返回true时，`*this`上对锁的计数会加一。如果当前线程还未获取`*this`上的锁，那么该函数在获取锁时，可能失败(并返回false)，即使没有其他线程持有`*this`上的锁。
 
-####std::recursive_timed_mutex::try_lock_for 成员函数
+#### std::recursive_timed_mutex::try_lock_for 成员函数
 
 尝试为当前线程获取`std::recursive_timed_mutex`对象上的锁。
 
 **声明**
-```c++
+
+```
 template<typename Rep,typename Period>
 bool try_lock_for(
     std::chrono::duration<Rep,Period> const& relative_time);
@@ -5351,12 +5652,13 @@ bool try_lock_for(
 
 **NOTE** 该函数在获取锁时，当函数返回true时，`*this`上对锁的计数会加一。如果当前线程还未获取`*this`上的锁，那么该函数在获取锁时，可能失败(并返回false)，即使没有其他线程持有`*this`上的锁。等待时间可能要比指定的时间长很多。逝去的时间可能由一个稳定时钟来计算。
 
-####std::recursive_timed_mutex::try_lock_until 成员函数
+#### std::recursive_timed_mutex::try_lock_until 成员函数
 
 尝试为当前线程获取`std::recursive_timed_mutex`对象上的锁。
 
 **声明**
-```c++
+
+```
 template<typename Clock,typename Duration>
 bool try_lock_until(
     std::chrono::time_point<Clock,Duration> const& absolute_time);
@@ -5376,12 +5678,13 @@ bool try_lock_until(
 
 **NOTE** 该函数在获取锁时，当函数返回true时，`*this`上对锁的计数会加一。如果当前线程还未获取`*this`上的锁，那么该函数在获取锁时，可能失败(并返回false)，即使没有其他线程持有`*this`上的锁。这里阻塞的时间并不确定，只有当函数返回false，然后Clock::now()返回的时间大于或等于absolute_time时，调用线程将会解除阻塞。
 
-####std::recursive_timed_mutex::unlock 成员函数
+#### std::recursive_timed_mutex::unlock 成员函数
 
 释放当前线程获取到的`std::recursive_timed_mutex`上的锁。
 
 **声明**
-```c++
+
+```
 void unlock();
 ```
 
@@ -5394,14 +5697,15 @@ void unlock();
 **抛出**<br>
 无
 
-###D.5.5 std::lock_guard类型模板
+### D.5.5 std::lock_guard类型模板
 
 `std::lock_guard`类型模板为基础锁包装所有权。所要上锁的互斥量类型，由模板参数Mutex来决定，并且必须符合Lockable的需求。指定的互斥量在构造函数中上锁，在析构函数中解锁。这就为互斥量锁部分代码提供了一个简单的方式；当程序运行完成时，阻塞解除，互斥量解锁(无论是执行到最后，还是通过控制流语句break或return，亦或是抛出异常)。
 
 `std::lock_guard`是不可MoveConstructible(移动构造), CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
 
 **类型定义**
-```c++
+
+```
 template <class Mutex>
 class lock_guard
 {
@@ -5417,12 +5721,13 @@ public:
 };
 ```
 
-####std::lock_guard 自动上锁的构造函数
+#### std::lock_guard 自动上锁的构造函数
 
 使用互斥量构造一个`std::lock_guard`实例。
 
 **声明**
-```c++
+
+```
 explicit lock_guard(mutex_type& m);
 ```
 
@@ -5435,12 +5740,13 @@ m.lock()抛出的任何异常。
 **后置条件**<br>
 *this拥有m上的锁。
 
-####std::lock_guard 获取锁的构造函数
+#### std::lock_guard 获取锁的构造函数
 
 使用已提供互斥量上的锁，构造一个`std::lock_guard`实例。
 
 **声明**
-```c++
+
+```
 lock_guard(mutex_type& m,std::adopt_lock_t);
 ```
 
@@ -5456,12 +5762,13 @@ lock_guard(mutex_type& m,std::adopt_lock_t);
 **后置条件**<br>
 *this拥有m上的锁。
 
-####std::lock_guard 析构函数
+#### std::lock_guard 析构函数
 
 销毁一个`std::lock_guard`实例，并且解锁相关互斥量。
 
 **声明**
-```c++
+
+```
 ~lock_guard();
 ```
 
@@ -5471,7 +5778,7 @@ lock_guard(mutex_type& m,std::adopt_lock_t);
 **抛出**<br>
 无
 
-###D.5.6 std::unique_lock类型模板
+### D.5.6 std::unique_lock类型模板
 
 `std::unique_lock`类型模板相较`std::loc_guard`提供了更通用的所有权包装器。上锁的互斥量可由模板参数Mutex提供，这个类型必须满足BasicLockable的需求。虽然，通常情况下，制定的互斥量会在构造的时候上锁，析构的时候解锁，但是附加的构造函数和成员函数提供灵活的功能。互斥量上锁，意味着对操作同一段代码的线程进行阻塞；当互斥量解锁，就意味着阻塞解除(不论是裕兴到最后，还是使用控制语句break和return，亦或是抛出异常)。`std::condition_variable`的邓丹函数是需要`std::unique_lock<std::mutex>`实例的，并且所有`std::unique_lock`实例都适用于`std::conditin_variable_any`等待函数的Lockable参数。
 
@@ -5480,7 +5787,8 @@ lock_guard(mutex_type& m,std::adopt_lock_t);
 `std::unique_lock`实例是MoveConstructible(移动构造)和MoveAssignable(移动赋值)，但是不能CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)。
 
 **类型定义**
-```c++
+
+```
 template <class Mutex>
 class unique_lock
 {
@@ -5530,12 +5838,13 @@ public:
 };
 ```
 
-####std::unique_lock 默认构造函数
+#### std::unique_lock 默认构造函数
 
 不使用相关互斥量，构造一个`std::unique_lock`实例。
 
 **声明**
-```c++
+
+```
 unique_lock() noexcept;
 ```
 
@@ -5545,12 +5854,13 @@ unique_lock() noexcept;
 **后置条件**<br>
 this->mutex()==NULL, this->owns_lock()==false.
 
-####std::unique_lock 自动上锁的构造函数
+#### std::unique_lock 自动上锁的构造函数
 
 使用相关互斥量，构造一个`std::unique_lock`实例。
 
 **声明**
-```c++
+
+```
 explicit unique_lock(mutex_type& m);
 ```
 
@@ -5563,12 +5873,13 @@ m.lock()抛出的任何异常。
 **后置条件**<br>
 this->owns_lock()==true, this->mutex()==&m.
 
-####std::unique_lock 获取锁的构造函数
+#### std::unique_lock 获取锁的构造函数
 
 使用相关互斥量和持有的锁，构造一个`std::unique_lock`实例。
 
 **声明**
-```c++
+
+```
 unique_lock(mutex_type& m,std::adopt_lock_t);
 ```
 
@@ -5584,12 +5895,13 @@ unique_lock(mutex_type& m,std::adopt_lock_t);
 **后置条件**<br>
 this->owns_lock()==true, this->mutex()==&m.
 
-####std::unique_lock 递延锁的构造函数
+#### std::unique_lock 递延锁的构造函数
 
 使用相关互斥量和非持有的锁，构造一个`std::unique_lock`实例。
 
 **声明**
-```c++
+
+```
 unique_lock(mutex_type& m,std::defer_lock_t) noexcept;
 ```
 
@@ -5602,12 +5914,13 @@ unique_lock(mutex_type& m,std::defer_lock_t) noexcept;
 **后置条件**<br>
 this->owns_lock()==false, this->mutex()==&m.
 
-####std::unique_lock 尝试获取锁的构造函数
+#### std::unique_lock 尝试获取锁的构造函数
 
 使用提供的互斥量，并尝试从互斥量上获取锁，从而构造一个`std::unique_lock`实例。
 
 **声明**
-```c++
+
+```
 unique_lock(mutex_type& m,std::try_to_lock_t);
 ```
 
@@ -5623,12 +5936,13 @@ unique_lock(mutex_type& m,std::try_to_lock_t);
 **后置条件**<br>
 this->owns_lock()将返回m.try_lock()的结果，且this->mutex()==&m。
 
-####std::unique_lock 在给定时长内尝试获取锁的构造函数
+#### std::unique_lock 在给定时长内尝试获取锁的构造函数
 
 使用提供的互斥量，并尝试从互斥量上获取锁，从而构造一个`std::unique_lock`实例。
 
 **声明**
-```c++
+
+```
 template<typename Rep,typename Period>
 unique_lock(
     mutex_type& m,
@@ -5647,12 +5961,13 @@ unique_lock(
 **后置条件**<br>
 this->owns_lock()将返回m.try_lock_for()的结果，且this->mutex()==&m。
 
-####std::unique_lock 在给定时间点内尝试获取锁的构造函数
+#### std::unique_lock 在给定时间点内尝试获取锁的构造函数
 
 使用提供的互斥量，并尝试从互斥量上获取锁，从而构造一个`std::unique_lock`实例。
 
 **声明**
-```c++
+
+```
 template<typename Clock,typename Duration>
 unique_lock(
     mutex_type& m,
@@ -5671,12 +5986,13 @@ unique_lock(
 **后置条件**<br>
 this->owns_lock()将返回m.try_lock_until()的结果，且this->mutex()==&m。
 
-####std::unique_lock 移动构造函数
+#### std::unique_lock 移动构造函数
 
 将一个已经构造`std::unique_lock`实例的所有权，转移到新的`std::unique_lock`实例上去。
 
 **声明**
-```c++
+
+```
 unique_lock(unique_lock&& other) noexcept;
 ```
 
@@ -5694,12 +6010,13 @@ unique_lock(unique_lock&& other) noexcept;
 
 **NOTE** `std::unique_lock`对象是不可CopyConstructible(拷贝构造)，所以这里没有拷贝构造函数，只有移动构造函数。
 
-####std::unique_lock 移动赋值操作
+#### std::unique_lock 移动赋值操作
 
 将一个已经构造`std::unique_lock`实例的所有权，转移到新的`std::unique_lock`实例上去。
 
 **声明**
-```c++
+
+```
 unique_lock& operator=(unique_lock&& other) noexcept;
 ```
 
@@ -5714,12 +6031,13 @@ this->mutex()等于在为进行赋值前的other.mutex()，并且this->owns_lock
 
 **NOTE** `std::unique_lock`对象是不可CopyAssignable(拷贝赋值)，所以这里没有拷贝赋值函数，只有移动赋值函数。
 
-####std::unique_lock 析构函数
+#### std::unique_lock 析构函数
 
 销毁一个`std::unique_lock`实例，如果该实例拥有锁，那么会将相关互斥量进行解锁。
 
 **声明**
-```c++
+
+```
 ~unique_lock();
 ```
 
@@ -5729,12 +6047,13 @@ this->mutex()等于在为进行赋值前的other.mutex()，并且this->owns_lock
 **抛出**<br>
 无
 
-####std::unique_lock::swap 成员函数
+#### std::unique_lock::swap 成员函数
 
 交换`std::unique_lock`实例中相关的所有权。
 
 **声明**
-```c++
+
+```
 void swap(unique_lock& other) noexcept;
 ```
 
@@ -5744,12 +6063,13 @@ void swap(unique_lock& other) noexcept;
 **抛出**<br>
 无
 
-####std::unique_lock 上非成员函数swap
+#### std::unique_lock 上非成员函数swap
 
 交换`std::unique_lock`实例中相关的所有权。
 
 **声明**
-```c++
+
+```
 void swap(unique_lock& lhs,unique_lock& rhs) noexcept;
 ```
 
@@ -5759,12 +6079,13 @@ lhs.swap(rhs)
 **抛出**<br>
 无
 
-####std::unique_lock::lock 成员函数
+#### std::unique_lock::lock 成员函数
 
 获取与*this相关互斥量上的锁。
 
 **声明**
-```c++
+
+```
 void lock();
 ```
 
@@ -5780,12 +6101,13 @@ this->mutex()!=NULL, this->owns_lock()==false.
 **后置条件**<br>
 this->owns_lock()==true。
 
-####std::unique_lock::try_lock 成员函数
+#### std::unique_lock::try_lock 成员函数
 
 尝试获取与*this相关互斥量上的锁。
 
 **声明**
-```c++
+
+```
 bool try_lock();
 ```
 
@@ -5801,12 +6123,13 @@ bool try_lock();
 **后置条件**<br>
 当函数返回true时，this->ows_lock()==true，否则this->owns_lock()==false。
 
-####std::unique_lock::unlock 成员函数
+#### std::unique_lock::unlock 成员函数
 
 释放与*this相关互斥量上的锁。
 
 **声明**
-```c++
+
+```
 void unlock();
 ```
 
@@ -5819,12 +6142,13 @@ this->mutex()!=NULL, this->owns_lock()==true。
 **后置条件**<br>
 this->owns_lock()==false。
 
-####std::unique_lock::try_lock_for 成员函数
+#### std::unique_lock::try_lock_for 成员函数
 
 在指定时间内尝试获取与*this相关互斥量上的锁。
 
 **声明**
-```c++
+
+```
 template<typename Rep, typename Period>
 bool try_lock_for(
     std::chrono::duration<Rep,Period> const& relative_time);
@@ -5845,12 +6169,13 @@ bool try_lock_for(
 **后置条件**<br>
 当函数返回true时，this->ows_lock()==true，否则this->owns_lock()==false。
 
-####std::unique_lock::try_lock_until 成员函数
+#### std::unique_lock::try_lock_until 成员函数
 
 在指定时间点尝试获取与*this相关互斥量上的锁。
 
 **声明**
-```c++
+
+```
 template<typename Clock, typename Duration>
 bool try_lock_until(
     std::chrono::time_point<Clock,Duration> const& absolute_time);
@@ -5871,12 +6196,13 @@ bool try_lock_until(
 **后置条件**<br>
 当函数返回true时，this->ows_lock()==true，否则this->owns_lock()==false。
 
-####std::unique_lock::operator bool成员函数
+#### std::unique_lock::operator bool成员函数
 
 检查*this是否拥有一个互斥量上的锁。
 
 **声明**
-```c++
+
+```
 explicit operator bool() const noexcept;
 ```
 
@@ -5888,12 +6214,13 @@ this->owns_lock()
 
 **NOTE** 这是一个explicit转换操作，所以当这样的操作在上下文中只能被隐式的调用，所返回的结果需要被当做一个布尔量进行使用，而非仅仅作为整型数0或1。
 
-####std::unique_lock::owns_lock 成员函数
+#### std::unique_lock::owns_lock 成员函数
 
 检查*this是否拥有一个互斥量上的锁。
 
 **声明**
-```c++
+
+```
 bool owns_lock() const noexcept;
 ```
 
@@ -5903,12 +6230,13 @@ bool owns_lock() const noexcept;
 **抛出**<br>
 无
 
-####std::unique_lock::mutex 成员函数
+#### std::unique_lock::mutex 成员函数
 
 当*this具有相关互斥量时，返回这个互斥量
 
 **声明**
-```c++
+
+```
 mutex_type* mutex() const noexcept;
 ```
 
@@ -5918,12 +6246,13 @@ mutex_type* mutex() const noexcept;
 **抛出**<br>
 无
 
-####std::unique_lock::release 成员函数
+#### std::unique_lock::release 成员函数
 
 当*this具有相关互斥量时，返回这个互斥量，并将这个互斥量进行释放。
 
 **声明**
-```c++
+
+```
 mutex_type* release() noexcept;
 ```
 
@@ -5941,12 +6270,13 @@ this->mutex()==NULL, this->owns_lock()==false。
 
 **NOTE** 如果this->owns_lock()在调用该函数前返回true，那么调用者则有责任里解除互斥量上的锁。
 
-###D.5.7 std::lock函数模板
+### D.5.7 std::lock函数模板
 
 `std::lock`函数模板提供同时锁住多个互斥量的功能，且不会有因改变锁的一致性而导致的死锁。
 
 **声明**
-```c++
+
+```
 template<typename LockableType1,typename... LockableType2>
 void lock(LockableType1& m1,LockableType2& m2...);
 ```
@@ -5965,12 +6295,13 @@ void lock(LockableType1& m1,LockableType2& m2...);
 
 **NOTE** 如果一个异常由`std::lock`所传播开来，当可锁对象上有锁被lock()或try_lock()获取，那么unlock()会使用在这些可锁对象上。
 
-###D.5.8 std::try_lock函数模板
+### D.5.8 std::try_lock函数模板
 
 `std::try_lock`函数模板允许尝试获取一组可锁对象上的锁，所以要不全部获取，要不一个都不获取。
 
 **声明**
-```c++
+
+```
 template<typename LockableType1,typename... LockableType2>
 int try_lock(LockableType1& m1,LockableType2& m2...);
 ```
@@ -5992,14 +6323,15 @@ try_lock()抛出的任何异常。
 
 **NOTE** 如果一个异常由`std::try_lock`所传播开来，则通过try_lock()获取锁对象，将会调用unlock()解除对锁的持有。
 
-###D.5.9 std::once_flag类
+### D.5.9 std::once_flag类
 
 `std::once_flag`和`std::call_once`一起使用，为了保证某特定函数只执行一次(即使有多个线程在并发的调用该函数)。
 
 `std::once_flag`实例是不能CopyConstructible(拷贝构造)，CopyAssignable(拷贝赋值)，MoveConstructible(移动构造)，以及MoveAssignable(移动赋值)。
 
 **类型定义**
-```c++
+
+```
 struct once_flag
 {
   constexpr once_flag() noexcept;
@@ -6009,24 +6341,26 @@ struct once_flag
 };
 ```
 
-####std::once_flag 默认构造函数
+#### std::once_flag 默认构造函数
 
 `std::once_flag`默认构造函数创建了一个新的`std::once_flag`实例(并包含一个状态，这个状态表示相关函数没有被调用)。
 
 **声明**
-```c++
+
+```
 constexpr once_flag() noexcept;
 ```
 
 **效果**<br>
 `std::once_flag`默认构造函数创建了一个新的`std::once_flag`实例(并包含一个状态，这个状态表示相关函数没有被调用)。因为这是一个constexpr构造函数，在构造的静态初始部分，实例是静态存储的，这样就避免了条件竞争和初始化顺序的问题。
 
-###D.5.10 std::call_once函数模板
+### D.5.10 std::call_once函数模板
 
 `std::call_once`和`std::once_flag`一起使用，为了保证某特定函数只执行一次(即使有多个线程在并发的调用该函数)。
 
 **声明**
-```c++
+
+```
 template<typename Callable,typename... Args>
 void call_once(std::once_flag& flag,Callable func,Args args...);
 ```
@@ -6043,12 +6377,13 @@ void call_once(std::once_flag& flag,Callable func,Args args...);
 **抛出**<br>
 当效果没有达到，或任何异常由调用func而传播，则抛出`std::system_error`。
 
-##D.6 &lt;ratio&gt;头文件
+## D.6 &lt;ratio&gt;头文件
 
 `<ratio>`头文件提供在编译时进行的计算。
 
 **头文件内容**
-```c++
+
+```
 namespace std
 {
   template<intmax_t N,intmax_t D=1>
@@ -6110,7 +6445,8 @@ namespace std
 `std::ratio`类型模板提供了一种对在编译时进行计算的机制，通过调用合理的数，例如：半(`std::ratio<1,2>`),2/3(std::ratio<2, 3>)或15/43(std::ratio<15, 43>)。其使用在C++标准库内部，用于初始化`std::chrono::duration`类型模板。
 
 **类型定义**
-```c++
+
+```
 template <intmax_t N, intmax_t D = 1>
 class ratio
 {
@@ -6128,19 +6464,21 @@ D不能为0。
 num和den分别为分子和分母，构造分数N/D。den总是正数。当N和D的符号相同，那么num为正数；否则num为负数。
 
 **例子**
-```c++
+
+```
 ratio<4,6>::num == 2
 ratio<4,6>::den == 3
 ratio<4,-6>::num == -2
 ratio<4,-6>::den == 3
 ```
 
-###D.6.2 std::ratio_add模板别名
+### D.6.2 std::ratio_add模板别名
 
 `std::ratio_add`模板别名提供了两个`std::ratio`在编译时相加的机制(使用有理计算)。
 
 **定义**
-```c++
+
+```
 template <class R1, class R2>
 using ratio_add = std::ratio<see below>;
 ```
@@ -6152,7 +6490,8 @@ R1和R2必须使用`std::ratio`进行初始化。
 ratio_add<R1, R2>被定义为一个别名，如果两数可以计算，且无溢出，该类型可以表示两个`std::ratio`对象R1和R2的和。如果计算出来的结果溢出了，那么程序里面就有问题了。在算术溢出的情况下，`std::ratio_add<R1, R2>`应该应该与`std::ratio<R1::num * R2::den + R2::num * R1::den, R1::den * R2::den>`相同。
 
 **例子**
-```c++
+
+```
 std::ratio_add<std::ratio<1,3>, std::ratio<2,5> >::num == 11
 std::ratio_add<std::ratio<1,3>, std::ratio<2,5> >::den == 15
 
@@ -6160,12 +6499,13 @@ std::ratio_add<std::ratio<1,3>, std::ratio<7,6> >::num == 3
 std::ratio_add<std::ratio<1,3>, std::ratio<7,6> >::den == 2
 ```
 
-###D.6.3 std::ratio_subtract模板别名
+### D.6.3 std::ratio_subtract模板别名
 
 `std::ratio_subtract`模板别名提供两个`std::ratio`数在编译时进行相减(使用有理计算)。
 
 **定义**
-```c++
+
+```
 template <class R1, class R2>
 using ratio_subtract = std::ratio<see below>;
 ```
@@ -6177,7 +6517,8 @@ R1和R2必须使用`std::ratio`进行初始化。
 ratio_add<R1, R2>被定义为一个别名，如果两数可以计算，且无溢出，该类型可以表示两个`std::ratio`对象R1和R2的和。如果计算出来的结果溢出了，那么程序里面就有问题了。在算术溢出的情况下，`std::ratio_subtract<R1, R2>`应该应该与`std::ratio<R1::num * R2::den - R2::num * R1::den, R1::den * R2::den>`相同。
 
 **例子**
-```c++
+
+```
 std::ratio_subtract<std::ratio<1,3>, std::ratio<1,5> >::num == 2
 std::ratio_subtract<std::ratio<1,3>, std::ratio<1,5> >::den == 15
 
@@ -6185,12 +6526,13 @@ std::ratio_subtract<std::ratio<1,3>, std::ratio<7,6> >::num == -5
 std::ratio_subtract<std::ratio<1,3>, std::ratio<7,6> >::den == 6
 ```
 
-###D.6.4 std::ratio_multiply模板别名
+### D.6.4 std::ratio_multiply模板别名
 
 `std::ratio_multiply`模板别名提供两个`std::ratio`数在编译时进行相乘(使用有理计算)。
 
 **定义**
-```c++
+
+```
 template <class R1, class R2>
 using ratio_multiply = std::ratio<see below>;
 ```
@@ -6202,7 +6544,8 @@ R1和R2必须使用`std::ratio`进行初始化。
 ratio_add<R1, R2>被定义为一个别名，如果两数可以计算，且无溢出，该类型可以表示两个`std::ratio`对象R1和R2的和。如果计算出来的结果溢出了，那么程序里面就有问题了。在算术溢出的情况下，`std::ratio_multiply<R1, R2>`应该应该与`std::ratio<R1::num * R2::num, R1::den * R2::den>`相同。
 
 **例子**
-```c++
+
+```
 std::ratio_multiply<std::ratio<1,3>, std::ratio<2,5> >::num == 2
 std::ratio_multiply<std::ratio<1,3>, std::ratio<2,5> >::den == 15
 
@@ -6210,12 +6553,13 @@ std::ratio_multiply<std::ratio<1,3>, std::ratio<15,7> >::num == 5
 std::ratio_multiply<std::ratio<1,3>, std::ratio<15,7> >::den == 7
 ```
 
-###D.6.5 std::ratio_divide模板别名
+### D.6.5 std::ratio_divide模板别名
 
 `std::ratio_divide`模板别名提供两个`std::ratio`数在编译时进行相除(使用有理计算)。
 
 **定义**
-```c++
+
+```
 template <class R1, class R2>
 using ratio_multiply = std::ratio<see below>;
 ```
@@ -6227,7 +6571,8 @@ R1和R2必须使用`std::ratio`进行初始化。
 ratio_add<R1, R2>被定义为一个别名，如果两数可以计算，且无溢出，该类型可以表示两个`std::ratio`对象R1和R2的和。如果计算出来的结果溢出了，那么程序里面就有问题了。在算术溢出的情况下，`std::ratio_multiply<R1, R2>`应该应该与`std::ratio<R1::num * R2::num * R2::den, R1::den * R2::den>`相同。
 
 **例子**
-```c++
+
+```
 std::ratio_divide<std::ratio<1,3>, std::ratio<2,5> >::num == 5
 std::ratio_divide<std::ratio<1,3>, std::ratio<2,5> >::den == 6
 
@@ -6235,12 +6580,13 @@ std::ratio_divide<std::ratio<1,3>, std::ratio<15,7> >::num == 7
 std::ratio_divide<std::ratio<1,3>, std::ratio<15,7> >::den == 45
 ```
 
-###D.6.6 std::ratio_equal类型模板
+### D.6.6 std::ratio_equal类型模板
 
 `std::ratio_equal`类型模板提供在编译时比较两个`std::ratio`数(使用有理计算)。
 
 **类型定义**
-```c++
+
+```
 template <class R1, class R2>
 class ratio_equal:
   public std::integral_constant<
@@ -6252,19 +6598,21 @@ class ratio_equal:
 R1和R2必须使用`std::ratio`进行初始化。
 
 **例子**
-```c++
+
+```
 std::ratio_equal<std::ratio<1,3>, std::ratio<2,6> >::value == true
 std::ratio_equal<std::ratio<1,3>, std::ratio<1,6> >::value == false
 std::ratio_equal<std::ratio<1,3>, std::ratio<2,3> >::value == false
 std::ratio_equal<std::ratio<1,3>, std::ratio<1,3> >::value == true
 ```
 
-###D.6.7 std::ratio_not_equal类型模板
+### D.6.7 std::ratio_not_equal类型模板
 
 `std::ratio_not_equal`类型模板提供在编译时比较两个`std::ratio`数(使用有理计算)。
 
 **类型定义**
-```c++
+
+```
 template <class R1, class R2>
 class ratio_not_equal:
   public std::integral_constant<bool,!ratio_equal<R1,R2>::value>
@@ -6275,19 +6623,21 @@ class ratio_not_equal:
 R1和R2必须使用`std::ratio`进行初始化。
 
 **例子**
-```c++
+
+```
 std::ratio_not_equal<std::ratio<1,3>, std::ratio<2,6> >::value == false
 std::ratio_not_equal<std::ratio<1,3>, std::ratio<1,6> >::value == true
 std::ratio_not_equal<std::ratio<1,3>, std::ratio<2,3> >::value == true
 std::ratio_not_equal<std::ratio<1,3>, std::ratio<1,3> >::value == false
 ```
 
-###D.6.8 std::ratio_less类型模板
+### D.6.8 std::ratio_less类型模板
 
 `std::ratio_less`类型模板提供在编译时比较两个`std::ratio`数(使用有理计算)。
 
 **类型定义**
-```c++
+
+```
 template <class R1, class R2>
 class ratio_less:
   public std::integral_constant<bool,see below>
@@ -6301,7 +6651,8 @@ R1和R2必须使用`std::ratio`进行初始化。
 std::ratio_less<R1,R2>可通过`std::integral_constant<bool, value >`导出，这里value为`(R1::num*R2::den) < (R2::num*R1::den)`。如果有可能，需要实现使用一种机制来避免计算结果已出。当溢出发生，那么程序中就肯定有错误。
 
 **例子**
-```c++
+
+```
 std::ratio_less<std::ratio<1,3>, std::ratio<2,6> >::value == false
 std::ratio_less<std::ratio<1,6>, std::ratio<1,3> >::value == true
 std::ratio_less<
@@ -6312,12 +6663,13 @@ std::ratio_less<
   std::ratio<999999999,1000000000> >::value == false
 ```
 
-###D.6.9 std::ratio_greater类型模板
+### D.6.9 std::ratio_greater类型模板
 
 `std::ratio_greater`类型模板提供在编译时比较两个`std::ratio`数(使用有理计算)。
 
 **类型定义**
-```c++
+
+```
 template <class R1, class R2>
 class ratio_greater:
   public std::integral_constant<bool,ratio_less<R2,R1>::value>
@@ -6327,12 +6679,13 @@ class ratio_greater:
 **先决条件**<br>
 R1和R2必须使用`std::ratio`进行初始化。
 
-###D.6.10 std::ratio_less_equal类型模板
+### D.6.10 std::ratio_less_equal类型模板
 
 `std::ratio_less_equal`类型模板提供在编译时比较两个`std::ratio`数(使用有理计算)。
 
 **类型定义**
-```c++
+
+```
 template <class R1, class R2>
 class ratio_less_equal:
   public std::integral_constant<bool,!ratio_less<R2,R1>::value>
@@ -6342,12 +6695,13 @@ class ratio_less_equal:
 **先决条件**<br>
 R1和R2必须使用`std::ratio`进行初始化。
 
-###D.6.11 std::ratio_greater_equal类型模板
+### D.6.11 std::ratio_greater_equal类型模板
 
 `std::ratio_greater_equal`类型模板提供在编译时比较两个`std::ratio`数(使用有理计算)。
 
 **类型定义**
-```c++
+
+```
 template <class R1, class R2>
 class ratio_greater_equal:
   public std::integral_constant<bool,!ratio_less<R1,R2>::value>
@@ -6357,12 +6711,13 @@ class ratio_greater_equal:
 **先决条件**<br>
 R1和R2必须使用`std::ratio`进行初始化。
 
-##D.7 &lt;thread&gt;头文件
+## D.7 &lt;thread&gt;头文件
 
 `<thread>`头文件提供了管理和辨别线程的工具，并且提供函数，可让当前线程休眠。
 
 **头文件内容**
-```c++
+
+```
 namespace std
 {
   class thread;
@@ -6384,11 +6739,11 @@ namespace std
 }
 ```
 
-###D.7.1 std::thread类
+### D.7.1 std::thread类
 
 `std::thread`用来管理线程的执行。其提供让新的线程执行或执行，也提供对线程的识别，以及提供其他函数用于管理线程的执行。
 
-```c++
+```
 class thread
 {
 public:
@@ -6424,12 +6779,13 @@ public:
 void swap(thread& lhs,thread& rhs);
 ```
 
-####std::thread::id 类
+#### std::thread::id 类
 
 可以通过`std::thread::id`实例对执行线程进行识别。
 
 **类型定义**
-```c++
+
+```
 class thread::id
 {
 public:
@@ -6455,12 +6811,13 @@ operator<< (basic_ostream<charT, traits>&& out, thread::id id);
 
 `std::thread::id`是可以CopyConstructible(拷贝构造)和CopyAssignable(拷贝赋值)，所以对于`std::thread::id`的拷贝和赋值是没有限制的。
 
-#####std::thread::id 默认构造函数
+##### std::thread::id 默认构造函数
 
 构造一个`std::thread::id`对象，其不能表示任何执行线程。
 
 **声明**
-```c++
+
+```
 id() noexcept;
 ```
 
@@ -6472,12 +6829,13 @@ id() noexcept;
 
 **NOTE** 所有默认构造的`std::thread::id`实例存储的同一个值。
 
-#####std::thread::id 相等比较操作
+##### std::thread::id 相等比较操作
 
 比较两个`std::thread::id`的值，看是两个执行线程是否相等。
 
 **声明**
-```c++
+
+```
 bool operator==(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6487,12 +6845,13 @@ bool operator==(std::thread::id lhs,std::thread::id rhs) noexcept;
 **抛出**<br>
 无
 
-#####std::thread::id 不相等比较操作
+##### std::thread::id 不相等比较操作
 
 比较两个`std::thread::id`的值，看是两个执行线程是否相等。
 
 **声明**
-```c++
+
+```
 bool operator！=(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6502,12 +6861,13 @@ bool operator！=(std::thread::id lhs,std::thread::id rhs) noexcept;
 **抛出**<br>
 无
 
-#####std::thread::id 小于比较操作
+##### std::thread::id 小于比较操作
 
 比较两个`std::thread::id`的值，看是两个执行线程哪个先执行。
 
 **声明**
-```c++
+
+```
 bool operator<(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6519,12 +6879,13 @@ bool operator<(std::thread::id lhs,std::thread::id rhs) noexcept;
 
 **NOTE** 当默认构造的`std::thread::id`实例，在不代表任何线程的时候，其值小于任何一个代表执行线程的实例。当两个实例相等，那么两个对象代表两个执行线程。任何一组不同的`std::thread::id`的值，是由同一序列构造，这与程序执行的顺序相同。同一个可执行程序可能有不同的执行顺序。
 
-#####std::thread::id 小于等于比较操作
+##### std::thread::id 小于等于比较操作
 
 比较两个`std::thread::id`的值，看是两个执行线程的ID值是否相等，或其中一个先行。
 
 **声明**
-```c++
+
+```
 bool operator<(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6534,12 +6895,13 @@ bool operator<(std::thread::id lhs,std::thread::id rhs) noexcept;
 **抛出**<br>
 无
 
-#####std::thread::id 大于比较操作
+##### std::thread::id 大于比较操作
 
 比较两个`std::thread::id`的值，看是两个执行线程的是后行的。
 
 **声明**
-```c++
+
+```
 bool operator>(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6549,12 +6911,13 @@ bool operator>(std::thread::id lhs,std::thread::id rhs) noexcept;
 **抛出**<br>
 无
 
-#####std::thread::id 大于等于比较操作
+##### std::thread::id 大于等于比较操作
 
 比较两个`std::thread::id`的值，看是两个执行线程的ID值是否相等，或其中一个后行。
 
 **声明**
-```c++
+
+```
 bool operator>=(std::thread::id lhs,std::thread::id rhs) noexcept;
 ```
 
@@ -6564,12 +6927,13 @@ bool operator>=(std::thread::id lhs,std::thread::id rhs) noexcept;
 **抛出**<br>
 无
 
-#####std::thread::id 插入流操作
+##### std::thread::id 插入流操作
 
 将`std::thread::id`的值通过给指定流写入字符串。
 
 **声明**
-```c++
+
+```
 template<typename charT, typename traits>
 basic_ostream<charT, traits>&
 operator<< (basic_ostream<charT, traits>&& out, thread::id id);
@@ -6583,34 +6947,37 @@ operator<< (basic_ostream<charT, traits>&& out, thread::id id);
 
 **NOTE** 字符串的格式并未给定。`std::thread::id`实例具有相同的表达式时，是相同的；当实例表达式不同，则代表不同的线程。
 
-####std::thread::native_handler 成员函数
+#### std::thread::native_handler 成员函数
 
 `native_handle_type`是由另一类型定义而来，这个类型会随着指定平台的API而变化。
 
 **声明**
-```c++
+
+```
 typedef implementation-defined native_handle_type;
 ```
 
 **NOTE** 这个类型定义是可选的。如果提供，实现将使用原生平台指定的API，并提供合适的类型作为实现。
 
-####std::thread 默认构造函数
+#### std::thread 默认构造函数
 
 返回一个`native_handle_type`类型的值，这个值可以可以表示*this相关的执行线程。
 
 **声明**
-```c++
+
+```
 native_handle_type native_handle();
 ```
 
 **NOTE** 这个函数是可选的。如果提供，会使用原生平台指定的API，并返回合适的值。
 
-####std::thread 构造函数
+#### std::thread 构造函数
 
 构造一个无相关线程的`std::thread`对象。
 
 **声明**
-```c++
+
+```
 thread() noexcept;
 ```
 
@@ -6623,12 +6990,13 @@ thread() noexcept;
 **抛出**<br>
 无
 
-####std::thread 移动构造函数
+#### std::thread 移动构造函数
 
 将已存在`std::thread`对象的所有权，转移到新创建的对象中。
 
 **声明**
-```c++
+
+```
 thread(thread&& other) noexcept;
 ```
 
@@ -6643,12 +7011,13 @@ thread(thread&& other) noexcept;
 
 **NOTE** `std::thread`对象是不可CopyConstructible(拷贝构造)，所以该类没有拷贝构造函数，只有移动构造函数。
 
-####std::thread 析构函数
+#### std::thread 析构函数
 
 销毁`std::thread`对象。
 
 **声明**
-```c++
+
+```
 ~thread();
 ```
 
@@ -6658,12 +7027,13 @@ thread(thread&& other) noexcept;
 **抛出**<br>
 无
 
-####std::thread 移动赋值操作
+#### std::thread 移动赋值操作
 
 将一个`std::thread`的所有权，转移到另一个`std::thread`对象上。
 
 **声明**
-```c++
+
+```
 thread& operator=(thread&& other) noexcept;
 ```
 
@@ -6678,12 +7048,13 @@ this->get_id()的值等于调用该函数前的other.get_id()。oter.get_id()==i
 
 **NOTE** `std::thread`对象是不可CopyAssignable(拷贝赋值)，所以该类没有拷贝赋值函数，只有移动赋值函数。
 
-####std::thread::swap 成员函数
+#### std::thread::swap 成员函数
 
 将两个`std::thread`对象的所有权进行交换。
 
 **声明**
-```c++
+
+```
 void swap(thread& other) noexcept;
 ```
 
@@ -6696,12 +7067,13 @@ this->get_id()的值等于调用该函数前的other.get_id()。other.get_id()�
 **抛出**<br>
 无
 
-####std::thread的非成员函数swap
+#### std::thread的非成员函数swap
 
 将两个`std::thread`对象的所有权进行交换。
 
 **声明**
-```c++
+
+```
 void swap(thread& lhs,thread& rhs) noexcept;
 ```
 
@@ -6711,12 +7083,13 @@ lhs.swap(rhs)
 **抛出**<br>
 无
 
-####std::thread::joinable 成员函数
+#### std::thread::joinable 成员函数
 
 查询*this是否具有相关执行线程。
 
 **声明**
-```c++
+
+```
 bool joinable() const noexcept;
 ```
 
@@ -6726,12 +7099,13 @@ bool joinable() const noexcept;
 **抛出**<br>
 无
 
-####std::thread::join 成员函数
+#### std::thread::join 成员函数
 
 等待*this相关的执行线程结束。
 
 **声明**
-```c++
+
+```
 void join();
 ```
 
@@ -6750,12 +7124,13 @@ this->get_id()==id()。与*this先关的执行线程将在该函数调用后结�
 **抛出**<br>
 当效果没有达到或this->joinable()返回false，则抛出`std::system_error`异常。
 
-####std::thread::detach 成员函数
+#### std::thread::detach 成员函数
 
 将*this上的相关线程进行分离。
 
 **声明**
-```c++
+
+```
 void detach();
 ```
 
@@ -6773,12 +7148,13 @@ this->get_id()==id(), this->joinable()==false
 **抛出**<br>
 当效果没有达到或this->joinable()返回false，则抛出`std::system_error`异常。
 
-####std::thread::get_id 成员函数
+#### std::thread::get_id 成员函数
 
 返回`std::thread::id`的值来表示*this上相关执行线程。
 
 **声明**
-```c++
+
+```
 thread::id get_id() const noexcept;
 ```
 
@@ -6788,12 +7164,13 @@ thread::id get_id() const noexcept;
 **抛出**<br>
 无
 
-####std::thread::hardware_concurrency 静态成员函数
+#### std::thread::hardware_concurrency 静态成员函数
 
 返回硬件上可以并发线程的数量。
 
 **声明**
-```c++
+
+```
 unsigned hardware_concurrency() noexcept;
 ```
 
@@ -6803,16 +7180,17 @@ unsigned hardware_concurrency() noexcept;
 **抛出**<br>
 无
 
-###D.7.2 this_thread命名空间
+### D.7.2 this_thread命名空间
 
 这里介绍一下`std::this_thread`命名空间内提供的函数操作。
 
-####this_thread::get_id 非成员函数
+#### this_thread::get_id 非成员函数
 
 返回`std::thread::id`用来识别当前执行线程。
 
 **声明**
-```c++
+
+```
 thread::id get_id() noexcept;
 ```
 
@@ -6822,12 +7200,13 @@ thread::id get_id() noexcept;
 **抛出**<br>
 无
 
-####this_thread::yield 非成员函数
+#### this_thread::yield 非成员函数
 
 该函数用于通知库，调用线程不需要立即运行。一般使用小循环来避免消耗过多CPU时间。
 
 **声明**
-```c++
+
+```
 void yield() noexcept;
 ```
 
@@ -6837,12 +7216,13 @@ void yield() noexcept;
 **抛出**<br>
 无
 
-####this_thread::sleep_for 非成员函数
+#### this_thread::sleep_for 非成员函数
 
 在指定的指定时长内，暂停执行当前线程。
 
 **声明**
-```c++
+
+```
 template<typename Rep,typename Period>
 void sleep_for(std::chrono::duration<Rep,Period> const& relative_time);
 ```
@@ -6855,12 +7235,13 @@ void sleep_for(std::chrono::duration<Rep,Period> const& relative_time);
 **抛出**<br>
 无
 
-####this_thread::sleep_until 非成员函数
+#### this_thread::sleep_until 非成员函数
 
 暂停指定当前线程，直到到了指定的时间点。
 
 **声明**
-```c++
+
+```
 template<typename Clock,typename Duration>
 void sleep_until(
     std::chrono::time_point<Clock,Duration> const& absolute_time);
