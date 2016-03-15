@@ -190,7 +190,7 @@ int main()
 
 清单 1.1  一个简单的**Hello, Concurrent World**程序：
 
-```c++
+``` c++
 #include <iostream>
 #include <thread>  //①
 void hello()  //②
