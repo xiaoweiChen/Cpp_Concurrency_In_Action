@@ -18,14 +18,14 @@
 
 第1章中，线程在`std::thread`对象创建(为线程指定任务)时启动。最简单的情况下，任务也会很简单，通常是无参数无返回(*void-returning*)的函数。这种函数在其所属线程上运行，直到函数执行完毕，线程也就结束了。在一些极端情况下，线程运行时，任务中的函数对象需要通过某种通讯机制进行参数的传递，或者执行一系列独立操作;可以通过通讯机制传递信号，让线程停止。线程要做什么，以及什么时候启动，其实都无关紧要。总之，使用C++线程库启动线程，可以归结为构造`std::thread`对象：
 
-``` c++
+```
 void do_some_work();
 std::thread my_thread(do_some_work);
 ```
 
 为了让编译器识别`std::thread`类，这个简单的例子也要包含`<thread>`头文件。如同大多数C++标准库一样，`std::thread`可以用可调用（*callable*）类型构造，将带有函数调用符类型的实例传入`std::thread`类中，替换默认的构造函数。
 
-``` c++
+```
 class background_task
 {
 public:
@@ -46,7 +46,7 @@ std::thread my_thread(f);
 
 例如：
 
-``` c++
+```
 std::thread my_thread(background_task());
 ```
 
@@ -56,14 +56,14 @@ std::thread my_thread(background_task());
 
 如下所示：
 
-``` c++
+```
 std::thread my_thread((background_task()));  // 1
 std::thread my_thread{background_task()};    // 2
 ```
 
 使用lambda表达式也能避免这个问题。lambda表达式是C++11的一个新特性，它允许使用一个可以捕获局部变量的局部函数(可以避免传递参数，参见2.2节)。想要具体的了解lambda表达式，可以阅读附录A的A.5节。之前的例子可以改写为lambda表达式的类型：
 
-``` c++
+```
 std::thread my_thread([]{
   do_something();
   do_something_else();
@@ -78,7 +78,7 @@ std::thread my_thread([]{
 
 清单2.1  函数已经结束，线程依旧访问局部变量
 
-``` c++
+```
 struct func
 {
   int& i;
@@ -119,7 +119,7 @@ void oops()
 
 清单 2.2 等待线程完成
 
-``` c++
+```
 struct func; // 定义在清单2.1中
 void f()
 {
@@ -145,7 +145,7 @@ void f()
 
 清单 2.3 使用RAII等待线程完成
 
-``` c++
+```
 class thread_guard
 {
   std::thread& t;
@@ -192,7 +192,7 @@ void f()
 
 如2.1.2节所示，调用`std::thread`成员函数1detach()来分离一个线程。之后，相应的`std::thread`对象就与实际执行的线程无关了，并且这个线程也无法进行加入：
 
-``` c++
+```
 std::thread t(do_background_work);
 t.detach();
 assert(!t.joinable());
@@ -206,7 +206,7 @@ assert(!t.joinable());
 
 清单2.4 使用分离线程去处理其他文档
 
-``` c++
+```
 void edit_document(std::string const& filename)
 {
   open_document_and_display_gui(filename);
@@ -235,14 +235,14 @@ void edit_document(std::string const& filename)
 
 清单2.4中，向`std::thread`构造函数中的可调用对象，或函数传递一个参数很简单。需要注意的是，默认参数要拷贝到线程独立内存中，即使参数是引用的形式，也可以在新线程中进行访问。再来看一个例子：
 
-``` c++
+```
 void f(int i, std::string const& s);
 std::thread t(f, 3, "hello");
 ```
 
 代码创建了一个调用f(3, "hello")的线程。注意，函数f需要一个`std::string`对象作为第二个参数，但这里使用的是字符串的字面值，也就是`char const *`类型。之后，在线程的上下文中完成字面值向`std::string`对象的转化。需要特别要注意，当指向动态变量的指针作为参数传递给线程的情况，代码如下：
 
-``` c++
+```
 void f(int i,std::string const& s);
 void oops(int some_param)
 {
@@ -255,7 +255,7 @@ void oops(int some_param)
 
 这种情况下，buffer②是一个指针变量，指向本地变量，然后本地变量通过buffer传递到新线程中②。并且，函数有很大的可能，会在字面值转化成`std::string`对象之前崩溃(*oops*)，从而导致线程的一些未定义行为。解决方案就是在传递到`std::thread`构造函数之前就将字面值转化为`std::string`对象。
 
-``` c++
+```
 void f(int i,std::string const& s);
 void not_oops(int some_param)
 {
@@ -270,7 +270,7 @@ void not_oops(int some_param)
 
 不过，也有成功的情况：复制一个引用。成功的传递一个引用，会发生在线程更新数据结构时。
 
-``` c++
+```
 void update_data_for_widget(widget_id w,widget_data& data); // 1
 void oops_again(widget_id w)
 {
@@ -284,7 +284,7 @@ void oops_again(widget_id w)
 
 虽然update_data_for_widget①的第二个参数期待传入一个引用，但是`std::thread`的构造函数②并不知晓；构造函数无视函数期待的参数类型，并盲目的拷贝已提供的变量。当线程调用update_data_for_widget函数时，传递给函数的参数是data变量内部拷贝的引用，而非数据本身的引用。因此，当线程结束时，内部拷贝数据将会在数据更新阶段被销毁，且process_widget_data将会接收到没有修改的data变量③。使用`std::bind`，就可以解决这个问题，使用`std::ref`将参数转换成引用的形式。这种情况下，可将线程的调用，改成以下形式：
 
-``` c++
+```
 std::thread t(update_data_for_widget,w,std::ref(data));
 ```
 
@@ -292,7 +292,7 @@ std::thread t(update_data_for_widget,w,std::ref(data));
 
 如果你熟悉`std::bind`，就应该不会对以上述传参的形式感到奇怪，因为`std::thread`构造函数和`std::bind`的操作都在标准库中定义好了，可以传递一个成员函数指针作为线程函数，并提供一个合适的对象指针作为第一个参数：
 
-``` c++
+```
 class X
 {
 public:
@@ -304,7 +304,7 @@ std::thread t(&X::do_lengthy_work,&my_x); // 1
 
 这段代码中，新线程将my_x.do_lengthy_work()作为线程函数；my_x的地址①作为指针对象提供给函数。也可以为成员函数提供参数：`std::thread`构造函数的第三个参数就是成员函数的第一个参数，以此类推(代码如下，译者自加)。
 
-``` c++
+```
 class X
 {
 public:
@@ -317,7 +317,7 @@ std::thread t(&X::do_lengthy_work, &my_x, num);
 
 有趣的是，提供的参数可以"移动"(*move*)，但不能"拷贝"(*copy*)。"移动"是指:原始对象中的数据转移给另一对象，而转移的这些数据就不再在原始对象中保存了(译者：比较像在文本编辑时"剪切"操作)。`std::unique_ptr`就是这样一种类型(译者：C++11中的智能指针)，这种类型为动态分配的对象提供内存自动管理机制(译者：类似垃圾回收)。同一时间内，只允许一个`std::unique_ptr`实现指向一个给定对象，并且当这个实现销毁时，指向的对象也将被删除。移动构造函数(*move constructor*)和移动赋值操作符(*move assignment operator*)允许一个对象在多个`std::unique_ptr`实现中传递(有关"移动"的更多内容，请参考附录A的A.1.1节)。使用"移动"转移原对象后，就会留下一个空指针(*NULL*)。移动操作可以将对象转换成可接受的类型，例如:函数参数或函数返回的类型。当原对象是一个临时变量时，自动进行移动操作，但当原对象是一个命名变量，那么转移的时候就需要使用`std::move()`进行显示移动。下面的代码展示了`std::move`的用法，展示了`std::move`是如何转移一个动态对象到一个线程中去的：
 
-``` c++
+```
 void process_big_object(std::unique_ptr<big_object>);
 
 std::unique_ptr<big_object> p(new big_object);
@@ -335,7 +335,7 @@ std::thread t(process_big_object,std::move(p));
 
 这就是移动引入`std::thread`的原因，C++标准库中有很多资源占有(*resource-owning*)类型，比如`std::ifstream`,`std::unique_ptr`还有`std::thread`都是可移动(*movable*)，但不可拷贝(*cpoyable*)。这就说明执行线程的所有权可以在`std::thread`实例中移动，下面将展示一个例子。例子中，创建了两个执行线程，并且在`std::thread`实例之间(t1,t2和t3)转移所有权：
 
-``` c++
+```
 void some_function();
 void some_other_function();
 std::thread t1(some_function);			// 1
@@ -358,7 +358,7 @@ t3使用默认构造方式创建④，与任何执行线程都没有关联。调
 
 清单2.5 函数返回`std::thread`对象
 
-``` c++
+```
 std::thread f()
 {
   void some_function();
@@ -375,7 +375,7 @@ std::thread g()
 
 当所有权可以在函数内部传递，就允许`std::thread`实例可作为参数进行传递，代码如下：
 
-``` c++
+```
 void f(std::thread t);
 void g()
 {
@@ -390,7 +390,7 @@ void g()
 
 清单2.6 scoped_thread的用法
 
-``` c++
+```
 class scoped_thread
 {
   std::thread t;
@@ -425,7 +425,7 @@ void f()
 
 清单2.7 量产线程，等待它们结束
 
-``` c++
+```
 void do_work(unsigned id);
 
 void f()
@@ -452,7 +452,7 @@ void f()
 
 清单2.8 原生并行版的`std::accumulate`
 
-``` c++
+```
 template<typename Iterator,typename T>
 struct accumulate_block
 {
@@ -532,7 +532,7 @@ T parallel_accumulate(Iterator first,Iterator last,T init)
 
 `std::thread::id`实例常用作检测线程是否需要进行一些操作，比如：当用线程来分割一项工作(如清单2.8)，主线程可能要做一些与其他线程不同的工作。这种情况下，启动其他线程前，它可以将自己的线程ID通过`std::this_thread::get_id()`得到，并进行存储。就是算法核心部分(所有线程都一样的),每个线程都要检查一下，其拥有的线程ID是否与初始线程的ID相同。
 
-``` c++
+```
 std::thread::id master_thread;
 void some_core_part_of_algorithm()
 {
@@ -550,7 +550,7 @@ void some_core_part_of_algorithm()
 
 `std::thread::id`可以作为一个线程的通用标识符，当标识符只与语义相关(比如，数组的索引)时，就需要这个方案了。也可以使用输出流(`std::cout`)来记录一个`std::thread::id`对象的值。
 
-``` c++
+```
 std::cout<<std::this_thread::get_id();
 ```
 
