@@ -178,7 +178,7 @@ ok！现在你有一个能与C++11标准兼容的编译器。接下来呢?一个
 
 从一个经典的例子开始：一个打印“**Hello World.**”的程序。一个非常简单的在单线程中运行的**Hello World**程序如下所示，当我们谈到多线程时，它可以作为一个基准。
 
-```
+``` c++
 #include <iostream>
 int main()
 {
@@ -190,7 +190,7 @@ int main()
 
 清单 1.1  一个简单的**Hello, Concurrent World**程序：
 
-```
+``` c++
 #include <iostream>
 #include <thread>  //①
 void hello()  //②
