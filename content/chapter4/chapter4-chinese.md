@@ -392,7 +392,7 @@ f7.wait();  //  调用延迟函数
 
 `std::packaged_task<>`的模板参数是一个函数签名，比如void()就是一个没有参数也没有返回值的函数，或int(std::string&, double*)就是有一个非const引用的`std::string`和一个指向double类型的指针，并且返回类型是int。当你构造出一个`std::packaged_task<>`实例时，你必须传入一个函数或可调用对象，这个函数或可调用的对象需要能接收指定的参数和返回可转换为指定返回类型的值。类型可以不完全匹配；你可以用一个int类型的参数和返回一个float类型的函数，来构建`std::packaged_task<double(double)>`的实例，因为在这里，类型可以隐式转换。
 
-指定函数签名的返回类型可以用来标识，从get_future()返回的`std::future<>`的类型，不过函数签名的参数列表，可用来指定“打包任务”的函数调用操作符。例如，局部类定义`std::packaged_task<std::string(std::vector<char>*,int)>`将在下面的代码清代中使用。
+指定函数签名的返回类型可以用来标识，从get_future()返回的`std::future<>`的类型，不过函数签名的参数列表，可用来指定“打包任务”的函数调用操作符。例如，局部类定义`std::packaged_task<std::string(std::vector<char>*,int)>`将在下面的代码清单中使用。
 
 清单4.8 `std::packaged_task<>`的特化——局部类定义
 
