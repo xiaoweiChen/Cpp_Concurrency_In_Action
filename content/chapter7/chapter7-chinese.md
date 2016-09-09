@@ -337,8 +337,8 @@ std::shared_ptr<T> pop()
   {
     temp=old_head;
     hp.store(old_head);  // 2
-    old_head=head.load();  // 3
-  } while(old_head!=temp);
+    old_head=head.load();
+  } while(old_head!=temp); // 3
   // ...
 }
 ```
