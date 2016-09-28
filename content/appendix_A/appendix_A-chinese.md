@@ -158,7 +158,7 @@ foo(3.14159);  // foo<double><3.14159>
 foo(std::string());  // foo<std::string>(std::string())
 ```
 
-不过，向foo传入左值的时候，T会比推导为一个左值引用：
+不过，向foo传入左值的时候，T会被推导为一个左值引用：
 
 ```
 int i = 42;
