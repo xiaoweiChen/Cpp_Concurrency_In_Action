@@ -257,7 +257,7 @@ some_stack.pop(result);
 
 struct empty_stack: std::exception
 {
-  const char* what() const throw() {};
+  const char* what() const throw();
 };
 
 template<typename T>
