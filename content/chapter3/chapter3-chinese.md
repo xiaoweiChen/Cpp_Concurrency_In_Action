@@ -301,7 +301,7 @@ private:
   
 public:
   threadsafe_stack()
-	: data(std::stack<int>()){}
+	: data(std::stack<T>()){}
   
   threadsafe_stack(const threadsafe_stack& other)
   {
