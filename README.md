@@ -39,7 +39,7 @@ Anthony Williams是BSI C++小组的成员，拥有10多年C++应用经验。
 
 本书是为C++程序员所写，同僚中可能有人对并发还没什么了解，估计也有人已经使用其他语言、API或平台写过多线程程序。不过，在看本书的时候，你们都在同一“起跑线”上。
 
-访问本书论坛[曼宁-C++ Concurrency in Action](http://www.manning.com/williams/)可获取免费电子书。
+访问本书论坛[曼宁-C++ Concurrency in Action](http://www.manning.com/williams/)可获取免费试读章节电子书。
 
 ## 本书相关
 
