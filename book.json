@@ -25,7 +25,6 @@
 	
 	"pdf": {
 		"fontSize": 14,
-		"fontFamily":
 		"footerTemplate": null,
 		"headerTemplate": null,
 		"margin": {
