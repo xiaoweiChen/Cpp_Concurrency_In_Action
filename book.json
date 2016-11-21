@@ -11,12 +11,11 @@
 	
 	"pluginsConfig": {
     "fontSettings": {
-      "theme": ["sepia", "night",  "white"],
-      "family": ["msyh", "serif", "sans"],
+      "theme": "white",
+      "family": "msyh",
       "size": 2
     },
     "plugins": [
-      "yahei",
       "katex",
 	  "-search",
 	  "ace"
@@ -25,14 +24,6 @@
 	
 	"pdf": {
 		"fontSize": 14,
-		"footerTemplate": null,
-		"headerTemplate": null,
-		"margin": {
-			"bottom": 36,
-			"left": 62,
-			"right": 62,
-			"top": 36
-		},
 		"paperSize": "a4"
     }
 }
