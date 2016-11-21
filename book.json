@@ -11,14 +11,14 @@
 	
 	"pluginsConfig": {
     "fontSettings": {
-      "theme": "sepia", "night" or "white",
-      "family": "msyh", "serif" or "sans",
+      "theme": ["sepia", "night",  "white"],
+      "family": ["msyh", "serif", "sans"],
       "size": 2
     },
     "plugins": [
       "yahei",
       "katex",
-      "-search",
+	  "-search",
 	  "ace"
     ]
   },
@@ -33,7 +33,6 @@
 			"right": 62,
 			"top": 36
 		},
-		"pageNumbers": false,
 		"paperSize": "a4"
     }
 }
