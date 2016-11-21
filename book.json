@@ -13,7 +13,7 @@
     "fontSettings": {
       "theme": "sepia", "night" or "white",
       "family": "msyh", "serif" or "sans",
-      "size": 1 to 4
+      "size": 2
     },
     "plugins": [
       "yahei",
