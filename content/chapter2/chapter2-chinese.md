@@ -333,7 +333,7 @@ std::thread t(process_big_object,std::move(p));
 
 假设要写一个在后台启动线程的函数，想通过新线程返回的所有权去调用这个函数，而不是等待线程结束再去调用；或完全与之相反的想法：创建一个线程，并在函数中转移所有权，都必须要等待线程结束。总之，新线程的所有权都需要转移。
 
-这就是移动引入`std::thread`的原因，C++标准库中有很多资源占有(*resource-owning*)类型，比如`std::ifstream`,`std::unique_ptr`还有`std::thread`都是可移动(*movable*)，但不可拷贝(*cpoyable*)。这就说明执行线程的所有权可以在`std::thread`实例中移动，下面将展示一个例子。例子中，创建了两个执行线程，并且在`std::thread`实例之间(t1,t2和t3)转移所有权：
+这就是移动引入`std::thread`的原因，C++标准库中有很多资源占有(*resource-owning*)类型，比如`std::ifstream`,`std::unique_ptr`还有`std::thread`都是可移动(*movable*)，但不可拷贝(*not cpoyable*)。这就说明执行线程的所有权可以在`std::thread`实例中移动，下面将展示一个例子。例子中，创建了两个执行线程，并且在`std::thread`实例之间(t1,t2和t3)转移所有权：
 
 ```
 void some_function();
