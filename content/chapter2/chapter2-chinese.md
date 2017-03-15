@@ -327,7 +327,7 @@ std::thread t(process_big_object,std::move(p));
 
 在`std::thread`的构造函数中指定`std::move(p)`,big_object对象的所有权就被首先转移到新创建线程的的内部存储中，之后传递给process_big_object函数。
 
-标准线程库中有好几个类都和`std::unique_ptr`在所属权上有相似语义的类型，`std::thread`即是其中之一。虽然，`std::thread`实例不像`std::unique_ptr`那样能占有一个动态对象的所有权，但是它能占有其他资源：每个实例都负责管理一个执行线程。执行线程的所有权可以在多个`std::thread`实例中互相转移，这是通过让`std::thread`实例_可移动(*movable*)但不可复制(*aren't copyable*)_来实现的。不可复制保证了在同一时间点，一个执行线程只能被一个`std::thread`实例关联；而可移动使得程序员可以自己决定哪个实例拥有实际执行线程的所有权。
+标准线程库中和`std::unique_ptr`在所属权上有相似语义类型的类有好几种，`std::thread`为其中之一。虽然，`std::thread`实例不像`std::unique_ptr`那样能占有一个动态对象的所有权，但是它能占有其他资源：每个实例都负责管理一个执行线程。执行线程的所有权可以在多个`std::thread`实例中互相转移，这是依赖于`std::thread`实例的可移动(*movable*)且不可复制(*aren't copyable*)性。不可复制保性证了在同一时间点，一个`std::thread`实例只能关联一个执行线程；可移动性使得程序员可以自己决定，哪个实例拥有实际执行线程的所有权。
 
 ## 2.3 转移线程所有权
 
