@@ -268,7 +268,7 @@ void not_oops(int some_param)
 }
 ```
 
-不过，也有成功的情况：复制一个引用。在线程更新数据结构时，会成功的传递一个引用：
+还可能遇到相反的情况：期望传递一个引用，但整个对象被复制了。当线程更新一个引用传递的数据结构时，这种情况就可能发生，比如：
 
 ```
 void update_data_for_widget(widget_id w,widget_data& data); // 1
