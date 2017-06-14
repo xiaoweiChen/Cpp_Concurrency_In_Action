@@ -1,7 +1,14 @@
+# 目录
+
 * [前言](content/preface/preface-chinese.md)
 * [关于封面](content/about_cover_illustration/about_cover_illustration-chinese.md)
 * [关于本书](content/about_this_book/about_this_book-chinese.md)
-* [第1章 你好，C++的并发世界](content/chapter1/chapter1-chinese.md)
+* [第1章 你好，C++的并发世界](content/chapter1/1.0-chinese.md)
+	* [1.1 何谓并发](content/chapter1/1.1-chinese.md)
+	* [1.2 为什么使用并发？](content/chapter1/1.2-chinese.md)
+	* [1.3 C++中的并发和多线程](content/chapter1/1.3-chinese.md)
+	* [1.4 开始入门](content/chapter1/1.4-chinese.md)
+	* [1.5 本章总结](content/chapter1/1.5-chinese.md)
 * [第2章 线程管理](content/chapter2/chapter2-chinese.md)
 * [第3章 线程间共享数据](content/chapter3/chapter3-chinese.md)
 * [第4章 同步并发操作](content/chapter4/chapter4-chinese.md)
